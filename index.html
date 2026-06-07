@@ -1,0 +1,2458 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="unsafe-url">
+    <title>HEIS5 TV - Live Streaming</title>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #FFD700;
+            --accent2: #FF2D95;
+            --accent3: #00E5FF;
+            --bg: #0b0719;
+            --bg2: #110d24;
+            --bg3: #1a1530;
+            --border: #2a1f4a;
+            --border-light: #3d2d6a;
+            --muted: #8b7dab;
+            --text: #f0edf8;
+            --text-dim: #b0a5c8;
+            --radius: 12px;
+            --radius-sm: 6px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0b0719 0%, #150d30 40%, #0f0a22 100%);
+            color: var(--text);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: -1;
+            background:
+                radial-gradient(ellipse at 15% 30%, rgba(255,45,149,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 85% 70%, rgba(255,215,0,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(0,229,255,0.04) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        body::after {
+            content: 'HEIS5 TV';
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(4rem, 15vw, 12rem);
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            color: rgba(255,215,0,0.025);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: -1;
+            user-select: none;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
+
+        /* Splash */
+        #splash-screen {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #0b0719 0%, #1a0d3a 50%, #0f0a22 100%);
+            transition: opacity 1s;
+        }
+        #splash-screen::before {
+            content: '';
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(ellipse at 30% 20%, rgba(255,215,0,0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(255,45,149,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(0,229,255,0.05) 0%, transparent 50%);
+            animation: splashGlow 4s ease-in-out infinite alternate;
+        }
+        @keyframes splashGlow {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+        .splash-logo {
+            width: 90px; height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,45,149,0.12));
+            border: 2px solid rgba(255,215,0,0.15);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 50px rgba(255,215,0,0.1), 0 0 100px rgba(255,45,149,0.05);
+            position: relative;
+            animation: logoPulse 3s ease-in-out infinite;
+        }
+        @keyframes logoPulse {
+            0%, 100% { box-shadow: 0 0 50px rgba(255,215,0,0.1), 0 0 100px rgba(255,45,149,0.05); }
+            50% { box-shadow: 0 0 70px rgba(255,215,0,0.2), 0 0 120px rgba(255,45,149,0.1); }
+        }
+        .splash-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.4rem;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            background: linear-gradient(135deg, #FFD700, #FF2D95, #00E5FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+            filter: drop-shadow(0 0 30px rgba(255,215,0,0.3));
+            position: relative;
+            z-index: 1;
+        }
+        .splash-sub {
+            color: var(--muted);
+            font-size: 0.7rem;
+            letter-spacing: 0.6em;
+            text-transform: uppercase;
+            font-weight: 600;
+            font-family: 'Orbitron', sans-serif;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Equalizer */
+        .eq-bar {
+            width: 3px; border-radius: 999px;
+            background: var(--accent);
+            animation: eqBounce 1s ease-in-out infinite alternate;
+        }
+        .eq-1 { animation-delay: 0.1s; height: 14px; }
+        .eq-2 { animation-delay: 0.3s; height: 28px; background: var(--accent2); }
+        .eq-3 { animation-delay: 0.5s; height: 20px; background: var(--accent3); }
+        .eq-4 { animation-delay: 0.2s; height: 34px; background: var(--accent2); }
+        .eq-5 { animation-delay: 0.4s; height: 16px; }
+        @keyframes eqBounce { 100% { height: 5px; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Glass header */
+        .glass-header {
+            background: rgba(17,13,36,0.85);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 14px;
+            box-shadow: 0 0 20px rgba(255,215,0,0.03);
+        }
+
+        /* Channel card */
+        .channel-card {
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(12px);
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+            width: 100%;
+            max-width: 130px;
+            justify-self: center;
+        }
+        .channel-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .channel-card:active {
+            transform: scale(0.95);
+        }
+        .channel-card:hover .channel-poster {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(255,215,0,0.12), 0 0 40px rgba(255,45,149,0.05);
+        }
+        .channel-card:hover .channel-poster img {
+            transform: scale(1.05);
+        }
+        .channel-poster {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 3/2;
+            border-radius: 10px;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 100%);
+            margin-bottom: 4px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 5px;
+            border: 1px solid var(--border);
+            transition: all 0.25s;
+        }
+        .channel-poster img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            transition: transform 0.3s;
+            border-radius: 4px;
+        }
+        .channel-poster .placeholder {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, rgba(255,215,0,0.05) 0%, rgba(255,45,149,0.03) 100%);
+            border-radius: 8px;
+            color: var(--muted);
+        }
+        .live-badge {
+            position: absolute;
+            top: 6px; left: 6px;
+            background: var(--accent2);
+            color: #fff;
+            font-size: 0.45rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: flex; align-items: center; gap: 3px;
+            line-height: 1.2;
+            letter-spacing: 0.05em;
+        }
+        .live-badge .pulse-dot {
+            width: 5px; height: 5px;
+            background: #fff;
+            border-radius: 50%;
+            animation: livePulse 1.5s ease-in-out infinite;
+        }
+        .channel-card h4 {
+            font-size: 0.65rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent) 40%, var(--accent2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            background-clip: text;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            filter: drop-shadow(0 0 8px rgba(255,215,0,0.12));
+            letter-spacing: 0.03em;
+        }
+
+        .category-section { margin-bottom: 20px; }
+        .category-header {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 8px;
+        }
+        .category-header h3 {
+            font-size: 0.7rem; font-weight: 600; color: var(--accent);
+            text-transform: uppercase; letter-spacing: 0.12em;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .category-header .cat-line {
+            flex: 1; height: 1px;
+            background: linear-gradient(to right, var(--border), transparent);
+        }
+        .channels-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+        }
+        #channels-container { padding-bottom: 80px; }
+        #main-app { min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* Video Modal */
+        #video-modal {
+            position: fixed; inset: 0; z-index: 50;
+            background: rgba(11,7,25,0.96);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 16px;
+        }
+        #video-modal .video-bg-text {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(5rem, 18vw, 14rem);
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            color: rgba(255,215,0,0.025);
+            white-space: nowrap;
+            pointer-events: none;
+            user-select: none;
+            z-index: 0;
+        }
+        #video-modal.show { display: flex; }
+        .video-container {
+            width: 100%; max-width: 1000px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(255,215,0,0.06), 0 25px 80px rgba(0,0,0,0.6);
+            position: relative; z-index: 1;
+        }
+        .video-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .video-header-left {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .live-dot {
+            width: 8px; height: 8px;
+            background: var(--accent2);
+            border-radius: 50%;
+            animation: livePulse 1.5s ease-in-out infinite;
+        }
+        @keyframes livePulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.7); } }
+        .video-header h3 {
+            font-size: 0.95rem; font-weight: 700; color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+        }
+        .video-close-btn {
+            color: var(--muted);
+            background: none; border: none;
+            font-size: 1.3rem; cursor: pointer;
+            padding: 4px; transition: color 0.2s;
+        }
+        .video-close-btn:hover { color: var(--accent); }
+
+        .video-area {
+            aspect-ratio: 16/9;
+            background: #000;
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .video-area video {
+            width: 100%; height: 100%;
+            object-fit: contain;
+        }
+
+        /* Custom controls overlay */
+        .controls-overlay {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, transparent 100%);
+            padding: 40px 14px 10px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .video-area:hover .controls-overlay,
+        .video-area.controls-show .controls-overlay { opacity: 1; }
+        .controls-overlay > * { pointer-events: auto; }
+
+        .controls-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        }
+        .controls-left {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .controls-right {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .ctrl-btn {
+            width: 32px; height: 32px; border-radius: 50%;
+            border: none; background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.7);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s;
+            font-size: 0.75rem;
+        }
+        .ctrl-btn:hover { background: rgba(255,215,0,0.15); color: var(--accent); }
+
+        .progress-wrap { width: 100%; margin-bottom: 6px; }
+        .progress-wrap input[type="range"] {
+            width: 100%; height: 3px; border-radius: 999px;
+            -webkit-appearance: none; appearance: none;
+            background: rgba(255,255,255,0.1);
+            outline: none; cursor: pointer;
+        }
+        .progress-wrap input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--accent); cursor: pointer;
+            border: none;
+        }
+        .progress-wrap input[type="range"]::-moz-range-thumb {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--accent); cursor: pointer;
+            border: none;
+        }
+
+        .volume-wrap { display: flex; align-items: center; gap: 6px; }
+        .volume-wrap input[type="range"] {
+            width: 50px; height: 3px; border-radius: 999px;
+            -webkit-appearance: none; appearance: none;
+            background: rgba(255,255,255,0.1);
+            outline: none; cursor: pointer;
+        }
+        .volume-wrap input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--accent); cursor: pointer;
+            border: none;
+        }
+        .volume-wrap input[type="range"]::-moz-range-thumb {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--accent); cursor: pointer;
+            border: none;
+        }
+
+        .time-display {
+            font-size: 0.7rem; color: rgba(255,255,255,0.4);
+            font-weight: 500;
+            white-space: nowrap;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Buffering */
+        .buffering {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none; z-index: 5;
+        }
+        .buffering-inner {
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        .buffering-spinner {
+            width: 36px; height: 36px;
+            border: 2px solid rgba(255,215,0,0.08);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .buffering-text {
+            font-size: 0.65rem; color: rgba(255,255,255,0.25);
+            font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Error */
+        .player-error {
+            display: none;
+            position: absolute; inset: 0;
+            background: rgba(11,7,25,0.95);
+            flex-direction: column; align-items: center; justify-content: center;
+            padding: 24px; text-align: center; z-index: 10;
+        }
+        .player-error.show { display: flex; }
+        .player-error-icon {
+            width: 52px; height: 52px; border-radius: 50%;
+            background: rgba(255,45,149,0.08);
+            border: 1px solid rgba(255,45,149,0.12);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 16px;
+            color: var(--accent2); font-size: 1.2rem;
+        }
+        .player-error h4 {
+            font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.7);
+        }
+        .player-error p {
+            font-size: 0.75rem; color: rgba(255,255,255,0.3);
+            margin-top: 6px; max-width: 280px;
+        }
+        .player-error button {
+            margin-top: 20px;
+            padding: 8px 20px; border-radius: 8px;
+            background: rgba(255,215,0,0.08);
+            color: var(--accent);
+            border: 1px solid rgba(255,215,0,0.15);
+            font-size: 0.75rem; font-weight: 500;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .player-error button:hover { background: rgba(255,215,0,0.15); border-color: var(--accent); }
+
+        /* Now playing bar */
+        #now-playing-bar {
+            display: none;
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+            background: rgba(11,7,25,0.95);
+            border-top: 1px solid var(--border);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 10px 16px;
+        }
+        #now-playing-bar.show { display: block; }
+
+        /* WhatsApp */
+        .whatsapp-btn {
+            position: fixed; bottom: 16px; right: 16px; z-index: 30;
+            width: 42px; height: 42px; border-radius: 12px;
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 1.1rem;
+            box-shadow: 0 4px 20px rgba(37,211,102,0.25);
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+        .whatsapp-btn:hover { transform: scale(1.1); box-shadow: 0 4px 30px rgba(37,211,102,0.4); }
+        .whatsapp-btn:active { transform: scale(0.95); }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-up { animation: fadeUp 0.5s ease-out forwards; }
+
+        /* Empty state */
+        .empty-state {
+            grid-column: 1 / -1;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 60px 20px;
+            color: var(--muted);
+        }
+        .empty-state i { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.3; }
+        .empty-state p { font-size: 0.85rem; opacity: 0.5; }
+
+        /* Category filter */
+        #category-filter {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 4px 0 12px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex-wrap: nowrap;
+        }
+        #category-filter::-webkit-scrollbar { display: none; }
+        .cat-filter-btn {
+            flex-shrink: 0;
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-dim);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.6rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .cat-filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .cat-filter-btn.active {
+            background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,45,149,0.1));
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 12px rgba(255,215,0,0.08);
+        }
+        .cat-filter-btn .cat-count {
+            display: inline-block;
+            font-size: 0.5rem;
+            color: var(--muted);
+            margin-left: 4px;
+        }
+        .cat-filter-btn.active .cat-count { color: var(--accent); }
+
+        /* Auth overlay */
+        #auth-overlay {
+            position: fixed; inset: 0; z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #0b0719 0%, #1a0d3a 50%, #0f0a22 100%);
+            padding: 20px;
+        }
+        .auth-box {
+            width: 100%; max-width: 380px;
+            background: rgba(17,13,36,0.9);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px 28px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 0 60px rgba(255,215,0,0.04), 0 20px 60px rgba(0,0,0,0.5);
+            animation: fadeUp 0.6s ease-out;
+        }
+        .auth-box .auth-logo {
+            text-align: center; margin-bottom: 24px;
+        }
+        .auth-box .auth-logo h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem; font-weight: 900;
+            letter-spacing: 0.08em;
+            background: linear-gradient(135deg, #FFD700, #FF2D95);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            background-clip: text;
+        }
+        .auth-box .auth-logo p {
+            color: var(--muted); font-size: 0.6rem;
+            letter-spacing: 0.4em; text-transform: uppercase;
+            font-weight: 600; margin-top: 4px;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .auth-tabs {
+            display: flex; gap: 4px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px; padding: 3px; margin-bottom: 24px;
+        }
+        .auth-tab {
+            flex: 1; text-align: center; padding: 8px;
+            border-radius: 8px; font-size: 0.75rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; border: none;
+            background: transparent; color: var(--text-dim);
+            font-family: 'Rajdhani', sans-serif;
+            letter-spacing: 0.05em;
+        }
+        .auth-tab.active {
+            background: var(--accent); color: #0b0719;
+        }
+        .auth-form { display: none; }
+        .auth-form.active { display: block; }
+        .auth-form label {
+            font-size: 0.65rem; font-weight: 600; color: var(--text-dim);
+            letter-spacing: 0.05em; margin-bottom: 4px; display: block;
+        }
+        .auth-form input {
+            width: 100%; padding: 10px 14px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text);
+            font-size: 0.8rem; outline: none;
+            font-family: 'Rajdhani', sans-serif;
+            transition: border-color 0.2s;
+        }
+        .auth-form input:focus { border-color: var(--accent); }
+        .auth-form .field { margin-bottom: 14px; }
+        .auth-form .auth-submit {
+            width: 100%; padding: 11px;
+            border: none; border-radius: 8px;
+            background: linear-gradient(135deg, #FFD700, #FF2D95);
+            color: #fff; font-size: 0.8rem; font-weight: 700;
+            cursor: pointer; transition: all 0.3s;
+            font-family: 'Rajdhani', sans-serif;
+            letter-spacing: 0.08em;
+            box-shadow: 0 0 20px rgba(255,215,0,0.1);
+        }
+        .auth-form .auth-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 30px rgba(255,215,0,0.25);
+        }
+        .auth-form .auth-switch {
+            text-align: center; margin-top: 14px;
+            font-size: 0.7rem; color: var(--text-dim);
+        }
+        .auth-form .auth-switch a {
+            color: var(--accent); cursor: pointer;
+            font-weight: 600; text-decoration: none;
+        }
+        .auth-form .auth-switch a:hover { text-decoration: underline; }
+        .auth-msg {
+            text-align: center; font-size: 0.7rem;
+            margin-top: 10px; display: none;
+        }
+        .auth-msg.error { color: #FF2D95; }
+        .auth-msg.success { color: #00E5FF; }
+        .auth-msg.show { display: block; }
+        /* Admin dashboard */
+        .admin-dash-section {
+            background: rgba(255,215,0,0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px; padding: 16px; margin-bottom: 16px;
+        }
+        .admin-dash-section h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem; font-weight: 700;
+            color: var(--accent); margin-bottom: 12px;
+            letter-spacing: 0.08em;
+        }
+        .admin-user-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 8px; border-radius: 6px;
+            font-size: 0.65rem; color: var(--text-dim);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .admin-user-item .admin-del {
+            color: var(--accent2); cursor: pointer;
+            font-size: 0.6rem; opacity: 0.6;
+        }
+        .admin-user-item .admin-del:hover { opacity: 1; }
+        .admin-empty { text-align: center; font-size: 0.6rem; color: var(--muted); padding: 12px; }
+        .admin-user-count {
+            font-size: 0.6rem; color: var(--muted); margin-bottom: 8px;
+        }
+        .admin-section-refresh {
+            font-size: 0.55rem; color: var(--accent); cursor: pointer;
+            float: right;
+        }
+        .admin-section-refresh:hover { text-decoration: underline; }
+
+        /* Admin glow buttons */
+        .admin-glow-box {
+            background: rgba(17,13,36,0.7);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-top: 16px;
+        }
+        .admin-glow-btn {
+            display: inline-block;
+            padding: 12px 32px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #FFD700, #FF2D95);
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(255,215,0,0.2), 0 0 40px rgba(255,45,149,0.1);
+            text-transform: uppercase;
+            text-decoration: none;
+        }
+        .admin-glow-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(255,215,0,0.4), 0 0 60px rgba(255,45,149,0.2);
+        }
+        .admin-glow-btn:active {
+            transform: translateY(0);
+        }
+        .admin-glow-btn-sm {
+            padding: 8px 20px;
+            font-size: 0.65rem;
+            box-shadow: 0 0 15px rgba(255,215,0,0.15);
+        }
+        .admin-glow-btn-sm:hover {
+            box-shadow: 0 0 25px rgba(255,215,0,0.3);
+        }
+
+        /* Plans overlay */
+        #plans-overlay {
+            position: fixed; inset: 0; z-index: 45;
+            background: rgba(11,7,25,0.92);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 16px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #plans-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+        .plans-modal {
+            width: 100%; max-width: 880px;
+            background: linear-gradient(145deg, #150d30, #0b0719);
+            border: 1px solid rgba(255,215,0,0.12);
+            border-radius: 20px;
+            padding: 32px 24px;
+            position: relative;
+            box-shadow: 0 0 80px rgba(255,215,0,0.06), 0 30px 80px rgba(0,0,0,0.5);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .plans-header { text-align: center; margin-bottom: 28px; position: relative; }
+        .plans-header h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem; font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            background-clip: text;
+            margin-bottom: 6px;
+            letter-spacing: 0.08em;
+        }
+        .plans-header p { font-size: 0.65rem; color: var(--muted); }
+        .plans-close {
+            position: absolute; top: -8px; right: -4px;
+            background: none; border: none;
+            color: var(--muted); font-size: 1.1rem;
+            cursor: pointer; transition: color 0.2s;
+        }
+        .plans-close:hover { color: var(--accent); }
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        .plan-card {
+            background: rgba(255,215,0,0.03);
+            border: 1px solid rgba(255,215,0,0.08);
+            border-radius: 14px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .plan-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 30px rgba(255,215,0,0.1);
+            transform: translateY(-3px);
+        }
+        .plan-card.plan-featured {
+            border-color: rgba(255,215,0,0.25);
+            background: rgba(255,215,0,0.06);
+            box-shadow: 0 0 40px rgba(255,215,0,0.06);
+        }
+        .plan-card.plan-featured:hover {
+            box-shadow: 0 0 50px rgba(255,215,0,0.15);
+        }
+        .plan-badge {
+            position: absolute; top: -8px; left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #fff;
+            font-size: 0.5rem; font-weight: 700;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 0.08em;
+        }
+        .plan-icon { font-size: 1.5rem; margin-bottom: 8px; color: var(--accent); }
+        .plan-card h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem; font-weight: 700;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            letter-spacing: 0.08em;
+        }
+        .plan-price { margin-bottom: 12px; }
+        .plan-amount {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .plan-dur {
+            font-size: 0.6rem; color: var(--muted);
+            font-family: 'Rajdhani', sans-serif;
+        }
+        .plan-features {
+            list-style: none; padding: 0; margin: 0 0 16px;
+            text-align: left;
+        }
+        .plan-features li {
+            font-size: 0.6rem; color: var(--text-dim);
+            padding: 3px 0;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .plan-features li i { color: var(--accent); font-size: 0.5rem; }
+        .plan-select-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(135deg, #FFD700, #FF2D95);
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 15px rgba(255,215,0,0.15);
+            text-transform: uppercase;
+        }
+        .plan-select-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(255,215,0,0.3);
+        }
+
+        /* Welcome toast */
+        .welcome-toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 99999;
+            background: rgba(17,13,36,0.92);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 12px;
+            padding: 14px 24px;
+            display: none;
+            align-items: center; gap: 12px;
+            box-shadow: 0 0 40px rgba(255,215,0,0.08), 0 8px 32px rgba(0,0,0,0.5);
+            animation: toastSlide 0.4s ease-out;
+            white-space: nowrap;
+        }
+        .welcome-toast.show { display: flex; }
+        .welcome-toast .toast-icon {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,45,149,0.15));
+            display: flex; align-items: center; justify-content: center;
+            color: var(--accent); font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        .welcome-toast .toast-text {
+            font-size: 0.8rem; font-weight: 600; color: var(--text);
+        }
+        .welcome-toast .toast-text small {
+            display: block; font-size: 0.6rem; font-weight: 400;
+            color: var(--muted); margin-top: 2px;
+        }
+        .welcome-toast.toast-success {
+            border-left: 4px solid var(--accent);
+        }
+        .welcome-toast.toast-error {
+            border-left: 4px solid var(--accent2);
+        }
+        @keyframes toastSlide {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .admin-back-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 14px;
+            padding: 10px 14px;
+            background: rgba(17,13,36,0.7);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .admin-back-bar span {
+            font-size: 0.65rem; color: var(--text-dim);
+            font-weight: 600; letter-spacing: 0.05em;
+        }
+        #admin-view { display: block; }
+        #admin-live-view { display: none; }
+        #admin-live-view.show { display: block; }
+        #admin-view.hide { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ═══ SPLASH SCREEN ═══ -->
+    <div id="splash-screen">
+        <div style="position:relative;width:90px;height:90px;margin-bottom:28px;display:flex;align-items:center;justify-content:center;">
+            <div class="splash-logo">
+                <i class="fa-solid fa-tower-broadcast" style="font-size:1.4rem;color:var(--accent);filter:drop-shadow(0 0 10px rgba(255,215,0,0.4));"></i>
+            </div>
+        </div>
+        <h1 class="splash-title">HEIS5 TV</h1>
+        <p class="splash-sub" style="margin-bottom:32px;">Live Streaming</p>
+        <div style="display:flex;align-items:flex-end;justify-content:center;gap:4px;height:44px;position:relative;z-index:1;">
+            <span class="eq-bar eq-1"></span>
+            <span class="eq-bar eq-2"></span>
+            <span class="eq-bar eq-3"></span>
+            <span class="eq-bar eq-4"></span>
+            <span class="eq-bar eq-5"></span>
+        </div>
+    </div>
+
+    <!-- ═══ AUTH OVERLAY ═══ -->
+    <div id="auth-overlay" style="display:none;">
+        <div class="auth-box">
+            <div class="auth-logo">
+                <h1>HEIS5 TV</h1>
+                <p>Premium Live Streaming</p>
+            </div>
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
+            </div>
+            <!-- Login -->
+            <div id="auth-login" class="auth-form active">
+                <div class="field">
+                    <label>Username</label>
+                    <input type="text" id="login-username" placeholder="Your username" autocomplete="username">
+                </div>
+                <div class="field">
+                    <label>Password</label>
+                    <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+                </div>
+                <button class="auth-submit" onclick="handleLogin()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</button>
+                <div id="login-msg" class="auth-msg"></div>
+                <div class="auth-switch">Don't have an account? <a onclick="switchAuthTab('signup')">Sign Up</a></div>
+            </div>
+            <!-- Signup -->
+            <div id="auth-signup" class="auth-form">
+                <div class="field">
+                    <label>Full Name</label>
+                    <input type="text" id="signup-name" placeholder="John Doe" autocomplete="name">
+                </div>
+                <div class="field">
+                    <label>Username</label>
+                    <input type="text" id="signup-username" placeholder="Choose a username" autocomplete="username">
+                </div>
+                <div class="field">
+                    <label>Email</label>
+                    <input type="email" id="signup-email" placeholder="your@email.com" autocomplete="email">
+                </div>
+                <div class="field">
+                    <label>Password</label>
+                    <input type="password" id="signup-pass" placeholder="Min 6 characters" autocomplete="new-password">
+                </div>
+                <button class="auth-submit" onclick="handleSignup()"><i class="fa-solid fa-user-plus"></i> Create Account</button>
+                <div id="signup-msg" class="auth-msg"></div>
+                <div class="auth-switch">Already have an account? <a onclick="switchAuthTab('login')">Login</a></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ═══ WELCOME TOAST ═══ -->
+    <div id="welcome-toast" class="welcome-toast">
+        <div class="toast-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+        <div class="toast-text" id="toast-text">
+            Welcome back!
+            <small id="toast-sub">HEIS5 TV</small>
+        </div>
+    </div>
+
+    <!-- ═══ MAIN APP ═══ -->
+    <div id="main-app" style="display: none; opacity: 0; transition: opacity 1s;">
+        <div style="flex:1;display:flex;flex-direction:column;padding:8px;max-width:1400px;margin:0 auto;width:100%;">
+
+            <!-- Header -->
+            <header class="glass-header" style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;padding:8px 14px;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:26px;height:26px;border-radius:8px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);">
+                        <i class="fa-solid fa-tower-broadcast" style="font-size:0.65rem;"></i>
+                    </div>
+                    <div>
+                        <h2 style="font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:800;letter-spacing:0.1em;display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#FFD700,#FF2D95);-webkit-background-clip:text;-webkit-text-fill-color:transparent;color:transparent;background-clip:text;">
+                            HEIS5 TV
+                        </h2>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:0.55rem;color:var(--text-dim);letter-spacing:0.15em;font-weight:500;">PREMIUM</span>
+                    <span style="width:5px;height:5px;border-radius:50%;background:var(--accent);animation:livePulse 1.5s ease-in-out infinite;"></span>
+                    <span id="header-user" style="font-size:0.55rem;color:var(--text-dim);font-weight:600;display:none;"></span>
+                    <button onclick="handleLogout()" style="display:none;padding:5px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#FFD700,#FF2D95);color:#fff;font-size:0.55rem;font-weight:700;cursor:pointer;letter-spacing:0.05em;font-family:'Rajdhani',sans-serif;box-shadow:0 0 12px rgba(255,215,0,0.15);transition:all 0.3s;" id="logout-link" onmouseover="this.style.boxShadow='0 0 20px rgba(255,215,0,0.3)'" onmouseout="this.style.boxShadow='0 0 12px rgba(255,215,0,0.15)'"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                </div>
+            </header>
+
+            <style>
+                .hero-banner {
+                    position: relative;
+                    border-radius: 14px;
+                    padding: 28px 24px;
+                    margin-bottom: 18px;
+                    overflow: hidden;
+                    background: linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(255,45,149,0.04) 100%);
+                    border: 1px solid rgba(255,215,0,0.08);
+                }
+                .hero-banner::before {
+                    content: '';
+                    position: absolute; inset: 0;
+                    background:
+                        radial-gradient(ellipse at 20% 50%, rgba(255,215,0,0.06) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 50%, rgba(255,45,149,0.05) 0%, transparent 60%);
+                    pointer-events: none;
+                }
+                .hero-banner .hero-content {
+                    position: relative; z-index: 1;
+                }
+                .hero-banner h1 {
+                    font-family: 'Orbitron', sans-serif;
+                    font-size: 1.15rem; font-weight: 800;
+                    letter-spacing: 0.03em;
+                    background: linear-gradient(135deg, var(--accent), var(--accent2));
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                }
+                .hero-banner p {
+                    font-size: 0.7rem; color: var(--text-dim); margin-top: 6px;
+                    max-width: 480px; line-height: 1.5;
+                }
+                .hero-banner .hero-live {
+                    display: inline-flex; align-items: center; gap: 6px;
+                    margin-top: 12px;
+                    font-size: 0.55rem; font-weight: 600; color: var(--accent2);
+                    text-transform: uppercase; letter-spacing: 0.12em;
+                    font-family: 'Orbitron', sans-serif;
+                }
+                .hero-banner .hero-live .live-dot {
+                    width: 4px; height: 4px; border-radius: 50%;
+                    background: var(--accent2);
+                    animation: livePulse 1.5s ease-in-out infinite;
+                }
+                @keyframes livePulse {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.4; transform: scale(0.7); }
+                }
+                .hero-test-btn {
+                    margin-top: 12px;
+                    padding: 5px 16px;
+                    border-radius: 8px;
+                    border: 1px solid rgba(255,215,0,0.15);
+                    background: rgba(255,215,0,0.06);
+                    color: var(--accent);
+                    font-family: 'Rajdhani', sans-serif;
+                    font-size: 0.65rem;
+                    font-weight: 600;
+                    letter-spacing: 0.05em;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .hero-test-btn:hover {
+                    background: rgba(255,215,0,0.12);
+                    border-color: rgba(255,215,0,0.3);
+                }
+                .hero-signup-btn {
+                    margin-top: 12px;
+                    padding: 7px 20px;
+                    border-radius: 8px;
+                    border: none;
+                    background: linear-gradient(135deg, #FFD700, #FF2D95);
+                    color: #fff;
+                    font-family: 'Rajdhani', sans-serif;
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    letter-spacing: 0.08em;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    box-shadow: 0 0 20px rgba(255,215,0,0.15);
+                }
+                .hero-signup-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 0 30px rgba(255,215,0,0.3);
+                }
+                .hero-signup-btn i { margin-right: 6px; }
+                .user-dash-stats {
+                    display: flex; gap: 20px;
+                    margin: 12px 0 16px;
+                }
+                .user-stat {
+                    text-align: center;
+                }
+                .user-stat-val {
+                    display: block;
+                    font-family: 'Orbitron', sans-serif;
+                    font-size: 1rem;
+                    font-weight: 900;
+                    background: linear-gradient(135deg, var(--accent), var(--accent2));
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+            color: transparent;
+                    background-clip: text;
+                    line-height: 1.2;
+                }
+                .user-stat-lbl {
+                    display: block;
+                    font-size: 0.5rem;
+                    color: var(--muted);
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
+                }
+                .plan-active-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: rgba(0,229,255,0.06);
+                    border: 1px solid rgba(0,229,255,0.15);
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 0.55rem;
+                    font-weight: 600;
+                    color: var(--accent3);
+                    font-family: 'Rajdhani', sans-serif;
+                    letter-spacing: 0.05em;
+                    margin-bottom: 8px;
+                }
+                .plan-active-badge i { color: var(--accent3); }
+            </style>
+
+            <!-- Main -->
+            <main style="flex:1;">
+                <div id="hero-container"></div>
+                <div id="category-filter"></div>
+                <div id="channels-container"></div>
+            </main>
+
+            <!-- Footer -->
+            <footer style="padding: 16px 0 70px; text-align: center;">
+                <p style="font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;font-family:'Orbitron',sans-serif;">HEIS5 TV &copy; 2026</p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- ═══ PLANS OVERLAY ═══ -->
+    <div id="plans-overlay">
+        <div class="plans-modal">
+            <div class="plans-header">
+                <h2><i class="fa-solid fa-crown"></i> Choose Your Plan</h2>
+                <p>Unlock all channels with HEIS5 TV premium access.</p>
+                <button class="plans-close" onclick="closePlans()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="plans-grid">
+                <div class="plan-card plan-featured" onclick="selectPlan('weekly')">
+                    <div class="plan-badge">Popular</div>
+                    <div class="plan-icon"><i class="fa-solid fa-calendar-week"></i></div>
+                    <h3>Weekly</h3>
+                    <div class="plan-price"><span class="plan-amount">TSh 3,000</span> <span class="plan-dur">/week</span></div>
+                    <ul class="plan-features">
+                        <li><i class="fa-solid fa-check"></i> Full channel access</li>
+                        <li><i class="fa-solid fa-check"></i> HD streaming</li>
+                        <li><i class="fa-solid fa-check"></i> 7-day validity</li>
+                        <li><i class="fa-solid fa-check"></i> Priority support</li>
+                    </ul>
+                    <button class="plan-select-btn">Choose Weekly</button>
+                </div>
+                <div class="plan-card" onclick="selectPlan('monthly')">
+                    <div class="plan-icon"><i class="fa-solid fa-calendar-alt"></i></div>
+                    <h3>Monthly</h3>
+                    <div class="plan-price"><span class="plan-amount">TSh 8,000</span> <span class="plan-dur">/month</span></div>
+                    <ul class="plan-features">
+                        <li><i class="fa-solid fa-check"></i> Full channel access</li>
+                        <li><i class="fa-solid fa-check"></i> HD streaming</li>
+                        <li><i class="fa-solid fa-check"></i> 30-day validity</li>
+                        <li><i class="fa-solid fa-check"></i> Priority support</li>
+                        <li><i class="fa-solid fa-check"></i> Save 20%</li>
+                    </ul>
+                    <button class="plan-select-btn">Choose Monthly</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ SELAR HIDDEN LINKS ═══ -->
+    <a href="https://selar.co/1771417788" id="selar-link-weekly" style="display:none;" target="_blank" rel="noopener noreferrer"></a>
+    <a href="https://selar.co/5170d01884" id="selar-link-monthly" style="display:none;" target="_blank" rel="noopener noreferrer"></a>
+
+    <!-- ═══ VIDEO MODAL ═══ -->
+    <div id="video-modal">
+        <div class="video-bg-text">HEIS5 TV</div>
+        <div class="video-container">
+            <div class="video-header">
+                <div class="video-header-left">
+                    <span class="live-dot"></span>
+                    <h3 id="modal-channel-name">Live Stream</h3>
+                    <span style="font-size:0.65rem;color:var(--accent);font-family:'Orbitron',sans-serif;font-weight:700;letter-spacing:0.08em;background:linear-gradient(135deg,rgba(255,215,0,0.1),rgba(255,45,149,0.06));padding:3px 10px;border-radius:4px;border:1px solid rgba(255,215,0,0.15);margin-left:6px;box-shadow:0 0 12px rgba(255,215,0,0.08);">HEIS5 TV</span>
+                </div>
+                <button onclick="closeVideoPlayer()" class="admin-glow-btn admin-glow-btn-sm" style="padding:6px 16px;font-size:0.6rem;"><i class="fa-solid fa-arrow-left"></i> Back</button>
+            </div>
+            <div class="video-area" id="player-video-area">
+                <video id="hls-video" autoplay playsinline preload="auto" crossorigin="anonymous"></video>
+
+                <!-- Loading -->
+                <div class="buffering" id="buffering-spinner">
+                    <div class="buffering-inner">
+                        <div class="buffering-spinner"></div>
+                        <span class="buffering-text">Loading</span>
+                    </div>
+                </div>
+
+                <!-- Error -->
+                <div class="player-error" id="player-error">
+                    <div class="player-error-icon"><i class="fa-solid fa-wifi"></i></div>
+                    <h4>Stream Offline</h4>
+                    <p>This channel is not broadcasting right now. Pick another channel.</p>
+                    <button onclick="closeVideoPlayer()" class="admin-glow-btn admin-glow-btn-sm" style="padding:8px 20px;font-size:0.65rem;"><i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Go Back</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-overlay">
+                    <div class="progress-wrap">
+                        <input type="range" id="video-progress" min="0" max="100" value="0" oninput="seekVideo(this)">
+                    </div>
+                    <div class="controls-row">
+                        <div class="controls-left">
+                            <button class="ctrl-btn" onclick="togglePlay()"><i id="play-icon" class="fa-solid fa-pause"></i></button>
+                            <div class="volume-wrap">
+                                <button class="ctrl-btn" onclick="toggleMute()" style="width:26px;height:26px;"><i id="volume-icon" class="fa-solid fa-volume-xmark"></i></button>
+                                <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this)">
+                            </div>
+                            <span class="time-display"><span id="current-time">0:00</span> / <span id="total-time">0:00</span></span>
+                        </div>
+                        <div class="controls-right">
+                            <button class="ctrl-btn" onclick="toggleFullscreen()"><i id="fullscreen-icon" class="fa-solid fa-expand"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ NOW PLAYING BAR ═══ -->
+    <div id="now-playing-bar">
+        <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:livePulse 1.5s ease-in-out infinite;flex-shrink:0;"></span>
+                <span id="now-playing-name" style="font-size:0.85rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Channel</span>
+                <span style="font-size:0.65rem;color:var(--muted);display:none;" class="now-label">· Sasa Inacheza</span>
+            </div>
+            <button onclick="closeVideoPlayer()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(255,255,255,0.03);color:var(--muted);border:1px solid var(--border);font-size:0.7rem;font-weight:500;cursor:pointer;transition:all 0.2s;">
+                <i class="fa-solid fa-xmark" style="font-size:0.7rem;"></i> Funga
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══ WHATSAPP ═══ -->
+    <a href="https://wa.me/255656424007?text=Habari%20HEIS5%20TV!%20Nataka%20kuomba%20msaada." target="_blank" class="whatsapp-btn">
+        <i class="fa-brands fa-whatsapp"></i>
+    </a>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- JAVASCRIPT                               -->
+    <!-- ══════════════════════════════════════════ -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.12.3/dist/shaka-player.compiled.js"></script>
+
+    <script>
+        const SUPABASE_URL = "https://yvztqzisrgqybapkdhcr.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU";
+
+        // Init shaka polyfill
+        if (typeof shaka !== 'undefined') { shaka.polyfill.installAll(); }
+
+        function sbFetch(path, options = {}) {
+            const headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Accept': 'application/json' };
+            if (options.body && !(options.body instanceof FormData)) { headers['Content-Type'] = 'application/json'; }
+            return fetch(SUPABASE_URL + path, { ...options, headers: { ...headers, ...options.headers } });
+        }
+
+        let channels = [];
+        let activeCategory = 'All';
+        let hlsPlayer = null;
+        let currentEngine = null;
+        let shakaPlayer = null;
+        let bufferingTimer = null;
+
+        // ═══ AUTH ═══
+        function switchAuthTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            document.querySelectorAll('.auth-msg').forEach(m => { m.classList.remove('show', 'error', 'success'); m.textContent = ''; });
+            if (tab === 'login') {
+                document.querySelectorAll('.auth-tab')[0].classList.add('active');
+                document.getElementById('auth-login').classList.add('active');
+            } else {
+                document.querySelectorAll('.auth-tab')[1].classList.add('active');
+                document.getElementById('auth-signup').classList.add('active');
+            }
+        }
+
+        function showAuthMsg(id, text, type) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = 'auth-msg show ' + type;
+        }
+
+        function handleLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const pass = document.getElementById('login-pass').value.trim();
+            if (!username || !pass) {
+                showAuthMsg('login-msg', 'Please fill in all fields.', 'error');
+                return;
+            }
+            if (username === 'Admin' && pass === 'Admin123') {
+                localStorage.setItem('heis5_session', JSON.stringify({ username, name: 'Admin', email: 'erastokasoga5@gmail.com', role: 'admin' }));
+                checkPendingSubscription();
+                goToApp();
+                return;
+            }
+            const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
+            const found = Object.values(users).find(u => u.username === username);
+            if (!found || found.password !== pass) {
+                showAuthMsg('login-msg', 'Invalid username or password.', 'error');
+                return;
+            }
+            localStorage.setItem('heis5_session', JSON.stringify({ username, name: found.name, email: found.email, role: 'user' }));
+            checkPendingSubscription();
+            goToApp();
+        }
+
+        function handleSignup() {
+            const name = document.getElementById('signup-name').value.trim();
+            const username = document.getElementById('signup-username').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const pass = document.getElementById('signup-pass').value.trim();
+            if (!name || !username || !email || !pass) {
+                showAuthMsg('signup-msg', 'Please fill in all fields.', 'error');
+                return;
+            }
+            if (pass.length < 6) {
+                showAuthMsg('signup-msg', 'Password must be at least 6 characters.', 'error');
+                return;
+            }
+            const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
+            if (Object.values(users).some(u => u.username === username)) {
+                showAuthMsg('signup-msg', 'Username already taken.', 'error');
+                return;
+            }
+            if (Object.values(users).some(u => u.email === email)) {
+                showAuthMsg('signup-msg', 'An account with this email already exists.', 'error');
+                return;
+            }
+            const id = Date.now().toString();
+            users[id] = { name, username, email, password: pass, role: 'user' };
+            localStorage.setItem('heis5_users', JSON.stringify(users));
+            localStorage.setItem('heis5_session', JSON.stringify({ username, name, email, role: 'user' }));
+            showAuthMsg('signup-msg', 'Account created! Welcome to HEIS5 TV.', 'success');
+            setTimeout(() => { checkPendingSubscription(); goToApp(); }, 800);
+        }
+
+        function renderHero() {
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            const container = document.getElementById('hero-container');
+            if (session && session.role === 'admin') {
+                const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
+                const keys = Object.keys(users);
+                const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
+                container.innerHTML = `
+                    <div id="admin-view">
+                        <div class="hero-banner">
+                            <div class="hero-content">
+                                <h1>Admin Dashboard</h1>
+                                <p>Manage users and monitor your HEIS5 TV platform.</p>
+                                <div class="hero-live">
+                                    <span class="live-dot"></span>
+                                    <span>System Active</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="admin-dash-section">
+                            <h3>
+                                Registered Users
+                                <span class="admin-section-refresh" onclick="renderHero()"><i class="fa-solid fa-rotate"></i> Refresh</span>
+                            </h3>
+                            <div class="admin-user-count">${keys.length} user${keys.length !== 1 ? 's' : ''} total</div>
+                            <div id="admin-user-list">
+                                ${keys.length === 0 ? '<div class="admin-empty">No registered users yet.</div>' : ''}
+                            </div>
+                        </div>
+                        <div class="admin-glow-box">
+                            <button class="admin-glow-btn" onclick="adminWatchLive()"><i class="fa-solid fa-tower-broadcast"></i>  Watch Live TV</button>
+                        </div>
+                    </div>
+                    <div id="admin-live-view">
+                        <div class="admin-back-bar">
+                            <span><i class="fa-solid fa-tower-broadcast" style="color:var(--accent);"></i> HEIS5 TV — Live Channels</span>
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="adminBackToPanel()"><i class="fa-solid fa-arrow-left"></i> Back to Panel</button>
+                        </div>
+                    </div>
+                `;
+                if (keys.length > 0) {
+                    const list = document.getElementById('admin-user-list');
+                    list.innerHTML = keys.map(id => {
+                        const userSub = subs[users[id].username];
+                        const subBadge = userSub && new Date(userSub.end) > new Date()
+                            ? `<span style="color:var(--accent3);font-size:0.5rem;margin-left:6px;"><i class="fa-solid fa-check-circle"></i> ${userSub.plan}</span>`
+                            : '';
+                        return `
+                        <div class="admin-user-item">
+                            <span><strong>${users[id].username}</strong> — ${users[id].name} &lt;${users[id].email}&gt;${subBadge}</span>
+                            <span class="admin-del" onclick="adminDeleteUser('${id}')"><i class="fa-solid fa-trash-can"></i></span>
+                        </div>`;
+                    }).join('');
+                }
+            } else {
+                const uname = session ? session.name || session.username : 'Viewer';
+                const sub = getSubscriptionInfo();
+                const active = hasActiveSubscription();
+                let subHtml = '';
+                if (session && session.role === 'admin') {
+                    subHtml = '';
+                } else if (active && sub) {
+                    const days = getRemainingDays(sub);
+                    const pname = sub.plan === 'trial' ? 'Free Trial' : sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1);
+                    subHtml = `<div class="plan-active-badge"><i class="fa-solid fa-check-circle"></i> ${pname} — ${days} day${days !== 1 ? 's' : ''} remaining</div>`;
+                }
+                container.innerHTML = `
+                    <div class="hero-banner">
+                        <div class="hero-content">
+                            <h1>Welcome, ${uname}!</h1>
+                            <p>Premium sports, breaking news, blockbuster movies &amp; exclusive entertainment — all in one place. Join thousands of viewers now!</p>
+                            ${subHtml}
+                            <div class="user-dash-stats">
+                                <div class="user-stat"><span class="user-stat-val">100+</span><span class="user-stat-lbl">Channels</span></div>
+                                <div class="user-stat"><span class="user-stat-val">24/7</span><span class="user-stat-lbl">Streaming</span></div>
+                                <div class="user-stat"><span class="user-stat-val">HD</span><span class="user-stat-lbl">Quality</span></div>
+                            </div>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                                ${active ? `<button onclick="testStream()" class="hero-test-btn"><i class="fa-solid fa-play" style="font-size:0.55rem;margin-right:4px;"></i> Watch Now</button>` : `<button onclick="startFreeTrial()" class="hero-test-btn"><i class="fa-solid fa-play" style="font-size:0.55rem;margin-right:4px;"></i> Free Trial</button>`}
+                                <button onclick="showPlans()" class="hero-signup-btn"><i class="fa-solid fa-crown"></i> Subscribe Now</button>
+                            </div>
+                            <div class="hero-live">
+                                <span class="live-dot"></span>
+                                <span>Live Now</span>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        function showWelcomeToast(name, role) {
+            const toast = document.getElementById('welcome-toast');
+            const text = document.getElementById('toast-text');
+            const sub = document.getElementById('toast-sub');
+            if (role === 'admin') {
+                text.textContent = 'Welcome Admin!';
+                sub.textContent = 'You have full system access.';
+            } else {
+                text.textContent = 'Welcome back, ' + name + '!';
+                sub.textContent = 'Enjoy your premium channels.';
+            }
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3500);
+        }
+
+        function adminWatchLive() {
+            document.getElementById('admin-view').style.display = 'none';
+            document.getElementById('admin-live-view').classList.add('show');
+            document.getElementById('channels-container').style.display = '';
+            const channelsContainer = document.getElementById('channels-container');
+            if (!channelsContainer.hasChildNodes() || channelsContainer.innerHTML.trim() === '') {
+                loadChannels();
+            }
+        }
+
+        function adminBackToPanel() {
+            document.getElementById('admin-view').style.display = 'block';
+            document.getElementById('admin-live-view').classList.remove('show');
+            document.getElementById('channels-container').style.display = 'none';
+        }
+
+        function adminDeleteUser(id) {
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            if (!session || session.role !== 'admin') return;
+            const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
+            if (!users[id]) return;
+            if (users[id].username === 'Admin') {
+                alert('Cannot delete the system admin.');
+                return;
+            }
+            if (!confirm('Delete user ' + users[id].username + '?')) return;
+            delete users[id];
+            localStorage.setItem('heis5_users', JSON.stringify(users));
+            renderHero();
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('heis5_session');
+            document.getElementById('main-app').style.display = 'none';
+            document.getElementById('main-app').style.opacity = '0';
+            document.getElementById('splash-screen').style.display = 'flex';
+            document.getElementById('splash-screen').style.opacity = '1';
+            document.querySelectorAll('.auth-msg').forEach(m => { m.classList.remove('show', 'error', 'success'); m.textContent = ''; });
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-pass').value = '';
+            switchAuthTab('login');
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('splash-screen').style.display = 'none';
+                    document.getElementById('auth-overlay').style.display = 'flex';
+                }, 800);
+            }, 1200);
+        }
+
+        function goToApp() {
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            if (session) {
+                document.getElementById('header-user').textContent = session.role === 'admin' ? 'Admin' : session.name;
+                document.getElementById('header-user').style.display = 'inline';
+                document.getElementById('logout-link').style.display = 'inline';
+            }
+            document.getElementById('auth-overlay').style.display = 'none';
+            const splash = document.getElementById('splash-screen');
+            splash.style.display = 'flex';
+            splash.style.opacity = '1';
+            setTimeout(() => {
+                splash.style.opacity = '0';
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    const app = document.getElementById('main-app');
+                    app.style.display = 'flex';
+                    app.style.opacity = '1';
+                    renderHero();
+                    loadChannels();
+                    if (session) {
+                        showWelcomeToast(session.name || session.username, session.role);
+                    }
+                    if (session && session.role === 'admin') {
+                        document.getElementById('channels-container').style.display = 'none';
+                    }
+                }, 1000);
+            }, 1500);
+        }
+
+        // ═══ SPLASH ═══
+        window.addEventListener('DOMContentLoaded', () => {
+            checkSelarRedirect();
+            if (location.protocol === 'file:') {
+                console.warn('⚠ Opened as file:// — some HTTP streams may be blocked. Serve via a local web server (e.g. "npx serve ." or Python http.server) for best results.');
+            }
+            const session = localStorage.getItem('heis5_session');
+            if (session) {
+                goToApp();
+            } else {
+                setTimeout(() => {
+                    const splash = document.getElementById('splash-screen');
+                    splash.style.opacity = '0';
+                    setTimeout(() => {
+                        splash.style.display = 'none';
+                        document.getElementById('auth-overlay').style.display = 'flex';
+                    }, 1000);
+                }, 2500);
+            }
+        });
+
+        // Catch unhandled promise rejections (e.g., CDN errors)
+        window.addEventListener('unhandledrejection', (e) => {
+            console.warn('Unhandled rejection:', e.reason?.message || e.reason);
+            e.preventDefault();
+        });
+
+        // ═══ CHANNELS ═══
+        async function loadChannels() {
+            try {
+                // Try RTDB first (live data from Revontech TV app)
+                const rtdb = await fetch('https://tweve-stream-default-rtdb.firebaseio.com/channels.json');
+                if (rtdb.ok) {
+                    const obj = await rtdb.json();
+                    channels = Object.values(obj)
+                        .filter(c => c.isActive !== false)
+                        .filter(c => {
+                            const cat = (c.category || '').toLowerCase().trim();
+                            const name = (c.name || '').toLowerCase().trim();
+                            return cat !== 'porn/wakubwa tu' && cat !== 'porn' && name !== 'arise and shine';
+                        })
+                        .filter(c => c.streamUrl && c.streamUrl.trim())
+                        .filter(c => c.linkType === 'HLS') // Only HLS — DRM (DASH) channels don't work
+                        .map(c => {
+                            let cat = (c.category || 'General').trim();
+                            if (cat === 'Sport') cat = 'Sports';
+                            if (cat === 'Habari') cat = 'News';
+                            if (cat === 'Movie') cat = 'Movies';
+                            if (cat === 'Cartoon') cat = 'Kids';
+                            if (cat === 'Wild') cat = 'Entertainment';
+                            const name = c.name?.trim() || 'Unknown';
+                            const origUrl = c.streamUrl.replace(/^\.\s*/, '').trim();
+                            const URL_REPLACEMENTS = {
+                                'aljazeera':'https://live-hls-web-aje-fa.getaj.net/AJE/index.m3u8',
+                                'abc news':'https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master_4000.m3u8',
+                                'russia today (global)':'https://rt-india.rttv.com/dvr/rtindia/playlist.m3u8',
+                                'sky news':'https://skynewsau-live.akamaized.net/hls/live/2002689/skynewsau-extra1/master.m3u8',
+                                'bbc news':'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8',
+                                 
+                                  'history channel':'https://n18syndication.akamaized.net/bpk-tv/History_HD_NW18_MOB/output01/History_HD_NW18_MOB.m3u8',
+                                  'national geographic':'http://84.17.50.102/nationalgeographic/tracks-v1a1/mono.ts.m3u8',
+                                   'national geographic wild':'http://84.17.50.102/natgeowild/tracks-v1a1/mono.ts.m3u8',
+                                'cnn':'https://turnerlive.warnermediacdn.com/hls/live/586495/cnngo/cnn_slate/VIDEO_0_3564000.m3u8',
+                                 'tbc 1':'https://134630.global.ssl.fastly.net/5fe35eae8c53540cab83659a/live_36e8f510dfee11ec9dc2d5b207a2c04f/index.m3u8',
+                                  'tbc 2':'https://134630.global.ssl.fastly.net/5fe35eae8c53540cab83659a/live_36e8f510dfee11ec9dc2d5b207a2c04f/index.m3u8',
+                                 'trace urban':'https://lightning-traceurban-samsungau.amagi.tv/playlist.m3u8',
+                                   'dodoma':'https://goliveafrica.media:9998/live/625965017ed69/index.m3u8',
+                                   'dodoma tv':'https://goliveafrica.media:9998/live/625965017ed69/index.m3u8',
+                                   'dodoma tv tanzania':'https://goliveafrica.media:9998/live/625965017ed69/index.m3u8',
+                                     'dodomatv':'https://goliveafrica.media:9998/live/625965017ed69/index.m3u8',
+                                      'espn':'https://content.uplynk.com/channel/d0695f6fa2f143eb95c7a41d96d581c4.m3u8',
+                                      'espn 2':'http://stream2.grandma.fit/espn2.m3u8',
+                              };
+                               const CAT_OVERRIDES = {
+                                 'tbc 1': 'Local',
+                                 'tbc 2': 'Local',
+                                   'dodoma': 'Local',
+                                   'dodoma tv': 'Local',
+                                   'dodoma tv tanzania': 'Local',
+                                   'dodomatv': 'Local',
+
+                                'bbc news': 'News',
+                             'wild': 'Documentary',
+                               'history': 'Documentary',
+                               'history channel': 'Documentary',
+                                 'national geographic': 'Documentary',
+                                 'national geographic wild': 'Documentary',
+                                  'nat geo': 'Documentary',
+                                  'nat geo wild': 'Documentary',
+                                  'nat geo africa': 'Documentary',
+                                  'nat geo wild africa': 'Documentary',
+                                  'natgeo': 'Documentary',
+                                  'natgeo africa': 'Documentary',
+                                  'natgeo wild': 'Documentary',
+                                  'natgeo wild africa': 'Documentary',
+                              'wwe': 'Entertainment',
+                              'cbeebies': 'Kids',
+                              'baby tv': 'Kids',
+                              'cartoon network': 'Kids',
+                              'espn': 'Sports',
+                             };
+                            const nameLower = name.toLowerCase();
+                            return {
+                                name: name,
+                                category: CAT_OVERRIDES[nameLower] || cat,
+                                stream_url: URL_REPLACEMENTS[nameLower] || origUrl,
+                                logo: c.iconUrl || '📺',
+                                 color: '#00d4ff'
+                             };
+                          }).filter(ch => {
+                                    const REMOVED = {'abood tv':1,'trace africa':1,'chamuka tv':1,'sony max':1,'sony pix':1,'tanzania safari':1,'wild':1,'history':1,'cbeebies':1,'espn':1,'espn 2':1,'national geographic':1,'national geographic wild':1,'nat geo':1,'nat geo wild':1,'nat geo africa':1,'nat geo wild africa':1,'natgeo':1,'natgeo africa':1,'natgeo wild':1,'natgeo wild africa':1,'khl tv':1,'khl tv hd':1,'nickelodeon':1,'toonami':1,'draftkings network':1,'30a golf kingdom':1,'kartoon channel':1,'baby shark tv':1,'happykids':1,'love nature':1,'wildearth':1,'autentic history':1,'humor mill':1,'2x2':1,'6ter':1,'тнт':1,'тнт4':1,'тв-3':1,'смотрим':1,'пятница':1,'江苏综艺':1,'宁夏卫视':1,'ланет.tv':1,'беларусь 2':1,'zuglo tv':1,'zoytv plus':1,'zoy tv turcas':1,'zee yuva':1,'zee tv uk hd':1,'zee tv hd':1,'zee telugu hd':1,'zee sarthak':1,'zee marathi hd':1,'zee marathi':1,'zee horror nights':1,'zee dil se':1,'zee alwan':1};
+                              return !REMOVED[ch.name.toLowerCase()];
+                           });
+                       if (channels.length > 0) {
+                        // Merge in extra working HLS channels from iptv-org
+                        const extra = [
+                            // ─── Wurl (confirmed working) ───
+{name:'FIFA+',category:'Sports',stream_url:'https://a62dad94.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0ZJRkFQbHVzRW5nbGlzaF9ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
+                             {name:'FIFA+ Women',category:'Sports',stream_url:'https://cffda8ff.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/U2Ftc3VuZy1nYl9GSUZBUGx1c3dvbWVuX0hMUw/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
+                             {name:'Red Bull TV',category:'Sports',stream_url:'https://3ea22335.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWdiX1JlZEJ1bGxUVl9ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Logo_of_Red_bull.svg/480px-Logo_of_Red_bull.svg.png'},
+                             {name:'GLORY Kickboxing',category:'Sports',stream_url:'https://6f972d29.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0dsb3J5S2lja2JveGluZ19ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/en/thumb/0/0c/Glory_Logo.jpg/480px-Glory_Logo.jpg.png'},
+                            // ─── Akamai (confirmed working) ───
+                             {name:'Rally TV',category:'Sports',stream_url:'https://rally-tv-live.akamaized.net/hls/live/2117704/RallyTV-Pri/master.m3u8',logo:'https://i.postimg.cc/WtLq2C7c/logo-Rally-Tv1.png'},
+                             // ─── Alkass (confirmed working) ───
+                             {name:'Alkass One',category:'Sports',stream_url:'https://liveeu-gcp.alkassdigital.net/alkass1-p/main.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/93/%D8%B4%D8%B9%D8%A7%D8%B1_%D9%82%D9%86%D9%88%D8%A7%D8%AA_%D8%A7%D9%84%D9%83%D8%A7%D8%B3.jpg'},
+                             {name:'Alkass Three',category:'Sports',stream_url:'https://liveeu-gcp.alkassdigital.net/alkass3-p/main.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/93/%D8%B4%D8%B9%D8%A7%D8%B1_%D9%82%D9%86%D9%88%D8%A7%D8%AA_%D8%A7%D9%84%D9%83%D8%A7%D8%B3.jpg'},
+                             {name:'Alkass Four',category:'Sports',stream_url:'https://liveeu-gcp.alkassdigital.net/alkass4-p/main.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/93/%D8%B4%D8%B9%D8%A7%D8%B1_%D9%82%D9%86%D9%88%D8%A7%D8%AA_%D8%A7%D9%84%D9%83%D8%A7%D8%B3.jpg'},
+                             {name:'Alkass SHOOF',category:'Sports',stream_url:'https://liveeu-gcp.alkassdigital.net/alkass6-p/main.m3u8',logo:'https://shoof.alkass.net/assets/images/shoof.png'},
+                             // ─── Azam (DASH via Netlify proxy) ───
+                             {name:'Azam Sport 2',category:'Azam',stream_url:'https://cdnedgch2.azamtvltd.co.tz/tok_eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIxNzgwODA4NzAwIiwic2lwIjoiIiwicGF0aCI6IiIsInNlc3Npb25fY2RuX2lkIjoiY2YzZjQxMWM0M2RiMzQ0NyIsInNlc3Npb25faWQiOiIiLCJjbGllbnRfaWQiOiI0NzUyMzUwIiwiZGV2aWNlX2lkIjoiIiwibWF4X3Nlc3Npb25zIjowLCJzZXNzaW9uX2R1cmF0aW9uIjowLCJ1cmwiOiJodHRwczovLzEwMi4yMDguMjQ0LjkiLCJzZXNzaW9uX3RpbWVvdXQiOjAsImF1ZCI6IjciLCJzb3VyY2VzIjpbM119.wV7cpWZuC2LGJNpBXCxw3nwG3QeKqDQxsXQAwSvzvq0YrSkd9sxSVYYj_MTPcYaSK2sx_18GqG2g8rNNlQC-gw==/live/eds/AzamSport2/DASH/AzamSport2.mpd',logo:'https://upload.wikimedia.org/wikipedia/commons/1/1a/AZAM_TV_LOGO.png'},
+                            // ─── Other (confirmed working) ───
+                            
+                            
+                             
+                              
+                              {name:'Horse TV',category:'Sports',stream_url:'https://a-cdn.klowdtv.com/live2/horsetv_720p/playlist.m3u8',logo:'https://squirrelmedia.es/img/ico/logo_horse.svg'},
+                            {name:'Nautical Channel',category:'Sports',stream_url:'https://a-cdn.klowdtv.com/live2/nautical_720p/playlist.m3u8',logo:'https://static.wikia.nocookie.net/logopedia/images/e/e2/Nautical_Channel_%282020%29.svg'},
+                            // ─── Added back (may 403 — user requested) ───
+                            {name:'FIFA+ English',category:'Sports',stream_url:'https://a62dad94.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0ZJRkFQbHVzRW5nbGlzaF9ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
+                            {name:'FIFA+ Spanish',category:'Sports',stream_url:'https://6c849fb3.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/TEctbXhfRklGQVBsdXNTcGFuaXNoLTFfSExT/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
+                            {name:'FIFA+ USA',category:'Sports',stream_url:'https://d2w9q46ikgrcwx.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-of5cbk3sav3w5/v1/sysdata_s_p_a_fifa_7/samsungheadend_us/latest/main/hls/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
+                             {name:'PGA Tour',category:'Sports',stream_url:'https://d11k1mnrgfposz.cloudfront.net/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/en/7/77/PGA_Tour_logo.svg'},
+                            {name:'Sportitalia',category:'Sports',stream_url:'https://edge-001.streamup.eu/sportitalia/sihd_abr/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/c/cd/Sportitalia_2019_Logo.png'},
+                            {name:'Stadium',category:'Sports',stream_url:'https://wurl120sports.global.transmit.live/hls/679a907dce42a042c23ace37/v1/stadium_gracenote/samsung_us/latest/main/hls/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/en/5/53/Stadium_%28sports_network%29_logo.svg'},
+                            {name:'NBC Sports NOW',category:'Sports',stream_url:'https://d4whmvwm0rdvi.cloudfront.net/10007/99993008/hls/master.m3u8?ads.xumo_channelId=99993008',logo:'https://upload.wikimedia.org/wikipedia/commons/b/ba/NBC_Sports_logo_2012.png'},
+                            {name:'ACCDN',category:'Sports',stream_url:'https://raycom-accdn-firetv.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/7/76/ACC_Network_logo_1c_white.svg'},
+                            {name:'FloHockey 24/7',category:'Sports',stream_url:'https://amg02278-amg02278c2-flosports-worldwide-9916.playouts.now.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/3/30/FloSports_logo.png'},
+                            {name:'FloRacing 24/7',category:'Sports',stream_url:'https://amg02278-amg02278c1-flosports-worldwide-7592.playouts.now.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/3/30/FloSports_logo.png'},
+                            {name:'Gol Classics',category:'Sports',stream_url:'https://d71gqtnep83vb.cloudfront.net/gol_classics/gol_classics.m3u8',logo:'https://statics.goltelevision.com/shared/assets/logos/logo.png'},
+                            {name:'World of Freesports',category:'Sports',stream_url:'https://mainstreammedia-worldoffreesportsintl-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-mainstreammediafreesportsintl-rakuten/CDN/master.m3u8',logo:'https://yt3.googleusercontent.com/jnQbXmscLD6pGz2qhTV7GsU26OLeDXAIzkFfCj4ND7xW-jDV4Y8biRwBNnuF38o_0YBbGT5Y4Q=s900-c-k-c0x00ffffff-no-rj'},
+                            {name:'Unbeaten Sports',category:'Sports',stream_url:'https://d1t5afz6qed3xk.cloudfront.net/Unbeaten.m3u8',logo:'https://i.imgur.com/LmkNt3v.png'},
+
+                             {name:'beIN SPORTS XTRA',category:'Sports',stream_url:'https://bein-xtra-bein.amagi.tv/playlist.m3u8',logo:'https://i.ibb.co/HT49GPmB/XTRA-2.png'},
+
+                               {name:'Bleav Football',category:'Sports',stream_url:'https://linear-493.frequency.stream/dist/glewedtv/493/hls/master/playlist.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 1311.6 340%27%3E%3Cpath fill=%27white%27 d=%27M112.7 192H95.6v36.6h17.9c12.9 0 24-6.3 24-17.9-.1-11.1-8.8-18.7-24.8-18.7z%27/%3E%3Cpath fill=%27white%27 d=%27M213.8 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.6 1.4.8 1.6 255.7 94.8 39 99.2-39.5-1.8-254.8.9-2.4zM113.5 266.5H52.9V79.6H109c37.4 0 68.2 19.2 68.2 55 0 15.3-6.3 26.3-17.6 35.8 15 9.7 22.9 23.4 22.9 40.3-.1 36.1-31.7 55.8-69 55.8z%27/%3E%3Cpath fill=%27white%27 d=%27M132.2 134.6c0-11.3-10.3-17.1-23.2-17.1H95.6v36.6H109c16 0 23.2-8.2 23.2-19.5zM484.4 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.7 1.4.8 1.6 255.7 94.8 39 99.2-39.5-1.8-254.8.9-2.4zm-46.3 254.5H332.3V79.6H375v146.7h63.2v40.2zM754.9 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.6 1.4.8 1.6 255.7 94.8 39L754 290l-1.8-254.8.9-2.4zm-46.2 107.9h-63.2v29h57.9v40.3h-57.9v37.1h63.2v40.3H602.9v-187h105.8zm200.4 87.4h32.1l-16.1-35.8-16 35.8z%27/%3E%3Cpath fill=%27white%27 d=%27M1025.5 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.7 1.4.8 1.6 255.7 94.8 39 99.2-39.5-1.8-254.8.9-2.4zm-57.4 254.5l-9.7-21.3H892l-9.7 21.3h-42.7l85.6-189.6h2.4l85.6 189.6zm326.1-233.7L1296 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.7 1.4.8 1.6 255.7 94.8 39 99.2-39.5-1.8-254.8zm-96.1 236.3h-2.4l-85.6-189.6h45l42.9 95 42.9-95h42.7z%27/%3E%3C/svg%3E'},
+                              {name:'TyC Sports (Argentina)',category:'Sports',stream_url:'https://amg26268-amg26268c14-freelivesports-emea-10267.playouts.now.amagi.tv/ts-us-e2-n2/playlist/amg26268-sportsstudio-tycsports-freelivesportsemea/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5c/TyC_Sports_logo_2018.png'},
+
+                               // ─── News ───
+                              {name:'Fox News',category:'News',stream_url:'https://fox-foxnewsnow-vizio.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Fox_News_Channel_logo.svg/480px-Fox_News_Channel_logo.svg.png'},
+                              {name:'BBC News',category:'News',stream_url:'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/BBC_News_logo_%282022%29.svg/480px-BBC_News_logo_%282022%29.svg.png'},
+                              {name:'Sky News',category:'News',stream_url:'http://103.245.167.28/tot%20/31b003ab7e7749a798fe00424e3dd9ff%20.m3u8',logo:'https://files.catbox.moe/aacier.jpg'},
+                               {name:'Aljazeera',category:'News',stream_url:'http://royalibox.com/live/vk1355wmmq/7eqqmnovrx/279310.m3u8',logo:'https://i.ibb.co/5XybZJXS/71841.jpg'},
+                               {name:'DW News',category:'News',stream_url:'https://dw-hls.dw.com/dw_hls/hd/stream_origin/manifest/master_m3u8.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Deutsche_Welle_symbol_2012.svg/480px-Deutsche_Welle_symbol_2012.svg.png'},
+                               // ─── Documentary ───
+                                {name:'Autentic History',category:'Documentary',stream_url:'https://9e754fa707344ccca6d84955c8fcaf36.mediatailor.us-east-1.amazonaws.com/v1/master/44f73ba4d03e9607dcd9bebdcb8494d86964f1d8/RlaxxTV-eu_AutenticHistory/playlist.m3u8',logo:'https://d3b6luslimvglo.cloudfront.net/images/79/rlaxximages/channels-rescaled/icon-white/autentichistory_white.png'},
+                              {name:'Love Nature',category:'Documentary',stream_url:'https://pb-ehs1glsha1juy.akamaized.net/Love_Nature_4K.m3u8',logo:'https://i.imgur.com/4OrOJRx.png'},
+                                {name:'WildEarth',category:'Documentary',stream_url:'https://dqga3jatxofgx.cloudfront.net/WildEarth.m3u8',logo:'https://i.imgur.com/Vhv5gjN.png'},
+                                  {name:'History Channel',category:'Documentary',stream_url:'https://n18syndication.akamaized.net/bpk-tv/History_HD_NW18_MOB/output01/History_HD_NW18_MOB.m3u8',logo:'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/history-channel-us.png'},
+                             // ─── MBC (edgenextcdn) ───
+                               {name:'MBC 1',category:'Entertainment',stream_url:'https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-1/15cf99af5de54063fdabfefe66adc075/index.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/c/c0/MBC_1_Logo.svg'},
+                               {name:'MBC 3',category:'Entertainment',stream_url:'https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-3-usa/5d58265a862a476dc7f97694addb5ded/index.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/b/b0/MBC_3_Logo.svg'},
+                                {name:'MBC 4',category:'Entertainment',stream_url:'https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-4/24f134f1cd63db9346439e96b86ca6ed/index.m3u8',logo:'https://upload.wikimedia.org/wikipedia/en/d/d4/MBC_4_Logo.svg'},
+                              // ─── Religion ───
+                               {name:'IBN TV Tanzania',category:'Religion',stream_url:'http://138.68.138.119:8080/live/5a8993709ea19/index.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/3/32/IBN_TV_LOGO.png'},
+
+                               {name:'Fail Army',category:'Entertainment',stream_url:'https://bd93cfed.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0ZhaWxBcm15X0hMUw/playlist.m3u8',logo:'https://i.imgur.com/VIpQJxL.png'},
+                             // ─── Other (confirmed working) ───
+                             {name:'Buzzr',category:'Entertainment',stream_url:'https://buzzrota-ono.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/Buzzr_logo.svg/960px-Buzzr_logo.svg.png'},
+                             {name:'People Are Awesome',category:'Entertainment',stream_url:'https://3ab76e42.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X1Blb3BsZUFyZUF3ZXNvbWVfSExT/playlist.m3u8',logo:'https://i.imgur.com/MsIx7Ax.png'},
+                            // ─── Kids (verified working) ───
+                            {name:'Baby Shark TV',category:'Kids',stream_url:'https://c0c65b821b3542c3a4dca92702f59944.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_BabySharkTV/playlist.m3u8',logo:'https://i.imgur.com/SbBKr8L.png'},
+                            {name:'HappyKids',category:'Kids',stream_url:'https://dil9xdvretp0f.cloudfront.net/index.m3u8',logo:'https://i.imgur.com/cPrUCFw.png'},
+                            {name:'Kartoon Channel',category:'Kids',stream_url:'https://lightning-fnf-samsungaus.amagi.tv/playlist.m3u8',logo:'https://i.imgur.com/1luzP3T.png'},
+                             {name:'PBS Kids',category:'Kids',stream_url:'https://livestream.pbskids.org/out/v1/14507d931bbe48a69287e4850e53443c/est.m3u8',logo:'https://i.imgur.com/q4cUQKW.png'},
+                             // ─── Movies (confirmed working HLS) ───
+                             {name:'MovieSphere',category:'Movies',stream_url:'https://amg00353-lionsgatestudio-moviesphere-xumo-zh5u0.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/4/47/Lionsgate_logo.svg'},
+                             {name:'24 Hour Free Movies',category:'Movies',stream_url:'https://d15690s323oesy.cloudfront.net/v1/master/9d062541f2ff39b5c0f48b743c6411d25f62fc25/UDUDigital-Production/145.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2720%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3E24HR MOVIES%3C/text%3E%3C/svg%3E'},
+                             {name:'Universal Action',category:'Movies',stream_url:'https://xumo-xumoent-ch828-w6val.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5b/Universal_Pictures_logo.svg'},
+                             {name:'Universal Crime',category:'Movies',stream_url:'https://xumo-xumoent-vc-107-xmuvk.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5b/Universal_Pictures_logo.svg'},
+                             {name:'Universal Monsters',category:'Movies',stream_url:'https://xumo-xumoent-ch824-d4q5c.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5b/Universal_Pictures_logo.svg'},
+                             {name:'Universal Westerns',category:'Movies',stream_url:'https://xumo-xumoent-ch834-iwtka.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5b/Universal_Pictures_logo.svg'},
+                             {name:'Alfred Hitchcock Presents',category:'Movies',stream_url:'https://xumo-xumoent-ch825-ku23q.fast.nbcuni.com/live/master.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2738%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2718%27 font-weight=%27bold%27 fill=%27white%27%3EHITCHCOCK%3C/text%3E%3Ctext x=%27100%27 y=%2762%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2714%27 fill=%27%23b0a5c8%27%3ESuspense%3C/text%3E%3C/svg%3E'},
+                             {name:'Scares by Shudder',category:'Movies',stream_url:'https://amc-scaresbyshudder-1-us.xumo.wurl.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/51/Shudder_2017.svg'},
+                             {name:'Hi-YAH!',category:'Movies',stream_url:'https://linear-59.frequency.stream/dist/xumo/59/hls/master/playlist.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23c0392b%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2726%27 font-weight=%27bold%27 fill=%27white%27%3EHI-YAH!%3C/text%3E%3C/svg%3E'},
+                             {name:'Dove Channel',category:'Movies',stream_url:'https://linear-896.frequency.stream/dist/xumo/896/hls/master/playlist.m3u8',logo:'https://raw.githubusercontent.com/Fourqui/tv/master/countries/united-states/dove-channel-us.png'},
+                              {name:'NBC Comedy Vault',category:'Movies',stream_url:'https://xumo-xumoent-vc-105-z0vpm.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/NBC_logo.svg/480px-NBC_logo.svg.png'},
+                                 {name:'Gravitas Movies',category:'Movies',stream_url:'https://d6dg3ebeih71x.cloudfront.net/Gravitas_Movies.m3u8',logo:'https://i.imgur.com/H2hD4vT.png'},
+                               {name:'FilmRise Anime',category:'Movies',stream_url:'https://dvu7aia8rjlfm.cloudfront.net/master.m3u8',logo:'https://i.imgur.com/3wqeGXM.png'},
+                               {name:'FilmRise Westerns',category:'Movies',stream_url:'https://dz05z8iljgvbe.cloudfront.net/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/4/46/Filmrise.svg'},
+                               {name:'The Film Detective',category:'Movies',stream_url:'https://cinedigm-entertainment-corp-thefilmdetective-1-us.ono.wurl.tv/playlist.m3u8',logo:'https://i.imgur.com/yfOwmsP.png'},
+                                {name:'Filmzie',category:'Movies',stream_url:'https://filmzie-filmzie-1-eu.rakuten.wurl.tv/playlist.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2720%27 font-weight=%27bold%27 fill=%27%23e74c3c%27%3EFILMZIE%3C/text%3E%3C/svg%3E'},
+                                {name:'CineLife',category:'Movies',stream_url:'https://magnolia-cinelife.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Magnolia_Pictures_logo.svg/480px-Magnolia_Pictures_logo.svg.png'},
+                                {name:'Great! Movies',category:'Movies',stream_url:'https://jmp2.uk/stvp-GBBC900007Q5',logo:'https://static.wikia.nocookie.net/logopedia/images/b/bf/Great%21_Movies_Logo.svg'},
+                                {name:'Action Hollywood Movies',category:'Movies',stream_url:'https://amg01076-lightningintern-actionhollywood-samsungau-rs69y.amagi.tv/playlist/amg01076-lightningintern-actionhollywood-samsungau/playlist.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2736%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2716%27 font-weight=%27bold%27 fill=%27%23e74c3c%27%3EACTION%3C/text%3E%3Ctext x=%27100%27 y=%2762%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2714%27 fill=%27white%27%3EHOLLYWOOD%3C/text%3E%3C/svg%3E'},
+                                {name:'Movies4Free',category:'Movies',stream_url:'https://movies4free-lg.amagi.tv/playlist.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2736%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2716%27 font-weight=%27bold%27 fill=%27%232ecc71%27%3EMOVIES%3C/text%3E%3Ctext x=%27100%27 y=%2762%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2714%27 fill=%27white%27%3E4FREE%3C/text%3E%3C/svg%3E'},
+                                {name:'Icon Film Channel',category:'Movies',stream_url:'https://jmp2.uk/stvp-GB12000052F',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2736%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2720%27 font-weight=%27bold%27 fill=%27%23f39c12%27%3EICON%3C/text%3E%3Ctext x=%27100%27 y=%2760%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2714%27 fill=%27white%27%3EFILMS%3C/text%3E%3C/svg%3E'},
+                                {name:'Action Movie Channel',category:'Movies',stream_url:'https://jmp2.uk/stvp-ESBC40000248',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2720%27 font-weight=%27bold%27 fill=%27%23e74c3c%27%3EACTION%3C/text%3E%3C/svg%3E'},
+                                {name:'Great! Romance',category:'Movies',stream_url:'https://jmp2.uk/stvp-GBBC900008L9',logo:'https://upload.wikimedia.org/wikipedia/en/c/c3/Great%21_Romance_logo_2023.svg'},
+                                {name:'Horror by ALTER',category:'Movies',stream_url:'https://jmp2.uk/stvp-USBC100001175',logo:'https://static.wikia.nocookie.net/youtube/images/d/de/ALTER_logo.png'},
+                                {name:'NEW K-MOVIES',category:'Movies',stream_url:'https://jmp2.uk/stvp-GB1700007PK',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2736%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2714%27 font-weight=%27bold%27 fill=%27%23e74c3c%27%3ENEW K-%3C/text%3E%3Ctext x=%27100%27 y=%2760%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2720%27 font-weight=%27bold%27 fill=%27white%27%3EMOVIES%3C/text%3E%3C/svg%3E'},
+                                 {name:'Sparkle Movies',category:'Movies',stream_url:'https://jmp2.uk/stvp-GBAJ400042T1',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2736%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2716%27 font-weight=%27bold%27 fill=%27%23f1c40f%27%3ESPARKLE%3C/text%3E%3Ctext x=%27100%27 y=%2760%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2714%27 fill=%27white%27%3EMOVIES%3C/text%3E%3C/svg%3E'},
+                              // ─── Revontech TV channels (extracted manually from Firestore) ───
+                              {name:'Abc News',category:'News',stream_url:'http://abclive.abcnews.com/i/abc_live4@136330/index_1200_av-b.m3u8',logo:'https://files.catbox.moe/qwe7tx.jpg'},
+                               {name:'CNN',category:'News',stream_url:'http://d1hya96e2cm7qi.cloudfront.net/Live/_definst_/sweetbcha1novD177_W_150.sdp/media_7419.m3u8',logo:'https://i.ibb.co/Xxr4f55y/71984.jpg'},
+                                {name:'Tbc 1',category:'FREE CHANNELS',stream_url:'https://134630.global.ssl.fastly.net/5fe35eae8c53540cab83659a/live_36e8f510dfee11ec9dc2d5b207a2c04f/index.m3u8',logo:'https://i.imgur.com/OmiVZ1u.png'},
+                               {name:'VIKI RAKUTEN TV',category:'Movies',stream_url:'https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8',logo:'https://i.ibb.co/0yJc4jpc/351873.png'},
+                               {name:'WWE',category:'Sports',stream_url:'https://dpv6ceilvhyrw.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-7ufe851j0vqbg/playlist.m3u8',logo:'https://i.ibb.co/bgYXXKPH/71844.jpg'},
+                               {name:'Cartoon network',category:'Kids',stream_url:'https://cdn4.skygo.mn/live/disk1/Cartoon_Network/HLSv3-FTA/Cartoon_Network.m3u8',logo:'https://i.ibb.co/HphLxnZg/71985.jpg'},
+                               {name:'Russia Today (GLOBAL)',category:'News',stream_url:'http://sat1liveios-i.akamaihd.net/hls/live/205904/ios/rtlive/master002.m3u8',logo:'https://files.catbox.moe/xdk25m.jpg'},
+                                {name:'Tbc 2',category:'FREE CHANNELS',stream_url:'https://134630.global.ssl.fastly.net/5fe35eae8c53540cab83659a/live_36e8f510dfee11ec9dc2d5b207a2c04f/index.m3u8',logo:'https://i.imgur.com/VkUJt2q.png'},
+                               {name:'PERRY DRAMA',category:'Movies',stream_url:'https://doumbtmvnsp0z.cloudfront.net/playlist.m3u8',logo:'https://i.ibb.co/B2Vr9wGY/352771.png'},
+                                ];
+                        extra.forEach(e => {
+                            e.color = '#00d4ff';
+                            // Avoid duplicates by name
+                            if (!channels.some(c => c.name.toLowerCase().trim() === e.name.toLowerCase().trim())) {
+                                channels.push(e);
+                            }
+                         });
+                         // Override logos for all channels (working URLs only)
+                          const LOGO_OVERRIDES = {
+                              'tbc 1': 'https://i.imgur.com/OmiVZ1u.png',
+                              'tbc 2': 'https://i.imgur.com/VkUJt2q.png',
+                              'cnn': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png',
+                              'abc news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-news-us.png',
+                              'cartoon network': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cartoon-network-int.png',
+                              'wwe': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/wwe-us.png',
+                              'trace urban': 'https://i.imgur.com/DLIbUMx.png',
+                              'wasafi': 'https://i.imgur.com/1TghlCJ.png',
+                              'crown tv': 'https://i.imgur.com/UW7QN4V.png',
+                              'russia today (global)': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/russia-today-int.png',
+                               'hbo': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hbo-us.png',
+                              'bbc news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-news-uk.png',
+                              'sky news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-news-uk.png',
+                              'aljazeera': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/aljazeera-uk.png',
+                              'ibn tv tanzania': 'https://upload.wikimedia.org/wikipedia/commons/3/32/IBN_TV_LOGO.png',
+                              'tyc sports (argentina)': 'https://upload.wikimedia.org/wikipedia/commons/5/5c/TyC_Sports_logo_2018.png',
+                              'mbc 1': 'https://upload.wikimedia.org/wikipedia/commons/c/c0/MBC_1_Logo.svg',
+                              'mbc 3': 'https://upload.wikimedia.org/wikipedia/commons/b/b0/MBC_3_Logo.svg',
+                              'mbc 4': 'https://upload.wikimedia.org/wikipedia/en/d/d4/MBC_4_Logo.svg',
+                              'mbc iraq': 'https://upload.wikimedia.org/wikipedia/commons/9/99/MBC_Iraq.svg',
+                             'mbc masr': 'https://upload.wikimedia.org/wikipedia/commons/7/7c/MBC_Masr_Logo.png',
+                             'mbc masr 2': 'https://upload.wikimedia.org/wikipedia/commons/5/53/MBC_Masr_2_Logo.svg',
+                             'mbc masr drama': 'https://upload.wikimedia.org/wikipedia/commons/c/c1/MBC_Masr_Drama.jpg',
+                             'mbc persia': 'https://upload.wikimedia.org/wikipedia/en/2/26/MBC_Persia_Logo.svg',
+                             'red bull tv': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/red-bull-tv-int.png',
+                              'autentic history': 'https://d3b6luslimvglo.cloudfront.net/images/79/rlaxximages/channels-rescaled/icon-white/autentichistory_white.png',
+                             'glory kickboxing': 'https://upload.wikimedia.org/wikipedia/en/3/3a/Glory_Logo.jpg',
+
+                             'sportitalia': 'https://upload.wikimedia.org/wikipedia/commons/9/90/Sportitalia_2019_Logo.png',
+                             'fox news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-news-us.png',
+                             'toonami': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/toonami-us.png',
+                              'nickelodeon': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nickelodeon-us.png',
+                              // ─── HEIS5-branded logos (no real logo found) ───
+                              'bleav football': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EBleav%20Football%3C/text%3E%3C/svg%3E',
+                              '24 hour free movies': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3E24%20Hour%20Free%20Movies%3C/text%3E%3C/svg%3E',
+                              'alfred hitchcock presents': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EAlfred%20Hitchcock%20Presents%3C/text%3E%3C/svg%3E',
+                              'hi-yah!': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EHi-YAH%21%3C/text%3E%3C/svg%3E',
+                              'humor mill': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EHumor%20Mill%3C/text%3E%3C/svg%3E',
+                              'filmzie': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EFilmzie%3C/text%3E%3C/svg%3E',
+                              'action hollywood movies': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EAction%20Hollywood%20Movies%3C/text%3E%3C/svg%3E',
+                              'movies4free': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EMovies4Free%3C/text%3E%3C/svg%3E',
+                              'icon film channel': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EIcon%20Film%20Channel%3C/text%3E%3C/svg%3E',
+                              'action movie channel': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EAction%20Movie%20Channel%3C/text%3E%3C/svg%3E',
+                              'new k-movies': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENEW%20K-MOVIES%3C/text%3E%3C/svg%3E',
+                               'sparkle movies': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ESparkle%20Movies%3C/text%3E%3C/svg%3E',
+                               // ─── Broken Wikimedia/imgur logos (replaced with HEIS5) ───
+                               'universal action': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EUniversal%20Action%3C/text%3E%3C/svg%3E',
+                               'universal crime': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EUniversal%20Crime%3C/text%3E%3C/svg%3E',
+                               'universal monsters': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EUniversal%20Monsters%3C/text%3E%3C/svg%3E',
+                               'universal westerns': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EUniversal%20Westerns%3C/text%3E%3C/svg%3E',
+                               'world of freesports': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EFreesports%3C/text%3E%3C/svg%3E',
+                               'cinelife': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECineLife%3C/text%3E%3C/svg%3E',
+                               'nbc comedy vault': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENBC%20Comedy%20Vault%3C/text%3E%3C/svg%3E',
+                           };
+                         channels.forEach(ch => {
+                             const lower = ch.name.toLowerCase();
+                             if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
+                         });
+                           renderChannels(); renderCategoryFilter(); loadIPTV(); return;
+                    }
+                }
+            } catch (e) {
+                console.warn('RTDB failed, falling back to Supabase:', e.message);
+            }
+
+            // Fallback: Supabase
+            try {
+                const res = await sbFetch('/rest/v1/channels?select=*&order=id.asc');
+                if (!res.ok) {
+                    const text = await res.text().catch(() => '');
+                    throw new Error('HTTP ' + res.status + ' — ' + text.slice(0, 100));
+                }
+                channels = await res.json();
+                const REMOVED2 = {'espn':1,'espn 2':1,'national geographic':1,'national geographic wild':1,'nat geo':1,'nat geo wild':1,'nat geo africa':1,'nat geo wild africa':1,'natgeo':1,'natgeo africa':1,'natgeo wild':1,'natgeo wild africa':1,'khl tv':1,'khl tv hd':1,'nickelodeon':1,'toonami':1,'draftkings network':1,'30a golf kingdom':1,'kartoon channel':1,'baby shark tv':1,'happykids':1,'love nature':1,'wildearth':1,'autentic history':1,'abood tv':1,'trace africa':1,'chamuka tv':1,'sony max':1,'sony pix':1,'tanzania safari':1,'wild':1,'history':1,'cbeebies':1,'humor mill':1,'2x2':1,'6ter':1,'тнт':1,'тнт4':1,'тв-3':1,'смотрим':1,'пятница':1,'江苏综艺':1,'宁夏卫视':1,'ланет.tv':1,'беларусь 2':1,'zuglo tv':1,'zoytv plus':1,'zoy tv turcas':1,'zee yuva':1,'zee tv uk hd':1,'zee tv hd':1,'zee telugu hd':1,'zee sarthak':1,'zee marathi hd':1,'zee marathi':1,'zee horror nights':1,'zee dil se':1,'zee alwan':1};
+                channels = channels.filter(ch => !REMOVED2[ch.name.toLowerCase().trim()]);
+                const LOGO_FIX = {'tbc 1':'https://i.imgur.com/OmiVZ1u.png','tbc 2':'https://i.imgur.com/VkUJt2q.png','cnn':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png','abc news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-news-us.png','cartoon network':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cartoon-network-int.png','wwe':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/wwe-us.png','trace urban':'https://i.imgur.com/DLIbUMx.png','wasafi':'https://i.imgur.com/1TghlCJ.png','crown tv':'https://i.imgur.com/UW7QN4V.png','russia today (global)':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/russia-today-int.png','hbo':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hbo-us.png','bbc news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-news-uk.png','sky news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-news-uk.png','aljazeera':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/aljazeera-uk.png','ibn tv tanzania':'https://upload.wikimedia.org/wikipedia/commons/3/32/IBN_TV_LOGO.png','tyc sports (argentina)':'https://upload.wikimedia.org/wikipedia/commons/5/5c/TyC_Sports_logo_2018.png','mbc 1':'https://upload.wikimedia.org/wikipedia/commons/c/c0/MBC_1_Logo.svg','mbc 3':'https://upload.wikimedia.org/wikipedia/commons/b/b0/MBC_3_Logo.svg','mbc 4':'https://upload.wikimedia.org/wikipedia/en/d/d4/MBC_4_Logo.svg'};
+                channels.forEach(ch => { const l = ch.name.toLowerCase().trim(); if (LOGO_FIX[l]) ch.logo = LOGO_FIX[l]; });
+                renderChannels(); renderCategoryFilter(); loadIPTV();
+            } catch (e) {
+                document.getElementById('channels-container').innerHTML =
+                    '<div class="empty-state"><i class="fa-solid fa-circle-exclamation"></i><p>Connection Error</p><p style="font-size:0.7rem;margin-top:6px;color:var(--muted);">' + e.message.replace(/</g, '&lt;') + '</p></div>';
+            }
+        }
+
+        function channelCard(c, idx) {
+            const escapedName = c.name.replace(/'/g, "\\'");
+            const escapedUrl = c.stream_url.replace(/'/g, "\\'");
+            const hasDrm = c.drm && c.drm.licenseUrl;
+            const drmJson = hasDrm ? JSON.stringify(c.drm).replace(/'/g, "\\'") : 'null';
+            let logoHtml;
+            if (c.logo && c.logo.match(/^(https?:\/\/|data:)/)) {
+                logoHtml = `<img src="${c.logo}" alt="" onerror="this.outerHTML='<div class=\\'placeholder\\'><i class=\\'fa-solid fa-tower-broadcast\\'></i></div>'">`;
+            } else if (c.logo && c.logo !== '📺') {
+                logoHtml = `<div class="placeholder">${c.logo}</div>`;
+            } else {
+                logoHtml = `<div class="placeholder"><i class="fa-solid fa-tower-broadcast"></i></div>`;
+            }
+            return `<div class="channel-card" style="transition-delay: ${idx * 0.04}s;" onclick="openVideoPlayer('${escapedName}', '${escapedUrl}', ${drmJson})">
+                <div class="channel-poster">
+                    ${logoHtml}
+                    <div class="live-badge"><span class="pulse-dot"></span>LIVE</div>
+                </div>
+                <h4>${c.name}</h4>
+            </div>`;
+        }
+
+        function parseM3U(m3u, category) {
+            const lines = m3u.split('\n');
+            const result = [];
+            let current = null;
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('#EXTINF:')) {
+                    current = { category };
+                    const logoMatch = trimmed.match(/tvg-logo="([^"]+)"/);
+                    if (logoMatch) current.logo = logoMatch[1];
+                    const nameMatch = trimmed.match(/,(.+)$/);
+                    if (nameMatch) current.name = nameMatch[1].trim();
+                } else if (trimmed && !trimmed.startsWith('#') && current) {
+                    current.stream_url = trimmed;
+                    if (current.name && current.stream_url) {
+                        result.push({ ...current });
+                    }
+                    current = null;
+                }
+            }
+            return result;
+        }
+        async function loadIPTV() {
+            const categories = [
+                { url: 'https://iptv-org.github.io/iptv/categories/sports.m3u', cat: 'Sports' },
+                { url: 'https://iptv-org.github.io/iptv/categories/kids.m3u', cat: 'Kids' },
+                { url: 'https://iptv-org.github.io/iptv/categories/movies.m3u', cat: 'Movies' },
+            ];
+            const IPTV_REMOVED = {'espn':1,'espn 2':1,'national geographic':1,'national geographic wild':1,'nat geo':1,'nat geo wild':1,'natgeo':1,'natgeo wild':1,'khl tv':1,'khl tv hd':1,'nickelodeon':1,'toonami':1,'draftkings network':1,'30a golf kingdom':1,'kartoon channel':1,'baby shark tv':1,'happykids':1,'love nature':1,'wildearth':1,'autentic history':1,'humor mill':1,'2x2':1,'6ter':1,'тнт':1,'тнт4':1,'тв-3':1,'смотрим':1,'пятница':1,'江苏综艺':1,'宁夏卫视':1,'ланет.tv':1,'беларусь 2':1,'zuglo tv':1,'zoytv plus':1,'zoy tv turcas':1,'zee yuva':1,'zee tv uk hd':1,'zee tv hd':1,'zee telugu hd':1,'zee sarthak':1,'zee marathi hd':1,'zee marathi':1,'zee horror nights':1,'zee dil se':1,'zee alwan':1};
+            for (const { url, cat } of categories) {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) continue;
+                    const text = await res.text();
+                    const parsed = parseM3U(text, cat);
+                    let added = 0;
+                    for (const ch of parsed) {
+                        if (!ch.stream_url || !ch.name) continue;
+                        const lowerName = ch.name.toLowerCase().trim();
+                        if (IPTV_REMOVED[lowerName]) continue;
+                        if (!channels.some(c => c.name.toLowerCase() === lowerName)) {
+                            channels.push({ name: ch.name, category: cat, stream_url: ch.stream_url, logo: ch.logo || '' });
+                            added++;
+                        }
+                    }
+                    if (added > 0) console.log(`[IPTV] +${added} ${cat}`);
+                } catch (e) {
+                    console.warn('[IPTV] Failed to load ' + cat + ':', e.message);
+                }
+            }
+            renderChannels(); renderCategoryFilter();
+        }
+
+        function renderCategoryFilter() {
+            const cats = {};
+            channels.forEach(c => { const cat = c.category || 'General'; cats[cat] = (cats[cat] || 0) + 1; });
+            const order = ['Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'FREE CHANNELS', 'Wild'];
+            const sorted = ['All', ...order.filter(c => cats[c]), ...Object.keys(cats).filter(c => !order.includes(c))];
+            const el = document.getElementById('category-filter');
+            el.innerHTML = sorted.map(c => `<button class="cat-filter-btn${c === activeCategory ? ' active' : ''}" data-cat="${c.replace(/"/g,'&quot;')}">${c}${c !== 'All' ? ` <span class="cat-count">${cats[c]||0}</span>` : ''}</button>`).join('');
+            el.querySelectorAll('.cat-filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => setCategory(btn.dataset.cat));
+            });
+        }
+        function setCategory(cat) {
+            activeCategory = cat;
+            renderChannels();
+            renderCategoryFilter();
+            document.querySelectorAll('.channel-card').forEach((el, i) => {
+                setTimeout(() => el.classList.add('visible'), i * 60);
+            });
+        }
+        function renderChannels() {
+            const container = document.getElementById('channels-container');
+            if (!channels || channels.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-tv"></i><p>No channels available</p><p style="font-size:0.7rem;color:var(--ember);margin-top:8px;">Check console (F12) for details</p></div>';
+                return;
+            }
+            // Group by category
+            const groups = {};
+            channels.forEach(c => {
+                const cat = c.category || 'General';
+                if (!groups[cat]) groups[cat] = [];
+                groups[cat].push(c);
+            });
+            const categoryOrder = ['Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'FREE CHANNELS', 'Wild'];
+            let html = '';
+            let cardIndex = 0;
+            if (activeCategory !== 'All') {
+                // Show only the selected category as a flat grid
+                const cat = activeCategory;
+                const chs = groups[cat] || [];
+                if (chs.length === 0) {
+                    html = '<div class="empty-state"><i class="fa-solid fa-folder-open"></i><p>No channels in this category</p></div>';
+                } else {
+                    html = `<div class="category-section">
+                        <div class="category-header">
+                            <h3><i class="fa-solid fa-layer-group" style="color:var(--accent);font-size:0.65rem;"></i> ${cat}</h3>
+                            <div class="cat-line"></div>
+                        </div>
+                        <div class="channels-grid">${chs.map(c => channelCard(c, cardIndex++)).join('')}</div>
+                    </div>`;
+                }
+            } else {
+                categoryOrder.forEach(cat => {
+                    if (!groups[cat]) return;
+                    const cards = groups[cat].map(c => channelCard(c, cardIndex++)).join('');
+                    html += `<div class="category-section">
+                        <div class="category-header">
+                            <h3><i class="fa-solid fa-layer-group" style="color:var(--accent);font-size:0.65rem;"></i> ${cat}</h3>
+                            <div class="cat-line"></div>
+                        </div>
+                        <div class="channels-grid">${cards}</div>
+                    </div>`;
+                });
+                // Any remaining categories not in the order list
+                Object.keys(groups).forEach(cat => {
+                    if (categoryOrder.includes(cat)) return;
+                    const cards = groups[cat].map(c => channelCard(c, cardIndex++)).join('');
+                    html += `<div class="category-section">
+                        <div class="category-header">
+                            <h3><i class="fa-solid fa-layer-group" style="color:var(--accent);font-size:0.65rem;"></i> ${cat}</h3>
+                            <div class="cat-line"></div>
+                        </div>
+                        <div class="channels-grid">${cards}</div>
+                    </div>`;
+                });
+            }
+            container.innerHTML = html;
+            // Stagger entrance
+            requestAnimationFrame(() => {
+                document.querySelectorAll('.channel-card').forEach((el, i) => {
+                    setTimeout(() => el.classList.add('visible'), i * 60);
+                });
+            });
+        }
+
+        // ═══ PLANS ═══
+        function showPlans() {
+            const plans = document.getElementById('plans-overlay');
+            plans.style.display = 'flex';
+            plans.offsetHeight;
+            plans.classList.add('show');
+        }
+        document.addEventListener('click', (e) => {
+            const plans = document.getElementById('plans-overlay');
+            if (plans.classList.contains('show') && e.target === plans) {
+                closePlans();
+            }
+        });
+        function closePlans() {
+            document.getElementById('plans-overlay').classList.remove('show');
+            document.getElementById('plans-overlay').style.display = 'none';
+        }
+        function selectPlan(plan) {
+            closePlans();
+            const urls = {
+                'weekly': 'https://selar.com/1771417788',
+                'monthly': 'https://selar.com/5170d01884'
+            };
+            if (urls[plan]) {
+                // Create a temporary link element and click it programmatically
+                const tempLink = document.createElement('a');
+                tempLink.href = urls[plan];
+                tempLink.target = '_blank';
+                tempLink.rel = 'noopener noreferrer'; // For security with target="_blank"
+                tempLink.style.display = 'none'; // Hide the link
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink); // Clean up the temporary link
+            }
+        }
+
+        // ═══ SUBSCRIPTION ═══
+        function hasActiveSubscription() {
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            if (!session) return false;
+            if (session.role === 'admin') return true;
+            const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
+            const userSub = subs[session.username];
+            if (!userSub) return false;
+            return new Date(userSub.end) > new Date();
+        }
+        function getSubscriptionInfo() {
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            if (!session) return null;
+            if (session.role === 'admin') return { plan: 'admin', remaining: '∞' };
+            const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
+            return subs[session.username] || null;
+        }
+        function getRemainingDays(sub) {
+            if (!sub) return 0;
+            const diff = new Date(sub.end) - new Date();
+            return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+        }
+        function checkSelarRedirect() {
+            const params = new URLSearchParams(window.location.search);
+            const subParam = params.get('sub');
+            if (subParam === 'weekly' || subParam === 'monthly') {
+                const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+                const days = subParam === 'weekly' ? 7 : 30;
+                if (session) {
+                    applySubscription(session.username, subParam, days);
+                } else {
+                    localStorage.setItem('heis5_pending_sub', JSON.stringify({ plan: subParam, days: days }));
+                }
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        }
+        function applySubscription(username, plan, days) {
+            const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
+            subs[username] = {
+                plan: plan,
+                start: new Date().toISOString(),
+                end: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+            };
+            localStorage.setItem('heis5_subscriptions', JSON.stringify(subs));
+        }
+        function checkPendingSubscription() {
+            const pending = localStorage.getItem('heis5_pending_sub');
+            if (!pending) return;
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            if (!session) return;
+            const sub = JSON.parse(pending);
+            applySubscription(session.username, sub.plan, sub.days);
+            localStorage.removeItem('heis5_pending_sub');
+            showToastMsg('Subscription Activated!', 'You now have ' + sub.days + ' days of premium access.', 'success');
+            renderHero();
+        }
+        function startFreeTrial() {
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            if (!session) return;
+            const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
+            if (subs[session.username]) {
+                showToastMsg('Already Used', 'You have already used your free trial.', 'error');
+                return;
+            }
+            subs[session.username] = {
+                plan: 'trial',
+                start: new Date().toISOString(),
+                end: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            };
+            localStorage.setItem('heis5_subscriptions', JSON.stringify(subs));
+            showToastMsg('Free Trial Started!', 'You have 24 hours to enjoy all channels.', 'success');
+            renderHero();
+        }
+        function showToastMsg(title, msg, type) {
+            const toast = document.getElementById('welcome-toast');
+            document.getElementById('toast-text').textContent = title;
+            document.getElementById('toast-sub').textContent = msg;
+            toast.classList.add('show');
+            toast.classList.remove('toast-success', 'toast-error'); // Remove previous type classes
+            if (type === 'success') { toast.classList.add('toast-success'); }
+            else if (type === 'error') { toast.classList.add('toast-error'); }
+            setTimeout(() => { toast.classList.remove('show'); }, 4000);
+        }
+
+        // ═══ TEST STREAM ═══
+        function testStream() {
+            if (!hasActiveSubscription()) {
+                showPlans();
+                return;
+            }
+            openVideoPlayer('Al Jazeera (Test)', 'https://live-hls-web-aje-fa.getaj.net/AJE/index.m3u8');
+        }
+
+        function openSignup() {
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            if (!session) {
+                document.getElementById('splash-screen').style.display = 'none';
+                document.getElementById('auth-overlay').style.display = 'flex';
+                switchAuthTab('signup');
+                return;
+            }
+            window.open('https://wa.me/255712345678?text=Habari%20HEIS5%20TV!%20Nataka%20kujiandikisha%20na%20kupata%20chaneli%20zote.%20Akaunti%3A%20' + encodeURIComponent(session.email), '_blank');
+        }
+
+        function openVideoPlayer(name, url, drm) {
+            if (!hasActiveSubscription()) {
+                showPlans();
+                return;
+            }
+            document.getElementById('modal-channel-name').textContent = name;
+            document.getElementById('now-playing-name').textContent = name;
+            document.getElementById('video-modal').classList.add('show');
+            document.getElementById('now-playing-bar').classList.add('show');
+            document.getElementById('buffering-spinner').style.display = 'flex';
+            document.getElementById('player-error').style.display = 'none';
+            document.getElementById('player-error').classList.remove('show');
+
+            document.getElementById('play-icon').className = 'fa-solid fa-pause';
+            document.getElementById('video-progress').value = '0';
+            document.getElementById('current-time').textContent = '0:00';
+            document.getElementById('total-time').textContent = '0:00';
+
+            document.body.style.overflow = 'hidden';
+
+            // Destroy previous player
+            if (hlsPlayer) { hlsPlayer.destroy(); hlsPlayer = null; }
+            if (shakaPlayer) { shakaPlayer.destroy(); shakaPlayer = null; }
+
+            const videoEl = document.getElementById('hls-video');
+            videoEl.style.display = 'block';
+            videoEl.removeAttribute('src');
+            videoEl.muted = true;
+
+            // Auto-wrap Azam URLs through Netlify proxy
+            if (url.includes('azamtvltd.co.tz') || url.includes('cdnblncr.azamtvltd.co.tz')) {
+                url = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(url);
+                console.log('[PROXY] Routed through Azam proxy:', url);
+            }
+
+            const isDash = url.includes('.mpd') || url.includes('azam-proxy');
+            console.log(`[PLAYER] ${isDash ? 'shaka-player (DASH)' : 'HLS.js'} | URL:`, url);
+
+            if (isDash) {
+                currentEngine = 'shaka';
+                shakaPlayer = new shaka.Player(videoEl);
+                shakaPlayer.configure({
+                    streaming: { rebufferingGoal: 15, bufferingGoal: 30 },
+                });
+                // Override headers for Azam CDN
+                const netEngine = shakaPlayer.getNetworkingEngine();
+                if (netEngine) {
+                    netEngine.registerRequestFilter((type, request) => {
+                        if (request.uris[0] && request.uris[0].includes('azamtvltd.co.tz')) {
+                            request.headers['Origin'] = 'https://web.azamtvmax.com';
+                            request.headers['Referer'] = 'https://web.azamtvmax.com/';
+                            request.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+                        }
+                    });
+                }
+                if (drm && drm.licenseUrl) {
+                    shakaPlayer.configure({
+                        drm: {
+                            servers: { 'com.widevine.alpha': drm.licenseUrl },
+                        },
+                    });
+                }
+                shakaPlayer.load(url).then(() => {
+                    clearTimeout(bufferingTimer);
+                    document.getElementById('buffering-spinner').style.display = 'none';
+                    videoEl.play().catch(() => {});
+                    document.title = '▶ ' + name;
+                }).catch((e) => {
+                    console.error('[SHAKA] Error:', e);
+                    showPlayerError('shaka-error');
+                });
+                shakaPlayer.addEventListener('error', () => {
+                    clearTimeout(bufferingTimer);
+                    showPlayerError('shaka-error');
+                });
+                videoEl.addEventListener('playing', () => {
+                    document.getElementById('buffering-spinner').style.display = 'none';
+                    document.title = '▶ ' + name;
+                }, {once: true});
+                videoEl.addEventListener('waiting', () => {
+                    document.getElementById('buffering-spinner').style.display = 'flex';
+                });
+                videoEl.addEventListener('timeupdate', () => {
+                    const dur = videoEl.duration;
+                    if (dur && isFinite(dur)) {
+                        document.getElementById('video-progress').value = (videoEl.currentTime / dur) * 100;
+                        document.getElementById('current-time').textContent = formatTime(videoEl.currentTime);
+                        document.getElementById('total-time').textContent = formatTime(dur);
+                    }
+                });
+                videoEl.addEventListener('play', () => { document.getElementById('play-icon').className = 'fa-solid fa-pause'; });
+                videoEl.addEventListener('pause', () => { document.getElementById('play-icon').className = 'fa-solid fa-play'; });
+            } else if (Hls.isSupported()) {
+                hlsPlayer = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    maxBufferLength: 60,
+                    maxMaxBufferLength: 120,
+                    maxBufferSize: 60 * 1000 * 1000,
+                    startLevel: 0,
+                    abrEwmaDefaultEstimate: 300000,
+                    abrEwmaFastVoD: 2.0,
+                    abrEwmaSlowVoD: 5.0,
+                    abrBandwidthUpFactor: 1,
+                    abrBandwidthDownFactor: 2,
+                    abrMaxWithRealBitrate: true,
+                    liveSyncDurationCount: 3,
+                    liveMaxLatencyDurationCount: 10,
+                    xhrSetup: function(xhr, url) {
+                        if (url.includes('shahid.net') || url.includes('akamaized.net') || url.includes('edgenextcdn.net') || url.includes('fastly.net')) {
+                            try { xhr.setRequestHeader('Origin', 'https://shahid.net'); } catch(e) {}
+                            try { xhr.setRequestHeader('Referer', 'https://shahid.net/'); } catch(e) {}
+                        }
+                    },
+                });
+                currentEngine = 'hls';
+                hlsPlayer.loadSource(url);
+                hlsPlayer.attachMedia(videoEl);
+
+                hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => {
+                    console.log('[HLS] Manifest parsed, levels:', hlsPlayer.levels.length);
+                    videoEl.play().catch(() => {});
+                });
+                hlsPlayer.on(Hls.Events.LEVEL_LOADED, () => {
+                    clearTimeout(bufferingTimer);
+                    document.getElementById('buffering-spinner').style.display = 'none';
+                    document.title = '⏳ ' + name;
+                });
+                hlsPlayer.on(Hls.Events.ERROR, (e, data) => {
+                    console.log('[HLS] Error:', data.type, data.details);
+                    if (data.fatal) {
+                        clearTimeout(bufferingTimer);
+                        showPlayerError('hls-error');
+                    }
+                });
+
+                videoEl.addEventListener('playing', () => {
+                    document.getElementById('buffering-spinner').style.display = 'none';
+                    document.title = '▶ ' + name;
+                }, {once: true});
+                videoEl.addEventListener('waiting', () => {
+                    document.getElementById('buffering-spinner').style.display = 'flex';
+                });
+                videoEl.addEventListener('timeupdate', () => {
+                    const dur = videoEl.duration;
+                    if (dur && isFinite(dur)) {
+                        document.getElementById('video-progress').value = (videoEl.currentTime / dur) * 100;
+                        document.getElementById('current-time').textContent = formatTime(videoEl.currentTime);
+                        document.getElementById('total-time').textContent = formatTime(dur);
+                    }
+                });
+                videoEl.addEventListener('play', () => { document.getElementById('play-icon').className = 'fa-solid fa-pause'; });
+                videoEl.addEventListener('pause', () => { document.getElementById('play-icon').className = 'fa-solid fa-play'; });
+            } else {
+                showPlayerError('hls-not-supported');
+                return;
+            }
+
+            clearTimeout(bufferingTimer);
+            bufferingTimer = setTimeout(() => {
+                if (document.getElementById('buffering-spinner').style.display !== 'none') {
+                    showPlayerError('timeout');
+                }
+            }, 60000);
+        }
+
+        function showPlayerError(source) {
+            console.error('>>> showPlayerError called from:', source || 'unknown', new Error().stack?.split('\n')[2]?.trim() || '');
+            document.title = 'ERROR: ' + (source || 'unknown');
+            document.getElementById('buffering-spinner').style.display = 'none';
+            document.getElementById('player-error').style.display = 'flex';
+            document.getElementById('player-error').classList.add('show');
+        }
+
+        function getVideoEl() { return document.getElementById('hls-video'); }
+
+        function closeVideoPlayer() {
+            if (hlsPlayer) { hlsPlayer.destroy(); hlsPlayer = null; }
+            if (shakaPlayer) { shakaPlayer.destroy(); shakaPlayer = null; }
+            const vid = getVideoEl();
+            vid.removeAttribute('src');
+            vid.load();
+            document.title = 'HEIS5 TV';
+            document.getElementById('buffering-spinner').style.display = 'flex';
+            document.getElementById('player-error').style.display = 'none';
+            document.getElementById('player-error').classList.remove('show');
+            document.getElementById('video-modal').classList.remove('show');
+            document.getElementById('now-playing-bar').classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
+        // ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (document.getElementById('video-modal').classList.contains('show')) closeVideoPlayer();
+            }
+        });
+
+        // ═══ PLAYER CONTROLS ═══
+        function togglePlay() {
+            const vid = getVideoEl();
+            if (!vid) return;
+            if (vid.paused) { vid.play(); }
+            else { vid.pause(); }
+        }
+
+        function toggleMute() {
+            const vid = getVideoEl();
+            if (!vid) return;
+            const icon = document.getElementById('volume-icon');
+            vid.muted = !vid.muted;
+            icon.className = vid.muted ? 'fa-solid fa-volume-xmark' : (vid.volume > 0.5 ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-low');
+        }
+
+        function setVolume(el) {
+            const vid = getVideoEl();
+            if (!vid) return;
+            const icon = document.getElementById('volume-icon');
+            vid.volume = parseFloat(el.value);
+            vid.muted = false;
+            icon.className = vid.volume > 0.5 ? 'fa-solid fa-volume-high' : vid.volume > 0 ? 'fa-solid fa-volume-low' : 'fa-solid fa-volume-xmark';
+        }
+
+        function seekVideo(el) {
+            const vid = getVideoEl();
+            if (!vid) return;
+            const dur = vid.duration;
+            if (dur && isFinite(dur)) {
+                vid.currentTime = (parseFloat(el.value) / 100) * dur;
+            }
+        }
+
+        function toggleFullscreen() {
+            const vid = getVideoEl();
+            if (!vid) return;
+            const icon = document.getElementById('fullscreen-icon');
+            if (!document.fullscreenElement) {
+                vid.requestFullscreen().catch(() => {});
+                icon.className = 'fa-solid fa-compress';
+            } else {
+                document.exitFullscreen().catch(() => {});
+                icon.className = 'fa-solid fa-expand';
+            }
+        }
+
+        function formatTime(s) {
+            if (!s || isNaN(s)) return '0:00';
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return m + ':' + (sec < 10 ? '0' : '') + sec;
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const icon = document.getElementById('fullscreen-icon');
+            icon.className = document.fullscreenElement ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+        });
+
+        // Click video area to toggle play/pause
+        document.getElementById('player-video-area').addEventListener('click', (e) => {
+            if (e.target.closest('.controls-overlay')) return;
+            togglePlay();
+        });
+
+        console.log('HEIS5 TV Cyberpunk loaded (HLS.js)');
+    </script>
+</body>
+</html>
