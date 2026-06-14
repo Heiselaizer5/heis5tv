@@ -2359,12 +2359,12 @@ const REMOVED = {};
             const statusEl = document.getElementById('azam-stream-status');
             statusEl.innerHTML = '<span style="color:var(--muted);">⏳ Loading tok_ from Supabase...</span>';
             try {
-                const resp = await fetch('/load-tok-from-supabase');
+                const endpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
+                const resp = await fetch(endpoint);
                 const data = await resp.json();
                 if (data.success && data.tok) {
                     const prefix = extractTokPrefix(data.tok) || data.tok;
                     localStorage.setItem('heis5_azam_token_prefix', prefix);
-                    // Also save to selected channel
                     const sel = document.getElementById('wv-channel-select');
                     if (sel) saveTokForChannel(sel.value, prefix);
                     statusEl.innerHTML = '<span style="color:var(--accent3);">✅ tok_ loaded from Supabase!</span>';
@@ -2399,9 +2399,10 @@ const REMOVED = {};
             if (!tokPrefix) tokPrefix = localStorage.getItem('heis5_azam_token_prefix');
             if (!tokPrefix) {
                 try {
-                    const resp = await sbFetch('/rest/v1/azam_config?select=*&limit=1');
-                    const rows = await resp.json();
-                    if (rows && rows[0] && rows[0].tok) { tokPrefix = rows[0].tok; localStorage.setItem('heis5_azam_token_prefix', tokPrefix); }
+                    const tokEndpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
+                    const resp = await fetch(tokEndpoint);
+                    const data = await resp.json();
+                    if (data.success && data.tok) { tokPrefix = extractTokPrefix(data.tok) || data.tok; localStorage.setItem('heis5_azam_token_prefix', tokPrefix); }
                 } catch (e) {}
             }
             tokPrefix = extractTokPrefix(tokPrefix);
@@ -2636,10 +2637,11 @@ const REMOVED = {};
                 console.log('[AZAM] Global tok_ expired/expiring soon, refreshing...');
             }
             try {
-                const resp = await sbFetch('/rest/v1/azam_config?select=*&limit=1');
-                const rows = await resp.json();
-                if (rows && rows[0] && rows[0].tok) {
-                    const prefix = extractTokPrefix(rows[0].tok) || rows[0].tok;
+                const tokEndpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
+                const resp = await fetch(tokEndpoint);
+                const data = await resp.json();
+                if (data.success && data.tok) {
+                    const prefix = extractTokPrefix(data.tok) || data.tok;
                     localStorage.setItem('heis5_azam_token_prefix', prefix);
                     if (channelId) saveTokForChannel(channelId, prefix);
                     console.log('[AZAM] Auto-refreshed tok_');
