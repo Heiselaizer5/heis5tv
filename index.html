@@ -2760,7 +2760,7 @@ const REMOVED = {};
                     if (request.uris[0].includes('workers.dev')) return;
                     const isMpd = request.uris[0].includes('.mpd');
                     const authSuffix = (isMpd && authXmlToken) ? '&auth=' + encodeURIComponent(authXmlToken) : '';
-                    if (request.uris[0].includes('azamtvltd.co.tz')) {
+                    if (request.uris[0].includes('azamtvltd.co.tz') && !request.uris[0].includes('/azam-proxy?')) {
                         if (AZAM_PROXY_MODE === 'cf-proxy') {
                             request.uris[0] = CF_WORKER_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
                         } else if (AZAM_PROXY_MODE === 'supabase-proxy') {
