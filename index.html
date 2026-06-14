@@ -1681,7 +1681,16 @@
 
         // ═══ CHANNELS ═══
         async function loadChannels() {
-            // Set default Azam tok_ if not in localStorage
+            // Load fresh tok_ from Supabase or use default
+            try {
+                const tokEndpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
+                const resp = await fetch(tokEndpoint);
+                const data = await resp.json();
+                if (data.success && data.tok) {
+                    const prefix = extractTokPrefix(data.tok) || data.tok;
+                    localStorage.setItem('heis5_azam_token_prefix', prefix);
+                }
+            } catch (e) {}
             if (!localStorage.getItem('heis5_azam_token_prefix')) {
                 const defTok = extractTokPrefix(DEFAULT_AZAM_TOK) || DEFAULT_AZAM_TOK;
                 localStorage.setItem('heis5_azam_token_prefix', defTok);
@@ -2370,8 +2379,6 @@ const REMOVED = {};
                 if (data.success && data.tok) {
                     const prefix = extractTokPrefix(data.tok) || data.tok;
                     localStorage.setItem('heis5_azam_token_prefix', prefix);
-                    const sel = document.getElementById('wv-channel-select');
-                    if (sel) saveTokForChannel(sel.value, prefix);
                     statusEl.innerHTML = '<span style="color:var(--accent3);">✅ tok_ loaded from Supabase!</span>';
                     return data.tok;
                 } else {
@@ -2387,22 +2394,13 @@ const REMOVED = {};
             const data = await refreshTokFromSupabase();
             return data;
         }
-        const DEFAULT_AZAM_TOK = 'https://cdnedgch2.azamtvltd.co.tz/tok_eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIxNzgxNDk2NTk5Iiwic2lwIjoiIiwicGF0aCI6IiIsInNlc3Npb25fY2RuX2lkIjoiZWVmOWNhNzI0MmZhMDVmZCIsInNlc3Npb25faWQiOiIiLCJjbGllbnRfaWQiOiI0NzUyMzUwIiwiZGV2aWNlX2lkIjoiIiwibWF4X3Nlc3Npb25zIjowLCJzZXNzaW9uX2R1cmF0aW9uIjowLCJ1cmwiOiJodHRwczovLzEwMi4yMDguMjQ0LjkiLCJzZXNzaW9uX3RpbWVvdXQiOjAsImF1ZCI6IjciLCJzb3VyY2VzIjpbM119.y1FWyXZtm5qM2uu-yHmlObM53_-KUwNT2WB8hmyTV86ylxjOBllWvYcxsaOHcmiu0iIB2Dngj5s_2ZeY9ObwQg==';
+        const DEFAULT_AZAM_TOK = 'https://cdnedgch2.azamtvltd.co.tz/tok_eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIxNzgxNDk4NzUyIiwic2lwIjoiIiwicGF0aCI6IiIsInNlc3Npb25fY2RuX2lkIjoiZDFlZjg0NGQ0MDY0MDYzMSIsInNlc3Npb25faWQiOiIiLCJjbGllbnRfaWQiOiI0NzUyMzUwIiwiZGV2aWNlX2lkIjoiIiwibWF4X3Nlc3Npb25zIjowLCJzZXNzaW9uX2R1cmF0aW9uIjowLCJ1cmwiOiJodHRwczovLzEwMi4yMDguMjQ0LjkiLCJzZXNzaW9uX3RpbWVvdXQiOjAsImF1ZCI6IjciLCJzb3VyY2VzIjpbM119.TcNnSSWqR_PANsMc49bhwUtndGI6sInr0HthHjI8ZyF2YyKb_U1jWivDwMc2UaP2Bitd79PP9zbS6JhG74lzeQ==';
         function extractTokPrefix(raw) {
             const m = raw.match(/^https?:\/\/[^/]+\/tok_[A-Za-z0-9_.=-]+/);
             return m ? m[0] : null;
         }
-        function getTokForChannel(channelId) {
-            try { const m = JSON.parse(localStorage.getItem('heis5_azam_tok_map') || '{}'); return m[channelId] || null; } catch { return null; }
-        }
-        function saveTokForChannel(channelId, tok) {
-            try { const m = JSON.parse(localStorage.getItem('heis5_azam_tok_map') || '{}'); m[channelId] = tok; localStorage.setItem('heis5_azam_tok_map', JSON.stringify(m)); } catch {}
-        }
         async function callGetStream(channelName) {
-            const channelInfo = AZAM_CHANNEL_MAP[channelName];
-            const channelId = channelInfo ? channelInfo.channel_id : null;
-            let tokPrefix = channelId ? getTokForChannel(channelId) : null;
-            if (!tokPrefix) tokPrefix = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK.
+            let tokPrefix = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK;
             if (!tokPrefix) {
                 try {
                     const tokEndpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
@@ -2431,17 +2429,14 @@ const REMOVED = {};
             const channelId = sel.value;
             const details = getChannelDetails(channelId);
             if (details.tok) document.getElementById('wv-channel-tok-input').value = details.tok;
-            else document.getElementById('wv-channel-tok-input').value = getTokForChannel(channelId) || '';
+            else document.getElementById('wv-channel-tok-input').value = localStorage.getItem('heis5_azam_token_prefix') || '';
             if (details.contentDtl) document.getElementById('wv-content-dtl-input').value = details.contentDtl;
             if (details.subscriptionDtl) document.getElementById('wv-subscription-dtl-input').value = details.subscriptionDtl;
         }
         function saveChannelTok() {
-            const sel = document.getElementById('wv-channel-select');
-            const channelId = sel.value;
             const tok = document.getElementById('wv-channel-tok-input').value.trim();
-            saveTokForChannel(channelId, tok);
-            saveChannelDetails(channelId, { tok });
-            document.getElementById('wv-auth-status').textContent = 'tok_ saved for ' + sel.options[sel.selectedIndex].text;
+            if (tok) localStorage.setItem('heis5_azam_token_prefix', tok);
+            document.getElementById('wv-auth-status').textContent = 'tok_ saved as global';
         }
         function saveChannelDtl() {
             const sel = document.getElementById('wv-channel-select');
@@ -2449,8 +2444,8 @@ const REMOVED = {};
             const tok = document.getElementById('wv-channel-tok-input').value.trim();
             const contentDtl = document.getElementById('wv-content-dtl-input').value.trim();
             const subscriptionDtl = document.getElementById('wv-subscription-dtl-input').value.trim();
+            if (tok) localStorage.setItem('heis5_azam_token_prefix', tok);
             saveChannelDetails(channelId, { tok, contentDtl, subscriptionDtl });
-            if (tok) saveTokForChannel(channelId, tok);
             document.getElementById('wv-auth-status').textContent = 'Details saved for ' + sel.options[sel.selectedIndex].text;
         }
         function saveWvAuthToken() {
@@ -2624,22 +2619,11 @@ const REMOVED = {};
             } catch (e) { console.warn('[AZAM] Auto-refresh failed:', e.message); }
             return raw || null;
         }
-        async function ensureValidTokPrefix(channelId) {
-            // Try per-channel tok_ first
-            let raw = channelId ? getTokForChannel(channelId) : null;
+        async function ensureValidTokPrefix() {
+            let raw = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK;
             if (raw) {
                 const exp = parseTokExpiry(raw);
                 if (exp && exp * 1000 > Date.now() + 300000) return raw;
-                console.log('[AZAM] Per-channel tok_ expired/expiring soon, refreshing...');
-            }
-            // Fallback to global tok_
-            raw = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK;
-            if (raw) {
-                const exp = parseTokExpiry(raw);
-                if (exp && exp * 1000 > Date.now() + 300000) {
-                    if (channelId) saveTokForChannel(channelId, raw);
-                    return raw;
-                }
                 console.log('[AZAM] Global tok_ expired/expiring soon, refreshing...');
             }
             try {
@@ -2649,7 +2633,6 @@ const REMOVED = {};
                 if (data.success && data.tok) {
                     const prefix = extractTokPrefix(data.tok) || data.tok;
                     localStorage.setItem('heis5_azam_token_prefix', prefix);
-                    if (channelId) saveTokForChannel(channelId, prefix);
                     console.log('[AZAM] Auto-refreshed tok_');
                     return prefix;
                 }
@@ -2670,8 +2653,8 @@ const REMOVED = {};
                 const channelInfo = AZAM_CHANNEL_MAP[channelName];
                 const channelId = channelInfo ? channelInfo.channel_id : null;
 
-                // Auto-refresh tok_ prefix before loading (per-channel)
-                const tokPrefix = await ensureValidTokPrefix(channelId);
+                // Auto-refresh tok_ prefix before loading
+                const tokPrefix = await ensureValidTokPrefix();
                 if (!tokPrefix) console.warn('[AZAM] No valid tok_ prefix');
 
                 let authXmlToken = channelId ? await ensureValidAuthXml(channelId) : null;
@@ -2699,17 +2682,13 @@ const REMOVED = {};
         function renderAzamStreamStatus() {
             const el = document.getElementById('azam-stream-status');
             if (!el) return;
-            const sel = document.getElementById('wv-channel-select');
-            const channelId = sel ? sel.value : null;
-            let tokPrefix = channelId ? getTokForChannel(channelId) : null;
-            let label = channelId ? '(channel)' : '';
-            if (!tokPrefix) { tokPrefix = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK; label = '(default)'; }
+            const tokPrefix = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK;
             const tokExp = tokPrefix ? parseTokExpiry(tokPrefix) : null;
             const tokValid = tokExp && tokExp * 1000 > Date.now();
             el.innerHTML = (tokValid
                 ? '<span style="color:var(--accent3);">✅ tok_</span>'
                 : '<span style="color:#ff4444;">❌ No tok_</span>')
-                + (tokExp ? ' <span style="color:var(--muted);font-size:0.5rem;">exp: ' + formatExpiry(tokExp) + ' ' + label + '</span>' : '')
+                + (tokExp ? ' <span style="color:var(--muted);font-size:0.5rem;">exp: ' + formatExpiry(tokExp) + ' (global)</span>' : '')
                 + ' | <span style="color:var(--muted);">' + Object.keys(AZAM_CHANNEL_MAP).length + ' ch</span>';
         }
 
