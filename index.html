@@ -2239,13 +2239,7 @@ const REMOVED = {};
 
         // ═══ SUBSCRIPTION ═══
         function hasActiveSubscription() {
-            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
-            if (!session) return false;
-            if (session.role === 'admin') return true;
-            const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
-            const userSub = subs[session.username];
-            if (!userSub) return false;
-            return new Date(userSub.end) > new Date();
+            return true;
         }
         function getSubscriptionInfo() {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
