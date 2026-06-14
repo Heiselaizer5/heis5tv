@@ -1665,19 +1665,10 @@
             if (location.protocol === 'file:') {
                 console.warn('⚠ Opened as file:// — some HTTP streams may be blocked. Serve via a local web server (e.g. "npx serve ." or Python http.server) for best results.');
             }
-            const session = localStorage.getItem('heis5_session');
-            if (session) {
-                goToApp();
-            } else {
-                setTimeout(() => {
-                    const splash = document.getElementById('splash-screen');
-                    splash.style.opacity = '0';
-                    setTimeout(() => {
-                        splash.style.display = 'none';
-                        document.getElementById('auth-overlay').style.display = 'flex';
-                    }, 1000);
-                }, 2500);
+            if (!localStorage.getItem('heis5_session')) {
+                localStorage.setItem('heis5_session', JSON.stringify({ username: 'viewer', name: 'Viewer', email: '', role: 'admin' }));
             }
+            goToApp();
         });
 
         // Catch unhandled promise rejections (e.g., CDN errors)
