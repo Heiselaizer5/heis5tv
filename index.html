@@ -2547,38 +2547,31 @@ const REMOVED = {};
                 const lastSlash = mpdUrl.lastIndexOf('/');
                 if (lastSlash > 0) azamCdnBaseUrl = mpdUrl.substring(0, lastSlash + 1);
                 netEng.registerRequestFilter((type, request) => {
-                    if (request.uris[0].includes('workers.dev')) return;
-                    const isMpd = request.uris[0].includes('.mpd');
-                    const authSuffix = (isMpd && authXmlToken) ? '&auth=' + encodeURIComponent(authXmlToken) : '';
-                    if (request.uris[0].includes('azamtvltd.co.tz') && !request.uris[0].includes('/azam-proxy?')) {
-                        if (AZAM_PROXY_MODE === 'cf-proxy') {
-                            request.uris[0] = CF_WORKER_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
-                        } else if (AZAM_PROXY_MODE === 'supabase-proxy') {
-                            request.uris[0] = SUPABASE_PROXY_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
-                        } else if (AZAM_PROXY_MODE === 'netlify' || AZAM_PROXY_MODE === 'cf-pages') {
-                            request.uris[0] = API_AZAM_PROXY + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
-                        } else if (AZAM_PROXY_MODE === 'local') {
-                            request.uris[0] = LOCAL_PROXY_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
+                    const uri = request.uris[0];
+                    const isMpdReq = uri.includes('.mpd');
+                    const authSuffix = (isMpdReq && authXmlToken) ? '&auth=' + encodeURIComponent(authXmlToken) : '';
+                    if (uri.includes('azamtvltd.co.tz') && !uri.includes('/azam-proxy?')) {
+                        const proxyBase = AZAM_PROXY_MODE === 'cf-proxy' ? CF_WORKER_URL
+                            : AZAM_PROXY_MODE === 'supabase-proxy' ? SUPABASE_PROXY_URL
+                            : AZAM_PROXY_MODE === 'netlify' || AZAM_PROXY_MODE === 'cf-pages' ? API_AZAM_PROXY
+                            : AZAM_PROXY_MODE === 'local' ? LOCAL_PROXY_URL : null;
+                        if (proxyBase) {
+                            request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + authSuffix;
                         } else {
                             request.headers['Referer'] = 'https://web.azamtvmax.com/';
                         }
                         return;
                     }
-                    if (request.uris[0].includes('akamaized.net') || request.uris[0].includes('3bbtv.com')) {
+                    if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
                     }
                 });
+                netEng.registerResponseFilter((type, response) => {
+                    console.log('[FILTER] response type:', type, 'uri:', response.uri, 'data len:', response.data?.byteLength || response.data?.length);
+                });
                 }
-                let loadUrl = url;
-                if (url.includes('azamtvltd.co.tz') && (AZAM_PROXY_MODE === 'netlify' || AZAM_PROXY_MODE === 'cf-pages')) {
-                    loadUrl = API_AZAM_PROXY + '?url=' + encodeURIComponent(url);
-                    if (authXmlToken) loadUrl += '&auth=' + encodeURIComponent(authXmlToken);
-                }
-                console.log('[PLAYER] Proxy URL:', loadUrl);
-                fetch(loadUrl, { method: 'GET' }).then(r => {
-                    r.text().then(t => console.log('[PROXY_TEST] status:', r.status, 'type:', r.headers.get('content-type'), 'body:', t.substring(0, 200)));
-                }).catch(e => console.warn('[PROXY_TEST] fetch error:', e));
-                shakaPlayer.load(loadUrl).then(() => {
+                console.log('[PLAYER] CDN URL:', url);
+                shakaPlayer.load(url).then(() => {
                     clearTimeout(bufferingTimer);
                     document.getElementById('buffering-spinner').style.display = 'none';
                     videoEl.play().catch(() => {
