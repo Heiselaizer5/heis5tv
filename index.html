@@ -2782,7 +2782,12 @@ const REMOVED = {};
                     }
                 });
                 }
-                shakaPlayer.load(url).then(() => {
+                let loadUrl = url;
+                if (url.includes('azamtvltd.co.tz') && AZAM_PROXY_MODE === 'netlify') {
+                    loadUrl = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(url);
+                    if (authXmlToken) loadUrl += '&auth=' + encodeURIComponent(authXmlToken);
+                }
+                shakaPlayer.load(loadUrl).then(() => {
                     clearTimeout(bufferingTimer);
                     document.getElementById('buffering-spinner').style.display = 'none';
                     videoEl.play().catch(() => {
