@@ -6,7 +6,9 @@ async function tryQuery(path) {
     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Accept': 'application/json' }
   });
   const text = await resp.text();
-  try { return JSON.parse(text); } catch { return null; }
+  let json;
+  try { json = JSON.parse(text); } catch { json = null; }
+  return { status: resp.status, ok: resp.ok, text: text.slice(0, 500), json };
 }
 
 exports.handler = async (event) => {
@@ -14,21 +16,19 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' } };
   }
   try {
-    // Try various query approaches
-    const q1 = await tryQuery('/rest/v1/azam_config?select=*&limit=1');
-    if (q1 && q1.length > 0) {
-      const row = q1[0];
-      if (row.tok) return respond({ success: true, tok: row.tok });
-      if (row.value) return respond({ success: true, tok: row.value });
-      return respond({ success: false, error: 'Row found but no tok/value column', raw: JSON.stringify(row) });
+    const paths = ['/rest/v1/azam_config?select=*&limit=1', '/rest/v1/azam_config?select=value&name=eq.global_tok&limit=1'];
+    const results = {};
+    for (const p of paths) {
+      results[p] = await tryQuery(p);
+      if (results[p].json && Array.isArray(results[p].json) && results[p].json.length > 0) {
+        const row = results[p].json[0];
+        const tok = row.tok || row.value || null;
+        if (tok) return respond({ success: true, tok, row });
+      }
     }
-
-    const q2 = await tryQuery('/rest/v1/azam_config?select=value&name=eq.global_tok&limit=1');
-    if (q2 && q2.length > 0 && q2[0].value) {
-      return respond({ success: true, tok: q2[0].value });
-    }
-
-    return respond({ success: false, error: 'No token found in Supabase. q1=' + JSON.stringify(q1) + ' q2=' + JSON.stringify(q2) });
+    // Try listing tables
+    const schema = await tryQuery('/rest/v1/?query=select+table_name+from+information_schema.tables+where+table_schema=%27public%27');
+    return respond({ success: false, error: 'No token found', debug: results, schema: schema.json || schema.text });
   } catch (e) {
     return respond({ success: false, error: e.message });
   }
