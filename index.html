@@ -1321,12 +1321,19 @@
         // 'supabase-proxy' = via Supabase Edge Function
         // 'local' = via local Node.js server (requires: node server.js)
         // 'direct' = browser fetches directly from Azam CDN
-        const AZAM_PROXY_MODE = location.hostname.includes('netlify.app') ? 'netlify' : 'local';
+        const IS_NETLIFY = location.hostname.includes('netlify.app');
+        const IS_CLOUDFLARE = location.hostname.includes('pages.dev') || location.hostname.includes('cloudflare');
+        const AZAM_PROXY_MODE = IS_CLOUDFLARE ? 'cf-pages' : IS_NETLIFY ? 'netlify' : 'local';
         const AZAM_PROXY_URL = 'https://azam-render-proxy.onrender.com';
         const CF_WORKER_URL = 'https://azam-proxy.erastokasoga5.workers.dev';
         const SUPABASE_PROXY_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co/functions/v1/azam-proxy';
         const LOCAL_PROXY_URL = 'http://localhost:3000/proxy';
         const WIDEVINE_LICENSE_URL = 'https://azy4sj9b.anycast.nagra.com/AZY4SJ9B/wvls/contentlicenseservice/v1/licenses';
+        const API_BASE = IS_NETLIFY ? '/.netlify/functions' : '';
+        const API_AZAM_PROXY = API_BASE + '/azam-proxy';
+        const API_WV_PROXY = API_BASE + '/wv-proxy';
+        const API_DRM_AUTH = API_BASE + '/drm-auth';
+        const API_LOAD_TOK = API_BASE + '/load-tok';
 
         // Init shaka polyfill
         if (typeof shaka !== 'undefined') { shaka.polyfill.installAll(); }
@@ -1681,10 +1688,8 @@
 
         // ═══ CHANNELS ═══
         async function loadChannels() {
-            // Load fresh tok_ from Supabase or use default
             try {
-                const tokEndpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
-                const resp = await fetch(tokEndpoint);
+                const resp = await fetch(API_LOAD_TOK || '/load-tok');
                 const data = await resp.json();
                 if (data.success && data.tok) {
                     const prefix = extractTokPrefix(data.tok) || data.tok;
@@ -2373,8 +2378,7 @@ const REMOVED = {};
             const statusEl = document.getElementById('azam-stream-status');
             statusEl.innerHTML = '<span style="color:var(--muted);">⏳ Loading tok_ from Supabase...</span>';
             try {
-                const endpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
-                const resp = await fetch(endpoint);
+                const resp = await fetch(API_LOAD_TOK || '/load-tok');
                 const data = await resp.json();
                 if (data.success && data.tok) {
                     const prefix = extractTokPrefix(data.tok) || data.tok;
@@ -2403,7 +2407,7 @@ const REMOVED = {};
             let tokPrefix = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK;
             if (!tokPrefix) {
                 try {
-                    const tokEndpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
+                const tokEndpoint = API_LOAD_TOK || '/load-tok';
                     const resp = await fetch(tokEndpoint);
                     const data = await resp.json();
                     if (data.success && data.tok) { tokPrefix = extractTokPrefix(data.tok) || data.tok; localStorage.setItem('heis5_azam_token_prefix', tokPrefix); }
@@ -2497,7 +2501,7 @@ const REMOVED = {};
             } catch (e) { return null; }
         }
         async function fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl) {
-            const endpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/drm-auth' : '/drm-auth';
+            const endpoint = API_DRM_AUTH || '/drm-auth';
             const resp = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2627,8 +2631,7 @@ const REMOVED = {};
                 console.log('[AZAM] Global tok_ expired/expiring soon, refreshing...');
             }
             try {
-                const tokEndpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/load-tok' : '/load-tok-from-supabase';
-                const resp = await fetch(tokEndpoint);
+                const resp = await fetch(API_LOAD_TOK || '/load-tok');
                 const data = await resp.json();
                 if (data.success && data.tok) {
                     const prefix = extractTokPrefix(data.tok) || data.tok;
@@ -2735,7 +2738,7 @@ const REMOVED = {};
                     manifest: { dash: { ignoreMinBufferTime: true } },
                 };
                 if (authXmlToken) {
-                    const wvProxy = location.hostname.includes('netlify.app') ? '/.netlify/functions/wv-proxy' : 'http://localhost:3000/wv-proxy';
+                    const wvProxy = API_WV_PROXY || '/wv-proxy';
                     drmConfig.drm = {
                         servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(authXmlToken) }
                     };
@@ -2762,8 +2765,8 @@ const REMOVED = {};
                             request.uris[0] = CF_WORKER_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
                         } else if (AZAM_PROXY_MODE === 'supabase-proxy') {
                             request.uris[0] = SUPABASE_PROXY_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
-                        } else if (AZAM_PROXY_MODE === 'netlify') {
-                            request.uris[0] = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
+                        } else if (AZAM_PROXY_MODE === 'netlify' || AZAM_PROXY_MODE === 'cf-pages') {
+                            request.uris[0] = API_AZAM_PROXY + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
                         } else if (AZAM_PROXY_MODE === 'local') {
                             request.uris[0] = LOCAL_PROXY_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
                         } else {
@@ -2771,20 +2774,14 @@ const REMOVED = {};
                         }
                         return;
                     }
-                    if (request.uris[0].includes('/.netlify/functions/') && !request.uris[0].includes('?url=') && !request.uris[0].includes('azam-proxy') && !request.uris[0].includes('azamtvltd')) {
-                        const segName = request.uris[0].substring(request.uris[0].indexOf('/.netlify/functions/') + '/.netlify/functions/'.length);
-                        if (azamCdnBaseUrl && segName) {
-                            request.uris[0] = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(azamCdnBaseUrl + segName) + authSuffix;
-                        }
-                    }
                     if (request.uris[0].includes('akamaized.net') || request.uris[0].includes('3bbtv.com')) {
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
                     }
                 });
                 }
                 let loadUrl = url;
-                if (url.includes('azamtvltd.co.tz') && AZAM_PROXY_MODE === 'netlify') {
-                    loadUrl = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(url);
+                if (url.includes('azamtvltd.co.tz') && (AZAM_PROXY_MODE === 'netlify' || AZAM_PROXY_MODE === 'cf-pages')) {
+                    loadUrl = API_AZAM_PROXY + '?url=' + encodeURIComponent(url);
                     if (authXmlToken) loadUrl += '&auth=' + encodeURIComponent(authXmlToken);
                 }
                 shakaPlayer.load(loadUrl).then(() => {
