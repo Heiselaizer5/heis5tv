@@ -1313,9 +1313,6 @@
     <script>
         const SUPABASE_URL = "https://yvztqzisrgqybapkdhcr.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU";
-        // MODE: 'direct' = browser fetches directly from Azam CDN (CORS error possible)
-        // MODE: 'cf-proxy' = via Cloudflare Worker
-        // MODE: 'supabase-proxy' = via Supabase Edge Function (approach used by xploitechstv)
         // ── PROXY MODE ──
         // 'cf-proxy' = via Cloudflare Worker (CF_WORKER_URL)
         // 'supabase-proxy' = via Supabase Edge Function
@@ -1455,52 +1452,32 @@
                             </div>
                         </div>
                         <div class="admin-dash-section">
-                            <h3><i class="fa-solid fa-cloud-arrow-down" style="margin-right:4px;"></i> Azam Max Auth</h3>
-                            <div id="azam-stream-status" style="font-size:0.6rem;margin-bottom:8px;color:var(--muted);">No tok_ loaded yet.</div>
+                            <h3><i class="fa-solid fa-cloud-arrow-down" style="margin-right:4px;"></i> Azam Channels</h3>
+                            <div id="azam-stream-status" style="font-size:0.6rem;margin-bottom:8px;color:var(--muted);"></div>
                             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
                                 <button class="admin-glow-btn admin-glow-btn-sm" onclick="adminWatchLive()" style="font-size:0.55rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-tower-broadcast"></i> Dashboard</button>
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="refreshTokFromSupabase()" style="font-size:0.55rem;background:var(--accent);color:#000;"><i class="fa-solid fa-cloud-arrow-down"></i> Load tok_ from Supabase</button>
-                            </div>
-                            <div style="font-size:0.6rem;color:var(--muted);margin-bottom:4px;">
-                                <i class="fa-solid fa-key"></i> authXmlToken (per-channel)
                             </div>
                             <div style="display:flex;gap:4px;margin-bottom:4px;">
-                                <input id="wv-bearer-input" type="text" placeholder="Bearer token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <input id="azam-bearer-input" type="text" placeholder="GLOBAL_BEARER token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveGlobalBearer()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
                             </div>
                             <div style="display:flex;gap:4px;margin-bottom:4px;">
-                                <select id="wv-channel-select" onchange="loadChannelDetails()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 4px;">
+                                <select id="azam-channel-select" onchange="loadAzamChannelUi()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 4px;">
                                     ${Object.entries(AZAM_CHANNEL_MAP).map(([name, info]) =>
-                                        `<option value="${info.channel_id}">${name}</option>`
+                                        `<option value="${name}">${name}</option>`
                                     ).join('')}
                                 </select>
                             </div>
-                            <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="fetchAllAuthXmlTokens()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-cloud-arrow-down"></i> Auto-Fetch All Channels</button>
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="fetchSingleAuthXmlToken()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-download"></i> Fetch Single</button>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                                <input id="azam-tok-input" type="text" placeholder="tok_prefix" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <input id="azam-content-input" type="text" placeholder="content_dtl" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
                             </div>
-                            <div style="display:flex;gap:4px;margin-top:4px;">
-                                <input id="wv-channel-tok-input" type="text" placeholder="tok_ URL (per-channel)" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveChannelTok()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                                <input id="azam-sub-input" type="text" placeholder="subscription_dtl" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamChannelUi()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save Ch</button>
                             </div>
-                            <div style="display:flex;gap:4px;margin-top:4px;">
-                                <input id="wv-subscription-dtl-input" type="text" placeholder="subscriptionDtl" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <input id="wv-content-dtl-input" type="text" placeholder="contentDtl" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveChannelDtl()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                            </div>
-                            <div style="display:flex;gap:4px;margin-top:4px;">
-                                <input id="wv-auth-token-input" type="text" placeholder="Paste authXmlToken manually" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveWvAuthToken()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="loadWvAuthToken()" style="font-size:0.5rem;"><i class="fa-solid fa-rotate"></i> Load</button>
-                            </div>
-                            <div id="wv-auth-status" style="font-size:0.5rem;color:var(--muted);margin-top:4px;"></div>
-                            <div class="token-help" style="margin-top:6px;">
-                                <strong>Jinsi ya kupata credentials:</strong><br>
-                                1. Fungua <strong>web.azamtvmax.com</strong> → F12 → Network<br>
-                                2. Play channel → tafuta <strong style="color:var(--accent3);">api.aztv.videoready.tv/drm-auth</strong> na <strong style="color:var(--accent);">tok_</strong> request<br>
-                                3. Nakili <strong style="color:var(--accent);">Authorization: Bearer xxx</strong>, <strong style="color:var(--accent2);">subscriptionDtl</strong>, <strong style="color:var(--accent);">contentDtl</strong> kutoka drm-auth body<br>
-                                4. Nakili <strong style="color:var(--accent);">tok_ URL</strong> kutoka MPD request (kila channel ina yake)<br>
-                                5. Paste hapo juu → "<strong style="color:var(--accent);">Save</strong>" kisha "<strong style="color:var(--accent);">Auto-Fetch All Channels</strong>"
-                            </div>
+                            <div id="azam-ui-status" style="font-size:0.5rem;color:var(--muted);margin-top:4px;"></div>
                         </div>
 
                     </div>
@@ -1525,9 +1502,9 @@
                         </div>`;
                     }).join('');
                 }
-                renderAzamStreamStatus();
-                loadAzamTokens();
-                loadChannelDetails();
+                updateAzamStatus();
+                document.getElementById('azam-bearer-input').value = getGlobalBearer();
+                loadAzamChannelUi();
             } else {
                 const uname = session ? session.name || session.username : 'Viewer';
                 const sub = getSubscriptionInfo();
@@ -1679,18 +1656,6 @@
 
         // ═══ CHANNELS ═══
         async function loadChannels() {
-            try {
-                const resp = await fetch(API_LOAD_TOK || '/load-tok');
-                const data = await resp.json();
-                if (data.success && data.tok) {
-                    const prefix = extractTokPrefix(data.tok) || data.tok;
-                    localStorage.setItem('heis5_azam_token_prefix', prefix);
-                }
-            } catch (e) {}
-            if (!localStorage.getItem('heis5_azam_token_prefix')) {
-                const defTok = extractTokPrefix(DEFAULT_AZAM_TOK) || DEFAULT_AZAM_TOK;
-                localStorage.setItem('heis5_azam_token_prefix', defTok);
-            }
             try {
                 // Try RTDB first (live data from Revontech TV app)
                 const rtdb = await fetch('https://tweve-stream-default-rtdb.firebaseio.com/channels.json');
@@ -2326,7 +2291,8 @@ const REMOVED = {};
             window.open('https://wa.me/255712345678?text=Habari%20HEIS5%20TV!%20Nataka%20kujiandikisha%20na%20kupata%20chaneli%20zote.%20Akaunti%3A%20' + encodeURIComponent(session.email), '_blank');
         }
 
-        // ═══ AZAM STREAM INTEGRATION (no xploitechstv) ═══
+        // ═══ AZAM STREAM INTEGRATION ═══
+        // channel_id haibadiliki. Tokens zinasave kwenye localStorage kupitia admin panel.
         const AZAM_CHANNEL_MAP = {
             AzamOne: { channel_id: '5842b548-7a86-40f7-9eee-feb5b32c3eff' },
             AzamTwo: { channel_id: 'feb7f040-ba80-4207-9c9b-91b13f95e697' },
@@ -2339,7 +2305,7 @@ const REMOVED = {};
             WasafiTV: { channel_id: '0fec02c1-c297-414a-935d-a41af3bea513' },
             ChekaPlusTV: { channel_id: 'b2173a95-d44f-4524-a088-94212f258d41' },
             MBC2: { channel_id: '173473fa-9f2b-4b2a-8e46-6e9e7fc536f2' },
-            CrownTv: { channel_id: 'be9b98df-5e49-4fcc-9211-d4524e66799c' },
+            CrownTv: { channel_id: 'be9b98df-49e4-4fcc-9211-d4524e66799c' },
             ZBC: { channel_id: 'f3245217-af9c-4f98-92f6-d193651cd5f8' },
             MBCMax: { channel_id: '6f0ddd58-3e55-41f4-ae5d-526d91991f61' },
             NickJr: { channel_id: 'e6d574f9-6924-487f-8bbe-26e7bab7d962' },
@@ -2359,123 +2325,21 @@ const REMOVED = {};
             DisneyChannel: { channel_id: '266b46c1-21b9-4fd9-ad2f-62d008b8948a' },
             BabyTV: { channel_id: '568966cf-a42a-4984-ac87-5e1ef065275d' },
         };
-        async function refreshTokFromSupabase() {
-            const statusEl = document.getElementById('azam-stream-status');
-            statusEl.innerHTML = '<span style="color:var(--muted);">⏳ Loading tok_ from Supabase...</span>';
-            try {
-                const resp = await fetch(API_LOAD_TOK || '/load-tok');
-                const data = await resp.json();
-                if (data.success && data.tok) {
-                    const prefix = extractTokPrefix(data.tok) || data.tok;
-                    localStorage.setItem('heis5_azam_token_prefix', prefix);
-                    statusEl.innerHTML = '<span style="color:var(--accent3);">✅ tok_ loaded from Supabase!</span>';
-                    return data.tok;
-                } else {
-                    statusEl.innerHTML = '<span style="color:#ff4444;">❌ ' + (data.error || 'No token found') + '</span>';
-                    throw new Error(data.error || 'No token');
-                }
-            } catch (e) {
-                statusEl.innerHTML = '<span style="color:#ff4444;">❌ ' + e.message + '</span>';
-                throw e;
-            }
+        function getAzamChannelData(channelName) {
+            try { const d = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}'); return d[channelName] || {}; } catch { return {}; }
         }
-        async function fetchTokFromSupabase() {
-            const data = await refreshTokFromSupabase();
-            return data;
+        function setAzamChannelData(channelName, data) {
+            try { const d = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}'); d[channelName] = { ...d[channelName], ...data }; localStorage.setItem('heis5_azam_channels', JSON.stringify(d)); } catch {}
         }
-        const DEFAULT_AZAM_TOK = 'https://cdnedgch2.azamtvltd.co.tz/tok_eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIxNzgxNDk4NzUyIiwic2lwIjoiIiwicGF0aCI6IiIsInNlc3Npb25fY2RuX2lkIjoiZDFlZjg0NGQ0MDY0MDYzMSIsInNlc3Npb25faWQiOiIiLCJjbGllbnRfaWQiOiI0NzUyMzUwIiwiZGV2aWNlX2lkIjoiIiwibWF4X3Nlc3Npb25zIjowLCJzZXNzaW9uX2R1cmF0aW9uIjowLCJ1cmwiOiJodHRwczovLzEwMi4yMDguMjQ0LjkiLCJzZXNzaW9uX3RpbWVvdXQiOjAsImF1ZCI6IjciLCJzb3VyY2VzIjpbM119.TcNnSSWqR_PANsMc49bhwUtndGI6sInr0HthHjI8ZyF2YyKb_U1jWivDwMc2UaP2Bitd79PP9zbS6JhG74lzeQ==';
+        function getGlobalBearer() {
+            return localStorage.getItem('heis5_azam_global_bearer') || '';
+        }
         function extractTokPrefix(raw) {
             const m = raw.match(/^https?:\/\/[^/]+\/tok_[A-Za-z0-9_.=-]+/);
             return m ? m[0] : null;
         }
-        async function callGetStream(channelName) {
-            let tokPrefix = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK;
-            if (!tokPrefix) {
-                try {
-                const tokEndpoint = API_LOAD_TOK || '/load-tok';
-                    const resp = await fetch(tokEndpoint);
-                    const data = await resp.json();
-                    if (data.success && data.tok) { tokPrefix = extractTokPrefix(data.tok) || data.tok; localStorage.setItem('heis5_azam_token_prefix', tokPrefix); }
-                } catch (e) {}
-            }
-            tokPrefix = extractTokPrefix(tokPrefix);
-            const url = tokPrefix
-                ? tokPrefix + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd'
-                : 'https://cdnblncr.azamtvltd.co.tz/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
-            return { ok: true, url };
-        }
-        function getStoredAuthTokens() {
-            try { return JSON.parse(localStorage.getItem('heis5_wv_auth_tokens') || '{}'); } catch { return {}; }
-        }
-        function getChannelDetails(channelId) {
-            try { const d = JSON.parse(localStorage.getItem('heis5_wv_channel_details') || '{}'); return d[channelId] || {}; } catch { return {}; }
-        }
-        function saveChannelDetails(channelId, data) {
-            try { const d = JSON.parse(localStorage.getItem('heis5_wv_channel_details') || '{}'); d[channelId] = { ...d[channelId], ...data }; localStorage.setItem('heis5_wv_channel_details', JSON.stringify(d)); } catch {}
-        }
-        function loadChannelDetails() {
-            const sel = document.getElementById('wv-channel-select');
-            const channelId = sel.value;
-            const details = getChannelDetails(channelId);
-            if (details.tok) document.getElementById('wv-channel-tok-input').value = details.tok;
-            else document.getElementById('wv-channel-tok-input').value = localStorage.getItem('heis5_azam_token_prefix') || '';
-            if (details.contentDtl) document.getElementById('wv-content-dtl-input').value = details.contentDtl;
-            if (details.subscriptionDtl) document.getElementById('wv-subscription-dtl-input').value = details.subscriptionDtl;
-        }
-        function saveChannelTok() {
-            const tok = document.getElementById('wv-channel-tok-input').value.trim();
-            if (tok) localStorage.setItem('heis5_azam_token_prefix', tok);
-            document.getElementById('wv-auth-status').textContent = 'tok_ saved as global';
-        }
-        function saveChannelDtl() {
-            const sel = document.getElementById('wv-channel-select');
-            const channelId = sel.value;
-            const tok = document.getElementById('wv-channel-tok-input').value.trim();
-            const contentDtl = document.getElementById('wv-content-dtl-input').value.trim();
-            const subscriptionDtl = document.getElementById('wv-subscription-dtl-input').value.trim();
-            if (tok) localStorage.setItem('heis5_azam_token_prefix', tok);
-            saveChannelDetails(channelId, { tok, contentDtl, subscriptionDtl });
-            document.getElementById('wv-auth-status').textContent = 'Details saved for ' + sel.options[sel.selectedIndex].text;
-        }
-        function saveWvAuthToken() {
-            const sel = document.getElementById('wv-channel-select');
-            const inp = document.getElementById('wv-auth-token-input');
-            const channelId = sel.value;
-            const channelName = sel.options[sel.selectedIndex].text;
-            const token = inp.value.trim();
-            if (!token) { document.getElementById('wv-auth-status').textContent = 'Paste an authXmlToken first.'; return; }
-            const tokens = getStoredAuthTokens();
-            tokens[channelId] = token;
-            localStorage.setItem('heis5_wv_auth_tokens', JSON.stringify(tokens));
-            inp.value = '';
-            document.getElementById('wv-auth-status').textContent = 'Saved for ' + channelName + ' (' + channelId.substring(0,8) + '...)';
-        }
-        function loadWvAuthToken() {
-            const sel = document.getElementById('wv-channel-select');
-            const inp = document.getElementById('wv-auth-token-input');
-            const channelId = sel.value;
-            const channelName = sel.options[sel.selectedIndex].text;
-            const tokens = getStoredAuthTokens();
-            if (tokens[channelId]) {
-                inp.value = tokens[channelId];
-                document.getElementById('wv-auth-status').textContent = 'Loaded for ' + channelName;
-            } else {
-                inp.value = '';
-                document.getElementById('wv-auth-status').textContent = 'No token saved for ' + channelName;
-            }
-        }
-        function getStoredAzamTokens() {
-            try { return JSON.parse(localStorage.getItem('heis5_azam_session_tokens') || '{}'); } catch { return {}; }
-        }
-        function saveAzamTokens() {
-            const bearer = document.getElementById('wv-bearer-input').value.trim();
-            localStorage.setItem('heis5_azam_session_tokens', JSON.stringify({ bearer }));
-            document.getElementById('wv-auth-status').textContent = 'Bearer token saved to localStorage.';
-        }
-        function loadAzamTokens() {
-            const saved = getStoredAzamTokens();
-            if (saved.bearer) document.getElementById('wv-bearer-input').value = saved.bearer;
-        }
+
+
         function jwtDecodeSimple(token) {
             try {
                 const parts = token.split('.');
@@ -2494,79 +2358,7 @@ const REMOVED = {};
             });
             return await resp.json();
         }
-        async function fetchSingleAuthXmlToken() {
-            const sel = document.getElementById('wv-channel-select');
-            const channelId = sel.value;
-            const channelName = sel.options[sel.selectedIndex].text;
-            const statusEl = document.getElementById('wv-auth-status');
-            const saved = getStoredAzamTokens();
-            const bearer = document.getElementById('wv-bearer-input').value.trim() || saved.bearer;
-            const contentDtl = document.getElementById('wv-content-dtl-input').value.trim();
-            const subscriptionDtl = document.getElementById('wv-subscription-dtl-input').value.trim();
-            if (!bearer) { statusEl.textContent = 'Weka Bearer token kwanza.'; return; }
-            if (!contentDtl || !subscriptionDtl) { statusEl.textContent = 'Weka contentDtl na subscriptionDtl kwanza.'; return; }
-            saveAzamTokens();
-            statusEl.textContent = 'Fetching authXmlToken for ' + channelName + '...';
-            try {
-                const data = await fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl);
-                if (data.status && data.data && data.data.authXmlToken) {
-                    const tokens = getStoredAuthTokens();
-                    tokens[channelId] = data.data.authXmlToken;
-                    localStorage.setItem('heis5_wv_auth_tokens', JSON.stringify(tokens));
-                    // Save per-channel contentDtl/subscriptionDtl
-                    saveChannelDetails(channelId, { contentDtl, subscriptionDtl });
-                    const expires = data.data.authXmlTokenExpiresAt ? new Date(parseInt(data.data.authXmlTokenExpiresAt) * 1000).toLocaleString() : 'unknown';
-                    const jwtBody = jwtDecodeSimple(data.data.authXmlToken);
-                    const contentId = jwtBody && jwtBody.contentRights ? jwtBody.contentRights[0].contentId : '?';
-                    statusEl.textContent = 'Saved authXmlToken for ' + channelName + ' | Content: ' + contentId + ' | Expires: ' + expires;
-                } else {
-                    statusEl.textContent = 'Azam API error: ' + (data.message || JSON.stringify(data));
-                }
-            } catch (e) {
-                statusEl.textContent = 'Fetch failed: ' + e.message;
-            }
-        }
-        async function fetchAllAuthXmlTokens() {
-            const statusEl = document.getElementById('wv-auth-status');
-            const saved = getStoredAzamTokens();
-            const bearer = document.getElementById('wv-bearer-input').value.trim() || saved.bearer;
-            const currentContentDtl = document.getElementById('wv-content-dtl-input').value.trim();
-            const currentSubscriptionDtl = document.getElementById('wv-subscription-dtl-input').value.trim();
-            if (!bearer) { statusEl.textContent = 'Weka Bearer token kwanza (kutoka web.azamtvmax.com DevTools).'; return; }
-            saveAzamTokens();
-            statusEl.textContent = 'Fetching DRM authXmlToken...';
-            let success = 0, fail = 0;
-            try {
-                const tokens = getStoredAuthTokens();
-                let detailLog = [];
-                for (const [name, info] of Object.entries(AZAM_CHANNEL_MAP)) {
-                    try {
-                        // Use per-channel details if saved, otherwise use current input
-                        const perChannel = getChannelDetails(info.channel_id);
-                        const cd = perChannel.contentDtl || currentContentDtl;
-                        const sd = perChannel.subscriptionDtl || currentSubscriptionDtl;
-                        if (!cd || !sd) { detailLog.push(name + '=NO_DTL'); fail++; continue; }
-                        const data = await fetchDrmAuthToken(bearer, cd, sd);
-                        if (data.status && data.data && data.data.authXmlToken) {
-                            tokens[info.channel_id] = data.data.authXmlToken;
-                            // Save per-channel details
-                            saveChannelDetails(info.channel_id, { contentDtl: cd, subscriptionDtl: sd });
-                            const jwtBody = jwtDecodeSimple(data.data.authXmlToken);
-                            const cid = jwtBody && jwtBody.contentRights ? jwtBody.contentRights[0].contentId : '?';
-                            detailLog.push(name + '=' + cid);
-                            success++;
-                        } else {
-                            detailLog.push(name + '=FAIL');
-                            fail++;
-                        }
-                    } catch { detailLog.push(name + '=ERR'); fail++; }
-                }
-                localStorage.setItem('heis5_wv_auth_tokens', JSON.stringify(tokens));
-                statusEl.textContent = 'Done: ' + success + ' ok, ' + fail + ' fail | ' + detailLog.join(', ');
-            } catch (e) {
-                statusEl.textContent = 'Fetch failed: ' + e.message;
-            }
-        }
+
         function getExpiryFromAuthXml(token) {
             try {
                 const parts = token.split('.');
@@ -2577,55 +2369,46 @@ const REMOVED = {};
                 return body.exp ? parseInt(body.exp) : null;
             } catch { return null; }
         }
-        async function ensureValidAuthXml(channelId) {
-            const tokens = JSON.parse(localStorage.getItem('heis5_wv_auth_tokens') || '{}');
-            const raw = tokens[channelId];
-            if (raw) {
-                const exp = getExpiryFromAuthXml(raw);
-                if (exp && exp * 1000 > Date.now() + 300000) return raw; // valid for >5 min
-                console.log('[AZAM] authXmlToken expired/expiring soon, refreshing...');
-            }
-            const saved = JSON.parse(localStorage.getItem('heis5_azam_session_tokens') || '{}');
-            const bearer = document.getElementById('wv-bearer-input').value.trim() || saved.bearer;
-            // Try per-channel details first, fallback to input fields
-            const perChannel = getChannelDetails(channelId);
-            const contentDtl = perChannel.contentDtl || document.getElementById('wv-content-dtl-input').value.trim();
-            const subscriptionDtl = perChannel.subscriptionDtl || document.getElementById('wv-subscription-dtl-input').value.trim();
-            if (!bearer || !contentDtl || !subscriptionDtl) {
-                console.warn('[AZAM] Cannot auto-refresh authXmlToken: missing bearer/contentDtl/subscriptionDtl');
-                return raw || null;
+        async function ensureValidAuthXml(channelName) {
+            const data = getAzamChannelData(channelName);
+            if (!data.authXmlToken) return null;
+            const exp = getExpiryFromAuthXml(data.authXmlToken);
+            if (exp && exp * 1000 > Date.now() + 300000) return data.authXmlToken;
+            console.log('[AZAM] authXmlToken expired/expiring for', channelName, '- refreshing...');
+            const bearer = getGlobalBearer();
+            if (!bearer || !data.content_dtl || !data.subscription_dtl) {
+                console.warn('[AZAM] Cannot refresh authXmlToken: missing bearer/content_dtl/subscription_dtl');
+                return data.authXmlToken || null;
             }
             try {
-                const data = await fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl);
-                if (data.status && data.data && data.data.authXmlToken) {
-                    tokens[channelId] = data.data.authXmlToken;
-                    localStorage.setItem('heis5_wv_auth_tokens', JSON.stringify(tokens));
-                    // Save per-channel details for future use
-                    saveChannelDetails(channelId, { contentDtl, subscriptionDtl });
-                    console.log('[AZAM] Auto-refreshed authXmlToken for', channelId);
-                    return data.data.authXmlToken;
+                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                if (result.status && result.data && result.data.authXmlToken) {
+                    setAzamChannelData(channelName, { authXmlToken: result.data.authXmlToken });
+                    console.log('[AZAM] Refreshed authXmlToken for', channelName);
+                    return result.data.authXmlToken;
                 }
-            } catch (e) { console.warn('[AZAM] Auto-refresh failed:', e.message); }
-            return raw || null;
+            } catch (e) { console.warn('[AZAM] Refresh failed:', e.message); }
+            return data.authXmlToken || null;
         }
-        async function ensureValidTokPrefix() {
-            let raw = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK;
-            if (raw) {
-                const exp = parseTokExpiry(raw);
-                if (exp && exp * 1000 > Date.now() + 300000) return raw;
-                console.log('[AZAM] Global tok_ expired/expiring soon, refreshing...');
+        async function ensureValidTokPrefix(channelName) {
+            const data = getAzamChannelData(channelName);
+            if (data.tok_prefix) {
+                const parsed = extractTokPrefix(data.tok_prefix);
+                return parsed || data.tok_prefix;
             }
             try {
                 const resp = await fetch(API_LOAD_TOK || '/load-tok');
-                const data = await resp.json();
-                if (data.success && data.tok) {
-                    const prefix = extractTokPrefix(data.tok) || data.tok;
-                    localStorage.setItem('heis5_azam_token_prefix', prefix);
-                    console.log('[AZAM] Auto-refreshed tok_');
+                const result = await resp.json();
+                if (result.success && result.tok) {
+                    const prefix = extractTokPrefix(result.tok) || result.tok;
+                    console.log('[AZAM] Using global tok_ from Supabase');
                     return prefix;
                 }
-            } catch (e) { console.warn('[AZAM] tok_ refresh failed:', e.message); }
-            return raw || null;
+            } catch (e) { console.warn('[AZAM] load-tok fallback failed:', e.message); }
+            return null;
+        }
+        function buildAzamMpdUrl(tokPrefix, channelName) {
+            return tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
         }
         async function openAzamChannel(name, fakeUrl) {
             if (!hasActiveSubscription()) { showPlans(); return; }
@@ -2638,46 +2421,63 @@ const REMOVED = {};
             document.getElementById('player-error').classList.remove('show');
             document.getElementById('buffering-spinner').style.display = 'flex';
             try {
-                const channelInfo = AZAM_CHANNEL_MAP[channelName];
-                const channelId = channelInfo ? channelInfo.channel_id : null;
-
-                // Auto-refresh tok_ prefix before loading
-                const tokPrefix = await ensureValidTokPrefix();
-                if (!tokPrefix) console.warn('[AZAM] No valid tok_ prefix');
-
-                let authXmlToken = channelId ? await ensureValidAuthXml(channelId) : null;
-
-                const data = await callGetStream(channelName);
-                openVideoPlayer(name, data.url, '', authXmlToken, null);
-
+                const tokPrefix = await ensureValidTokPrefix(channelName);
+                const authXmlToken = await ensureValidAuthXml(channelName);
+                if (!tokPrefix) {
+                    throw new Error('No tok_ for ' + channelName + '. Weka tok_prefix kwenye Admin Panel → Azam Channels.');
+                }
+                const mpdUrl = buildAzamMpdUrl(tokPrefix, channelName);
+                openVideoPlayer(name, mpdUrl, '', authXmlToken, null);
             } catch (e) {
                 console.error('[AZAM] stream error:', e);
                 document.getElementById('buffering-spinner').style.display = 'none';
                 alert('Failed to load Azam stream: ' + e.message);
             }
         }
-
-        function formatExpiry(expUnix) {
-            if (!expUnix) return '';
-            const expDate = new Date(expUnix * 1000);
-            const now = Date.now();
-            const remaining = expUnix * 1000 - now;
-            if (remaining <= 0) return '<span style="color:#ff4444;">Expired</span>';
-            const hrs = Math.floor(remaining / 3600000);
-            const mins = Math.floor((remaining % 3600000) / 60000);
-            return `${expDate.toLocaleDateString()} ${expDate.toLocaleTimeString()} (<strong>${hrs}h ${mins}m</strong>)`;
+        function loadAzamChannelUi() {
+            const sel = document.getElementById('azam-channel-select');
+            const name = sel.value;
+            const data = getAzamChannelData(name);
+            document.getElementById('azam-tok-input').value = data.tok_prefix || '';
+            document.getElementById('azam-content-input').value = data.content_dtl || '';
+            document.getElementById('azam-sub-input').value = data.subscription_dtl || '';
+            document.getElementById('azam-xml-input').value = data.authXmlToken || '';
         }
-        function renderAzamStreamStatus() {
+        function saveAzamChannelUi() {
+            const sel = document.getElementById('azam-channel-select');
+            const name = sel.value;
+            const data = {
+                tok_prefix: document.getElementById('azam-tok-input').value.trim(),
+                content_dtl: document.getElementById('azam-content-input').value.trim(),
+                subscription_dtl: document.getElementById('azam-sub-input').value.trim(),
+                authXmlToken: document.getElementById('azam-xml-input').value.trim(),
+            };
+            setAzamChannelData(name, data);
+            document.getElementById('azam-ui-status').textContent = 'Saved ' + name;
+            updateAzamStatus();
+        }
+        function saveGlobalBearer() {
+            const val = document.getElementById('azam-bearer-input').value.trim();
+            localStorage.setItem('heis5_azam_global_bearer', val);
+            document.getElementById('azam-ui-status').textContent = 'Bearer saved';
+        }
+        function updateAzamStatus() {
             const el = document.getElementById('azam-stream-status');
             if (!el) return;
-            const tokPrefix = localStorage.getItem('heis5_azam_token_prefix') || DEFAULT_AZAM_TOK;
-            const tokExp = tokPrefix ? parseTokExpiry(tokPrefix) : null;
-            const tokValid = tokExp && tokExp * 1000 > Date.now();
-            el.innerHTML = (tokValid
-                ? '<span style="color:var(--accent3);">✅ tok_</span>'
-                : '<span style="color:#ff4444;">❌ No tok_</span>')
-                + (tokExp ? ' <span style="color:var(--muted);font-size:0.5rem;">exp: ' + formatExpiry(tokExp) + ' (global)</span>' : '')
-                + ' | <span style="color:var(--muted);">' + Object.keys(AZAM_CHANNEL_MAP).length + ' ch</span>';
+            const bearer = getGlobalBearer();
+            const total = Object.keys(AZAM_CHANNEL_MAP).length;
+            let withTok = 0, withXml = 0;
+            try {
+                const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
+                Object.keys(AZAM_CHANNEL_MAP).forEach(name => {
+                    if (all[name] && all[name].tok_prefix) withTok++;
+                    if (all[name] && all[name].authXmlToken) withXml++;
+                });
+            } catch {}
+            el.innerHTML = `<span style="color:var(--accent3);">${total} channels</span>`
+                + ` | tok_: ${withTok}/${total}`
+                + ` | authXml: ${withXml}/${total}`
+                + (bearer ? ' | ✅ Bearer' : ' | ❌ No Bearer');
         }
 
 
