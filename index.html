@@ -2792,8 +2792,8 @@ const REMOVED = {};
                         }
                         return;
                     }
-                    if (request.uris[0].startsWith('/.netlify/functions/') && !request.uris[0].includes('?url=') && !request.uris[0].includes('azam-proxy')) {
-                        const segName = request.uris[0].replace('/.netlify/functions/', '');
+                    if (request.uris[0].includes('/.netlify/functions/') && !request.uris[0].includes('?url=') && !request.uris[0].includes('azam-proxy') && !request.uris[0].includes('azamtvltd')) {
+                        const segName = request.uris[0].substring(request.uris[0].indexOf('/.netlify/functions/') + '/.netlify/functions/'.length);
                         if (azamCdnBaseUrl && segName) {
                             request.uris[0] = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(azamCdnBaseUrl + segName) + authSuffix;
                         }
