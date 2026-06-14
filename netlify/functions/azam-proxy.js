@@ -11,13 +11,10 @@ exports.handler = async (event) => {
     const contentType = res.headers.get('content-type') || '';
     if (decoded.includes('.mpd') || contentType.includes('dash') || contentType.includes('xml')) {
       let mpd = await res.text();
-      const baseUrlSlash = decoded.substring(0, decoded.lastIndexOf('/') + 1);
-      const baseUrl = '<BaseURL>' + baseUrlSlash + '</BaseURL>';
-      if (mpd.includes('<BaseURL>')) {
-        mpd = mpd.replace(/<BaseURL>[^<]*<\/BaseURL>/, baseUrl);
-      } else {
-        mpd = mpd.replace(/(<MPD[^>]*>)/, '$1\n  ' + baseUrl);
-      }
+      const cdnBase = decoded.substring(0, decoded.lastIndexOf('/') + 1);
+      const abs = (rel) => rel.startsWith('http') ? rel : cdnBase + rel;
+      mpd = mpd.replace(/<BaseURL[^>]*>[^<]*<\/BaseURL>/g, '');
+      mpd = mpd.replace(/(?:media|initialization)="([^"]+)"/g, (m, val) => m.replace(val, abs(val)));
       return { statusCode: 200, headers: { 'Content-Type': 'application/dash+xml', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }, body: mpd };
     }
     const buf = Buffer.from(await res.arrayBuffer());
