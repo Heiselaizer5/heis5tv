@@ -679,6 +679,20 @@
         }
         .admin-section-refresh:hover { text-decoration: underline; }
 
+        /* Token manager */
+        .token-input {
+            width:100%; padding:8px 10px; border-radius:6px;
+            border:1px solid var(--border); background:var(--bg);
+            color:var(--text); font-size:0.6rem; margin-bottom:8px;
+            outline:none; transition: border-color 0.2s;
+        }
+        .token-input:focus { border-color: var(--accent); }
+        .token-expiry { font-size:0.6rem; margin-bottom:8px; }
+        .token-expiry.valid { color: var(--accent3); }
+        .token-expiry.expired { color: var(--accent2); }
+        .token-current { word-break:break-all; color:var(--text-dim); font-size:0.5rem; margin-bottom:4px; }
+        .token-help { font-size:0.55rem; color:var(--muted); line-height:1.4; }
+
         /* Admin glow buttons */
         .admin-glow-box {
             background: rgba(17,13,36,0.7);
@@ -1260,7 +1274,7 @@
                                 <button class="ctrl-btn" onclick="toggleMute()" style="width:26px;height:26px;"><i id="volume-icon" class="fa-solid fa-volume-xmark"></i></button>
                                 <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this)">
                             </div>
-                            <span class="time-display"><span id="current-time">0:00</span> / <span id="total-time">0:00</span></span>
+                            <span class="time-display" style="display:none;"><span id="current-time">0:00</span> / <span id="total-time">0:00</span></span>
                         </div>
                         <div class="controls-right">
                             <button class="ctrl-btn" onclick="toggleFullscreen()"><i id="fullscreen-icon" class="fa-solid fa-expand"></i></button>
@@ -1299,6 +1313,20 @@
     <script>
         const SUPABASE_URL = "https://yvztqzisrgqybapkdhcr.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU";
+        // MODE: 'direct' = browser fetches directly from Azam CDN (CORS error possible)
+        // MODE: 'cf-proxy' = via Cloudflare Worker
+        // MODE: 'supabase-proxy' = via Supabase Edge Function (approach used by xploitechstv)
+        // ── PROXY MODE ──
+        // 'cf-proxy' = via Cloudflare Worker (CF_WORKER_URL)
+        // 'supabase-proxy' = via Supabase Edge Function
+        // 'local' = via local Node.js server (requires: node server.js)
+        // 'direct' = browser fetches directly from Azam CDN
+        const AZAM_PROXY_MODE = location.hostname.includes('netlify.app') ? 'netlify' : 'local';
+        const AZAM_PROXY_URL = 'https://azam-render-proxy.onrender.com';
+        const CF_WORKER_URL = 'https://azam-proxy.erastokasoga5.workers.dev';
+        const SUPABASE_PROXY_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co/functions/v1/azam-proxy';
+        const LOCAL_PROXY_URL = 'http://localhost:3000/proxy';
+        const WIDEVINE_LICENSE_URL = 'https://azy4sj9b.anycast.nagra.com/AZY4SJ9B/wvls/contentlicenseservice/v1/licenses';
 
         // Init shaka polyfill
         if (typeof shaka !== 'undefined') { shaka.polyfill.installAll(); }
@@ -1419,9 +1447,55 @@
                                 ${keys.length === 0 ? '<div class="admin-empty">No registered users yet.</div>' : ''}
                             </div>
                         </div>
-                        <div class="admin-glow-box">
-                            <button class="admin-glow-btn" onclick="adminWatchLive()"><i class="fa-solid fa-tower-broadcast"></i>  Watch Live TV</button>
+                        <div class="admin-dash-section">
+                            <h3><i class="fa-solid fa-cloud-arrow-down" style="margin-right:4px;"></i> Azam Max Auth</h3>
+                            <div id="azam-stream-status" style="font-size:0.6rem;margin-bottom:8px;color:var(--muted);">No tok_ loaded yet.</div>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="adminWatchLive()" style="font-size:0.55rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-tower-broadcast"></i> Dashboard</button>
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="refreshTokFromSupabase()" style="font-size:0.55rem;background:var(--accent);color:#000;"><i class="fa-solid fa-cloud-arrow-down"></i> Load tok_ from Supabase</button>
+                            </div>
+                            <div style="font-size:0.6rem;color:var(--muted);margin-bottom:4px;">
+                                <i class="fa-solid fa-key"></i> authXmlToken (per-channel)
+                            </div>
+                            <div style="display:flex;gap:4px;margin-bottom:4px;">
+                                <input id="wv-bearer-input" type="text" placeholder="Bearer token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                            </div>
+                            <div style="display:flex;gap:4px;margin-bottom:4px;">
+                                <select id="wv-channel-select" onchange="loadChannelDetails()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 4px;">
+                                    ${Object.entries(AZAM_CHANNEL_MAP).map(([name, info]) =>
+                                        `<option value="${info.channel_id}">${name}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="fetchAllAuthXmlTokens()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-cloud-arrow-down"></i> Auto-Fetch All Channels</button>
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="fetchSingleAuthXmlToken()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-download"></i> Fetch Single</button>
+                            </div>
+                            <div style="display:flex;gap:4px;margin-top:4px;">
+                                <input id="wv-channel-tok-input" type="text" placeholder="tok_ URL (per-channel)" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveChannelTok()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                            </div>
+                            <div style="display:flex;gap:4px;margin-top:4px;">
+                                <input id="wv-subscription-dtl-input" type="text" placeholder="subscriptionDtl" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <input id="wv-content-dtl-input" type="text" placeholder="contentDtl" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveChannelDtl()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                            </div>
+                            <div style="display:flex;gap:4px;margin-top:4px;">
+                                <input id="wv-auth-token-input" type="text" placeholder="Paste authXmlToken manually" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveWvAuthToken()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="loadWvAuthToken()" style="font-size:0.5rem;"><i class="fa-solid fa-rotate"></i> Load</button>
+                            </div>
+                            <div id="wv-auth-status" style="font-size:0.5rem;color:var(--muted);margin-top:4px;"></div>
+                            <div class="token-help" style="margin-top:6px;">
+                                <strong>Jinsi ya kupata credentials:</strong><br>
+                                1. Fungua <strong>web.azamtvmax.com</strong> → F12 → Network<br>
+                                2. Play channel → tafuta <strong style="color:var(--accent3);">api.aztv.videoready.tv/drm-auth</strong> na <strong style="color:var(--accent);">tok_</strong> request<br>
+                                3. Nakili <strong style="color:var(--accent);">Authorization: Bearer xxx</strong>, <strong style="color:var(--accent2);">subscriptionDtl</strong>, <strong style="color:var(--accent);">contentDtl</strong> kutoka drm-auth body<br>
+                                4. Nakili <strong style="color:var(--accent);">tok_ URL</strong> kutoka MPD request (kila channel ina yake)<br>
+                                5. Paste hapo juu → "<strong style="color:var(--accent);">Save</strong>" kisha "<strong style="color:var(--accent);">Auto-Fetch All Channels</strong>"
+                            </div>
                         </div>
+
                     </div>
                     <div id="admin-live-view">
                         <div class="admin-back-bar">
@@ -1444,6 +1518,9 @@
                         </div>`;
                     }).join('');
                 }
+                renderAzamStreamStatus();
+                loadAzamTokens();
+                loadChannelDetails();
             } else {
                 const uname = session ? session.name || session.username : 'Viewer';
                 const sub = getSubscriptionInfo();
@@ -1495,6 +1572,7 @@
             setTimeout(() => { toast.classList.remove('show'); }, 3500);
         }
 
+
         function adminWatchLive() {
             document.getElementById('admin-view').style.display = 'none';
             document.getElementById('admin-live-view').classList.add('show');
@@ -1504,7 +1582,6 @@
                 loadChannels();
             }
         }
-
         function adminBackToPanel() {
             document.getElementById('admin-view').style.display = 'block';
             document.getElementById('admin-live-view').classList.remove('show');
@@ -1685,31 +1762,49 @@
                                  color: '#00d4ff'
                              };
                           }).filter(ch => {
-                                    const REMOVED = {'abood tv':1,'trace africa':1,'chamuka tv':1,'sony max':1,'sony pix':1,'tanzania safari':1,'wild':1,'history':1,'cbeebies':1,'espn':1,'espn 2':1,'national geographic':1,'national geographic wild':1,'nat geo':1,'nat geo wild':1,'nat geo africa':1,'nat geo wild africa':1,'natgeo':1,'natgeo africa':1,'natgeo wild':1,'natgeo wild africa':1,'khl tv':1,'khl tv hd':1,'nickelodeon':1,'toonami':1,'draftkings network':1,'30a golf kingdom':1,'kartoon channel':1,'baby shark tv':1,'happykids':1,'love nature':1,'wildearth':1,'autentic history':1,'humor mill':1,'2x2':1,'6ter':1,'тнт':1,'тнт4':1,'тв-3':1,'смотрим':1,'пятница':1,'江苏综艺':1,'宁夏卫视':1,'ланет.tv':1,'беларусь 2':1,'zuglo tv':1,'zoytv plus':1,'zoy tv turcas':1,'zee yuva':1,'zee tv uk hd':1,'zee tv hd':1,'zee telugu hd':1,'zee sarthak':1,'zee marathi hd':1,'zee marathi':1,'zee horror nights':1,'zee dil se':1,'zee alwan':1};
-                              return !REMOVED[ch.name.toLowerCase()];
-                           });
-                       if (channels.length > 0) {
+const REMOVED = {};
+                return !REMOVED[ch.name.toLowerCase()] && ch.category !== 'Sports';
+                            });
+                        if (channels.length > 0) {
                         // Merge in extra working HLS channels from iptv-org
                         const extra = [
-                            // ─── Wurl (confirmed working) ───
+                                // ─── Azam (DASH via get-stream + Cloudflare Worker proxy) ───
+                                 {name:'Azam Sport 1',category:'Azam',stream_url:'azam://AzamSport1',logo:'https://static.wikia.nocookie.net/logopedia/images/e/e6/Azam_Sports_HD_Logo.png',_azam:true},
+                                 {name:'Azam Sport 2',category:'Azam',stream_url:'azam://AzamSport2',logo:'https://static.wikia.nocookie.net/logopedia/images/e/e6/Azam_Sports_HD_Logo.png',_azam:true},
+                                 {name:'Azam Sport 3',category:'Azam',stream_url:'azam://AzamSport3',logo:'https://static.wikia.nocookie.net/logopedia/images/e/e6/Azam_Sports_HD_Logo.png',_azam:true},
+                                 {name:'Azam Sport 4',category:'Azam',stream_url:'azam://AzamSport4',logo:'https://static.wikia.nocookie.net/logopedia/images/e/e6/Azam_Sports_HD_Logo.png',_azam:true},
+                                 {name:'Azam One',category:'Azam',stream_url:'azam://AzamOne',logo:'https://static.wikia.nocookie.net/logopedia/images/1/11/Azam_One_Logo.png',_azam:true},
+                                 {name:'Azam Two',category:'Azam',stream_url:'azam://AzamTwo',logo:'https://static.wikia.nocookie.net/logopedia/images/f/f6/Azam_Two_Logo.png',_azam:true},
+                                 {name:'Sinema Zetu',category:'Azam',stream_url:'azam://SinemaZetu',logo:'https://graph.facebook.com/sinemazetuhd/picture?type=large',_azam:true},
+                                  {name:'UTV',category:'Azam',stream_url:'azam://UTV',logo:'https://static.wikia.nocookie.net/logopedia/images/1/18/Azam_UTV_Logo_%28Better%29.png',_azam:true},
+                                  {name:'Wasafi TV',category:'Local',stream_url:'azam://WasafiTV',logo:'https://i.imgur.com/1TghlCJ.png',_azam:true},
+                                  {name:'Cheka Plus',category:'Local',stream_url:'azam://ChekaPlusTV',logo:'https://i.imgur.com/rQvZ8pF.png',_azam:true},
+                                  {name:'MBC 2',category:'Entertainment',stream_url:'azam://MBC2',logo:'https://upload.wikimedia.org/wikipedia/commons/0/01/MBC_2_Logo.svg',_azam:true},
+                                  {name:'MBC Max',category:'Entertainment',stream_url:'azam://MBCMax',logo:'https://upload.wikimedia.org/wikipedia/commons/e/e8/MBC_Max_Logo.svg',_azam:true},
+                                   {name:'Crowns TV',category:'Local',stream_url:'azam://CrownTv',logo:'https://i.imgur.com/UW7QN4V.png',_azam:true},
+                                   {name:'ZBC',category:'Local',stream_url:'azam://ZBC',logo:'https://i.imgur.com/ZBC.png',_azam:true},
+                                   {name:'Nick Jr.',category:'Kids',stream_url:'azam://NickJr',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Nick_Jr._logo_2009.svg/480px-Nick_Jr._logo_2009.svg.png',_azam:true},
+
+                                  {name:'Nickelodeon',category:'Kids',stream_url:'azam://Nickelodeon',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Nickelodeon_2009_logo.svg/480px-Nickelodeon_2009_logo.svg.png',_azam:true},
+                                  {name:'Movies Now HD',category:'Movies',stream_url:'azam://MoviesNow',logo:'https://upload.wikimedia.org/wikipedia/commons/9/97/Movies_Now_logo.png',_azam:true},
+                                  {name:'HBO HD',category:'Movies',stream_url:'azam://HBO',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/HBO_logo.svg/480px-HBO_logo.svg.png',_azam:true},
+                                  {name:'KIX Movies',category:'Movies',stream_url:'azam://KIXMovies',logo:'https://static.wikia.nocookie.net/logopedia/images/f/fd/KIX_HD.png',_azam:true},
+                                  {name:'ESPN',category:'Sports',stream_url:'azam://ESPN',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/480px-ESPN_wordmark.svg.png',_azam:true},
+                                  {name:'ESPN 2',category:'Sports',stream_url:'azam://ESPN2',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/ESPN2_wordmark.svg/480px-ESPN2_wordmark.svg.png',_azam:true},
+                                  {name:'Cartoonito',category:'Kids',stream_url:'azam://Cartoonito',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Cartoonito_2021_Logo.svg/480px-Cartoonito_2021_Logo.svg.png',_azam:true},
+                                  {name:'Nat Geo Wild',category:'Documentary',stream_url:'azam://NatGeoWild',logo:'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png',_azam:true},
+                                  {name:'National Geographic',category:'Documentary',stream_url:'azam://NatGeo',logo:'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png',_azam:true},
+                                  {name:'Disney Jr.',category:'Kids',stream_url:'azam://DisneyJr',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Disney_Junior_2011_logo.svg/480px-Disney_Junior_2011_logo.svg.png',_azam:true},
+                                  {name:'Disney Channel',category:'Kids',stream_url:'azam://DisneyChannel',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Disney_Channel_logo_%282014%29.svg/480px-Disney_Channel_logo_%282014%29.svg.png',_azam:true},
+
+                                  {name:'Baby TV',category:'Kids',stream_url:'azam://BabyTV',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/BabyTV_logo.svg/480px-BabyTV_logo.svg.png',_azam:true},
+                              // ─── Wurl (confirmed working) ───
 {name:'FIFA+',category:'Sports',stream_url:'https://a62dad94.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0ZJRkFQbHVzRW5nbGlzaF9ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
                              {name:'FIFA+ Women',category:'Sports',stream_url:'https://cffda8ff.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/U2Ftc3VuZy1nYl9GSUZBUGx1c3dvbWVuX0hMUw/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
                              {name:'Red Bull TV',category:'Sports',stream_url:'https://3ea22335.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWdiX1JlZEJ1bGxUVl9ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Logo_of_Red_bull.svg/480px-Logo_of_Red_bull.svg.png'},
                              {name:'GLORY Kickboxing',category:'Sports',stream_url:'https://6f972d29.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0dsb3J5S2lja2JveGluZ19ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/en/thumb/0/0c/Glory_Logo.jpg/480px-Glory_Logo.jpg.png'},
                             // ─── Akamai (confirmed working) ───
                              {name:'Rally TV',category:'Sports',stream_url:'https://rally-tv-live.akamaized.net/hls/live/2117704/RallyTV-Pri/master.m3u8',logo:'https://i.postimg.cc/WtLq2C7c/logo-Rally-Tv1.png'},
-                             // ─── Alkass (confirmed working) ───
-                             {name:'Alkass One',category:'Sports',stream_url:'https://liveeu-gcp.alkassdigital.net/alkass1-p/main.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/93/%D8%B4%D8%B9%D8%A7%D8%B1_%D9%82%D9%86%D9%88%D8%A7%D8%AA_%D8%A7%D9%84%D9%83%D8%A7%D8%B3.jpg'},
-                             {name:'Alkass Three',category:'Sports',stream_url:'https://liveeu-gcp.alkassdigital.net/alkass3-p/main.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/93/%D8%B4%D8%B9%D8%A7%D8%B1_%D9%82%D9%86%D9%88%D8%A7%D8%AA_%D8%A7%D9%84%D9%83%D8%A7%D8%B3.jpg'},
-                             {name:'Alkass Four',category:'Sports',stream_url:'https://liveeu-gcp.alkassdigital.net/alkass4-p/main.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/93/%D8%B4%D8%B9%D8%A7%D8%B1_%D9%82%D9%86%D9%88%D8%A7%D8%AA_%D8%A7%D9%84%D9%83%D8%A7%D8%B3.jpg'},
-                             {name:'Alkass SHOOF',category:'Sports',stream_url:'https://liveeu-gcp.alkassdigital.net/alkass6-p/main.m3u8',logo:'https://shoof.alkass.net/assets/images/shoof.png'},
-                             // ─── Azam (DASH via Netlify proxy) ───
-                             {name:'Azam Sport 2',category:'Azam',stream_url:'https://cdnedgch2.azamtvltd.co.tz/tok_eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIxNzgwODA4NzAwIiwic2lwIjoiIiwicGF0aCI6IiIsInNlc3Npb25fY2RuX2lkIjoiY2YzZjQxMWM0M2RiMzQ0NyIsInNlc3Npb25faWQiOiIiLCJjbGllbnRfaWQiOiI0NzUyMzUwIiwiZGV2aWNlX2lkIjoiIiwibWF4X3Nlc3Npb25zIjowLCJzZXNzaW9uX2R1cmF0aW9uIjowLCJ1cmwiOiJodHRwczovLzEwMi4yMDguMjQ0LjkiLCJzZXNzaW9uX3RpbWVvdXQiOjAsImF1ZCI6IjciLCJzb3VyY2VzIjpbM119.wV7cpWZuC2LGJNpBXCxw3nwG3QeKqDQxsXQAwSvzvq0YrSkd9sxSVYYj_MTPcYaSK2sx_18GqG2g8rNNlQC-gw==/live/eds/AzamSport2/DASH/AzamSport2.mpd',logo:'https://upload.wikimedia.org/wikipedia/commons/1/1a/AZAM_TV_LOGO.png'},
-                            // ─── Other (confirmed working) ───
-                            
-                            
-                             
-                              
                               {name:'Horse TV',category:'Sports',stream_url:'https://a-cdn.klowdtv.com/live2/horsetv_720p/playlist.m3u8',logo:'https://squirrelmedia.es/img/ico/logo_horse.svg'},
                             {name:'Nautical Channel',category:'Sports',stream_url:'https://a-cdn.klowdtv.com/live2/nautical_720p/playlist.m3u8',logo:'https://static.wikia.nocookie.net/logopedia/images/e/e2/Nautical_Channel_%282020%29.svg'},
                             // ─── Added back (may 403 — user requested) ───
@@ -1731,14 +1826,12 @@
 
                                {name:'Bleav Football',category:'Sports',stream_url:'https://linear-493.frequency.stream/dist/glewedtv/493/hls/master/playlist.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 1311.6 340%27%3E%3Cpath fill=%27white%27 d=%27M112.7 192H95.6v36.6h17.9c12.9 0 24-6.3 24-17.9-.1-11.1-8.8-18.7-24.8-18.7z%27/%3E%3Cpath fill=%27white%27 d=%27M213.8 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.6 1.4.8 1.6 255.7 94.8 39 99.2-39.5-1.8-254.8.9-2.4zM113.5 266.5H52.9V79.6H109c37.4 0 68.2 19.2 68.2 55 0 15.3-6.3 26.3-17.6 35.8 15 9.7 22.9 23.4 22.9 40.3-.1 36.1-31.7 55.8-69 55.8z%27/%3E%3Cpath fill=%27white%27 d=%27M132.2 134.6c0-11.3-10.3-17.1-23.2-17.1H95.6v36.6H109c16 0 23.2-8.2 23.2-19.5zM484.4 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.7 1.4.8 1.6 255.7 94.8 39 99.2-39.5-1.8-254.8.9-2.4zm-46.3 254.5H332.3V79.6H375v146.7h63.2v40.2zM754.9 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.6 1.4.8 1.6 255.7 94.8 39L754 290l-1.8-254.8.9-2.4zm-46.2 107.9h-63.2v29h57.9v40.3h-57.9v37.1h63.2v40.3H602.9v-187h105.8zm200.4 87.4h32.1l-16.1-35.8-16 35.8z%27/%3E%3Cpath fill=%27white%27 d=%27M1025.5 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.7 1.4.8 1.6 255.7 94.8 39 99.2-39.5-1.8-254.8.9-2.4zm-57.4 254.5l-9.7-21.3H892l-9.7 21.3h-42.7l85.6-189.6h2.4l85.6 189.6zm326.1-233.7L1296 12l-.9-1.5-196.3 1.1-1.1 1.8.4 20.7 1.4.8 1.6 255.7 94.8 39 99.2-39.5-1.8-254.8zm-96.1 236.3h-2.4l-85.6-189.6h45l42.9 95 42.9-95h42.7z%27/%3E%3C/svg%3E'},
                               {name:'TyC Sports (Argentina)',category:'Sports',stream_url:'https://amg26268-amg26268c14-freelivesports-emea-10267.playouts.now.amagi.tv/ts-us-e2-n2/playlist/amg26268-sportsstudio-tycsports-freelivesportsemea/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5c/TyC_Sports_logo_2018.png'},
-
-                               // ─── News ───
-                              {name:'Fox News',category:'News',stream_url:'https://fox-foxnewsnow-vizio.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Fox_News_Channel_logo.svg/480px-Fox_News_Channel_logo.svg.png'},
+                                 // ─── News ───
+                               {name:'Fox News',category:'News',stream_url:'https://fox-foxnewsnow-vizio.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Fox_News_Channel_logo.svg/480px-Fox_News_Channel_logo.svg.png'},
                               {name:'BBC News',category:'News',stream_url:'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/BBC_News_logo_%282022%29.svg/480px-BBC_News_logo_%282022%29.svg.png'},
                               {name:'Sky News',category:'News',stream_url:'http://103.245.167.28/tot%20/31b003ab7e7749a798fe00424e3dd9ff%20.m3u8',logo:'https://files.catbox.moe/aacier.jpg'},
-                               {name:'Aljazeera',category:'News',stream_url:'http://royalibox.com/live/vk1355wmmq/7eqqmnovrx/279310.m3u8',logo:'https://i.ibb.co/5XybZJXS/71841.jpg'},
-                               {name:'DW News',category:'News',stream_url:'https://dw-hls.dw.com/dw_hls/hd/stream_origin/manifest/master_m3u8.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Deutsche_Welle_symbol_2012.svg/480px-Deutsche_Welle_symbol_2012.svg.png'},
-                               // ─── Documentary ───
+                                {name:'Aljazeera',category:'News',stream_url:'http://royalibox.com/live/vk1355wmmq/7eqqmnovrx/279310.m3u8',logo:'https://i.ibb.co/5XybZJXS/71841.jpg'},
+                                // ─── Documentary ───
                                 {name:'Autentic History',category:'Documentary',stream_url:'https://9e754fa707344ccca6d84955c8fcaf36.mediatailor.us-east-1.amazonaws.com/v1/master/44f73ba4d03e9607dcd9bebdcb8494d86964f1d8/RlaxxTV-eu_AutenticHistory/playlist.m3u8',logo:'https://d3b6luslimvglo.cloudfront.net/images/79/rlaxximages/channels-rescaled/icon-white/autentichistory_white.png'},
                               {name:'Love Nature',category:'Documentary',stream_url:'https://pb-ehs1glsha1juy.akamaized.net/Love_Nature_4K.m3u8',logo:'https://i.imgur.com/4OrOJRx.png'},
                                 {name:'WildEarth',category:'Documentary',stream_url:'https://dqga3jatxofgx.cloudfront.net/WildEarth.m3u8',logo:'https://i.imgur.com/Vhv5gjN.png'},
@@ -1760,12 +1853,12 @@
                             {name:'Kartoon Channel',category:'Kids',stream_url:'https://lightning-fnf-samsungaus.amagi.tv/playlist.m3u8',logo:'https://i.imgur.com/1luzP3T.png'},
                              {name:'PBS Kids',category:'Kids',stream_url:'https://livestream.pbskids.org/out/v1/14507d931bbe48a69287e4850e53443c/est.m3u8',logo:'https://i.imgur.com/q4cUQKW.png'},
                              // ─── Movies (confirmed working HLS) ───
-                             {name:'MovieSphere',category:'Movies',stream_url:'https://amg00353-lionsgatestudio-moviesphere-xumo-zh5u0.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/4/47/Lionsgate_logo.svg'},
+                             {name:'MovieSphere',category:'Movies',stream_url:'https://amg00353-lionsgatestudio-moviesphere-xumo-zh5u0.amagi.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/8/87/MovieSphere_Gold_2025_logo.svg'},
                              {name:'24 Hour Free Movies',category:'Movies',stream_url:'https://d15690s323oesy.cloudfront.net/v1/master/9d062541f2ff39b5c0f48b743c6411d25f62fc25/UDUDigital-Production/145.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2720%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3E24HR MOVIES%3C/text%3E%3C/svg%3E'},
-                             {name:'Universal Action',category:'Movies',stream_url:'https://xumo-xumoent-ch828-w6val.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5b/Universal_Pictures_logo.svg'},
-                             {name:'Universal Crime',category:'Movies',stream_url:'https://xumo-xumoent-vc-107-xmuvk.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5b/Universal_Pictures_logo.svg'},
-                             {name:'Universal Monsters',category:'Movies',stream_url:'https://xumo-xumoent-ch824-d4q5c.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5b/Universal_Pictures_logo.svg'},
-                             {name:'Universal Westerns',category:'Movies',stream_url:'https://xumo-xumoent-ch834-iwtka.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/5b/Universal_Pictures_logo.svg'},
+                             {name:'Universal Action',category:'Movies',stream_url:'https://xumo-xumoent-ch828-w6val.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg'},
+                             {name:'Universal Crime',category:'Movies',stream_url:'https://xumo-xumoent-vc-107-xmuvk.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg'},
+                             {name:'Universal Monsters',category:'Movies',stream_url:'https://xumo-xumoent-ch824-d4q5c.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg'},
+                             {name:'Universal Westerns',category:'Movies',stream_url:'https://xumo-xumoent-ch834-iwtka.fast.nbcuni.com/live/master.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg'},
                              {name:'Alfred Hitchcock Presents',category:'Movies',stream_url:'https://xumo-xumoent-ch825-ku23q.fast.nbcuni.com/live/master.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2738%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2718%27 font-weight=%27bold%27 fill=%27white%27%3EHITCHCOCK%3C/text%3E%3Ctext x=%27100%27 y=%2762%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2714%27 fill=%27%23b0a5c8%27%3ESuspense%3C/text%3E%3C/svg%3E'},
                              {name:'Scares by Shudder',category:'Movies',stream_url:'https://amc-scaresbyshudder-1-us.xumo.wurl.tv/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/5/51/Shudder_2017.svg'},
                              {name:'Hi-YAH!',category:'Movies',stream_url:'https://linear-59.frequency.stream/dist/xumo/59/hls/master/playlist.m3u8',logo:'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23c0392b%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2726%27 font-weight=%27bold%27 fill=%27white%27%3EHI-YAH!%3C/text%3E%3C/svg%3E'},
@@ -1790,9 +1883,9 @@
                               {name:'Abc News',category:'News',stream_url:'http://abclive.abcnews.com/i/abc_live4@136330/index_1200_av-b.m3u8',logo:'https://files.catbox.moe/qwe7tx.jpg'},
                                {name:'CNN',category:'News',stream_url:'http://d1hya96e2cm7qi.cloudfront.net/Live/_definst_/sweetbcha1novD177_W_150.sdp/media_7419.m3u8',logo:'https://i.ibb.co/Xxr4f55y/71984.jpg'},
                                 {name:'Tbc 1',category:'FREE CHANNELS',stream_url:'https://134630.global.ssl.fastly.net/5fe35eae8c53540cab83659a/live_36e8f510dfee11ec9dc2d5b207a2c04f/index.m3u8',logo:'https://i.imgur.com/OmiVZ1u.png'},
-                               {name:'VIKI RAKUTEN TV',category:'Movies',stream_url:'https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8',logo:'https://i.ibb.co/0yJc4jpc/351873.png'},
-                               {name:'WWE',category:'Sports',stream_url:'https://dpv6ceilvhyrw.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-7ufe851j0vqbg/playlist.m3u8',logo:'https://i.ibb.co/bgYXXKPH/71844.jpg'},
-                               {name:'Cartoon network',category:'Kids',stream_url:'https://cdn4.skygo.mn/live/disk1/Cartoon_Network/HLSv3-FTA/Cartoon_Network.m3u8',logo:'https://i.ibb.co/HphLxnZg/71985.jpg'},
+                                 {name:'VIKI RAKUTEN TV',category:'Movies',stream_url:'https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8',logo:'https://i.ibb.co/0yJc4jpc/351873.png'},
+                                {name:'WWE',category:'Sports',stream_url:'https://dpv6ceilvhyrw.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-7ufe851j0vqbg/playlist.m3u8',logo:'https://i.ibb.co/bgYXXKPH/71844.jpg'},
+                                 {name:'Cartoon network',category:'Kids',stream_url:'https://cdn4.skygo.mn/live/disk1/Cartoon_Network/HLSv3-FTA/Cartoon_Network.m3u8',logo:'https://i.ibb.co/HphLxnZg/71985.jpg'},
                                {name:'Russia Today (GLOBAL)',category:'News',stream_url:'http://sat1liveios-i.akamaihd.net/hls/live/205904/ios/rtlive/master002.m3u8',logo:'https://files.catbox.moe/xdk25m.jpg'},
                                 {name:'Tbc 2',category:'FREE CHANNELS',stream_url:'https://134630.global.ssl.fastly.net/5fe35eae8c53540cab83659a/live_36e8f510dfee11ec9dc2d5b207a2c04f/index.m3u8',logo:'https://i.imgur.com/VkUJt2q.png'},
                                {name:'PERRY DRAMA',category:'Movies',stream_url:'https://doumbtmvnsp0z.cloudfront.net/playlist.m3u8',logo:'https://i.ibb.co/B2Vr9wGY/352771.png'},
@@ -1812,16 +1905,18 @@
                               'abc news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-news-us.png',
                               'cartoon network': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cartoon-network-int.png',
                               'wwe': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/wwe-us.png',
-                              'trace urban': 'https://i.imgur.com/DLIbUMx.png',
-                              'wasafi': 'https://i.imgur.com/1TghlCJ.png',
-                              'crown tv': 'https://i.imgur.com/UW7QN4V.png',
+                               'trace urban': 'https://i.imgur.com/DLIbUMx.png',
+                               'wasafi tv': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EWasafi%20TV%3C/text%3E%3C/svg%3E',
+                               'crowns tv': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECrowns%20TV%3C/text%3E%3C/svg%3E',
+                               'cheka plus': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECheka%20Plus%3C/text%3E%3C/svg%3E',
+                               'zbc': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EZBC%3C/text%3E%3C/svg%3E',
                               'russia today (global)': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/russia-today-int.png',
                                'hbo': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hbo-us.png',
                               'bbc news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-news-uk.png',
                               'sky news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-news-uk.png',
                               'aljazeera': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/aljazeera-uk.png',
                               'ibn tv tanzania': 'https://upload.wikimedia.org/wikipedia/commons/3/32/IBN_TV_LOGO.png',
-                              'tyc sports (argentina)': 'https://upload.wikimedia.org/wikipedia/commons/5/5c/TyC_Sports_logo_2018.png',
+                               'tyc sports (argentina)': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ETyC%20Sports%3C/text%3E%3C/svg%3E',
                               'mbc 1': 'https://upload.wikimedia.org/wikipedia/commons/c/c0/MBC_1_Logo.svg',
                               'mbc 3': 'https://upload.wikimedia.org/wikipedia/commons/b/b0/MBC_3_Logo.svg',
                               'mbc 4': 'https://upload.wikimedia.org/wikipedia/en/d/d4/MBC_4_Logo.svg',
@@ -1831,13 +1926,27 @@
                              'mbc masr drama': 'https://upload.wikimedia.org/wikipedia/commons/c/c1/MBC_Masr_Drama.jpg',
                              'mbc persia': 'https://upload.wikimedia.org/wikipedia/en/2/26/MBC_Persia_Logo.svg',
                              'red bull tv': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/red-bull-tv-int.png',
-                              'autentic history': 'https://d3b6luslimvglo.cloudfront.net/images/79/rlaxximages/channels-rescaled/icon-white/autentichistory_white.png',
-                             'glory kickboxing': 'https://upload.wikimedia.org/wikipedia/en/3/3a/Glory_Logo.jpg',
+                               'autentic history': 'https://d3b6luslimvglo.cloudfront.net/images/79/rlaxximages/channels-rescaled/icon-white/autentichistory_white.png',
+                              'glory kickboxing': 'https://upload.wikimedia.org/wikipedia/en/3/3a/Glory_Logo.jpg',
+                              // ─── Nat Geo ───
+                              'national geographic': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png',
+                              'national geographic wild': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png',
+                              'nat geo': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png',
+                              'nat geo wild': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png',
+                              'nat geo africa': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png',
+                              'nat geo wild africa': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png',
+                              'natgeo': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png',
+                              'natgeo africa': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png',
+                              'natgeo wild': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png',
+                              'natgeo wild africa': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png',
 
                              'sportitalia': 'https://upload.wikimedia.org/wikipedia/commons/9/90/Sportitalia_2019_Logo.png',
                              'fox news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-news-us.png',
                              'toonami': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/toonami-us.png',
-                              'nickelodeon': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nickelodeon-us.png',
+                               'nickelodeon': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nickelodeon-us.png',
+                               'nick jr.': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENick%20Jr.%3C/text%3E%3C/svg%3E',
+                               'disney jr.': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EDisney%20Jr.%3C/text%3E%3C/svg%3E',
+                               'disney channel': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EDisney%20Channel%3C/text%3E%3C/svg%3E',
                               // ─── HEIS5-branded logos (no real logo found) ───
                               'bleav football': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EBleav%20Football%3C/text%3E%3C/svg%3E',
                               '24 hour free movies': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3E24%20Hour%20Free%20Movies%3C/text%3E%3C/svg%3E',
@@ -1851,12 +1960,19 @@
                               'action movie channel': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EAction%20Movie%20Channel%3C/text%3E%3C/svg%3E',
                               'new k-movies': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENEW%20K-MOVIES%3C/text%3E%3C/svg%3E',
                                'sparkle movies': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ESparkle%20Movies%3C/text%3E%3C/svg%3E',
-                               // ─── Broken Wikimedia/imgur logos (replaced with HEIS5) ───
-                               'universal action': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EUniversal%20Action%3C/text%3E%3C/svg%3E',
-                               'universal crime': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EUniversal%20Crime%3C/text%3E%3C/svg%3E',
-                               'universal monsters': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EUniversal%20Monsters%3C/text%3E%3C/svg%3E',
-                               'universal westerns': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EUniversal%20Westerns%3C/text%3E%3C/svg%3E',
-                               'world of freesports': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EFreesports%3C/text%3E%3C/svg%3E',
+                                'universal action': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg',
+                                'universal crime': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg',
+                                'universal monsters': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg',
+                                'universal westerns': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg',
+                                // ─── Working Wikimedia URLs (replaced HEIS5 placeholders) ───
+                                'kix': 'https://upload.wikimedia.org/wikipedia/commons/0/0b/KIX_logo.svg',
+                                'amc theatres': 'https://upload.wikimedia.org/wikipedia/commons/d/d4/AMC_Theatres_logo_%282%29.svg',
+                                'moviesphere gold': 'https://upload.wikimedia.org/wikipedia/commons/8/87/MovieSphere_Gold_2025_logo.svg',
+                                'lionsgate': 'https://upload.wikimedia.org/wikipedia/commons/6/65/Lionsgate_Logo.svg',
+                                'bet': 'https://upload.wikimedia.org/wikipedia/commons/9/90/BET_Logo.svg',
+                                'bet+': 'https://upload.wikimedia.org/wikipedia/commons/0/08/BET%2B_logo_2019.svg',
+                                'bet plus': 'https://upload.wikimedia.org/wikipedia/commons/0/08/BET%2B_logo_2019.svg',
+                                'world of freesports': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EFreesports%3C/text%3E%3C/svg%3E',
                                'cinelife': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECineLife%3C/text%3E%3C/svg%3E',
                                'nbc comedy vault': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENBC%20Comedy%20Vault%3C/text%3E%3C/svg%3E',
                            };
@@ -1879,9 +1995,9 @@
                     throw new Error('HTTP ' + res.status + ' — ' + text.slice(0, 100));
                 }
                 channels = await res.json();
-                const REMOVED2 = {'espn':1,'espn 2':1,'national geographic':1,'national geographic wild':1,'nat geo':1,'nat geo wild':1,'nat geo africa':1,'nat geo wild africa':1,'natgeo':1,'natgeo africa':1,'natgeo wild':1,'natgeo wild africa':1,'khl tv':1,'khl tv hd':1,'nickelodeon':1,'toonami':1,'draftkings network':1,'30a golf kingdom':1,'kartoon channel':1,'baby shark tv':1,'happykids':1,'love nature':1,'wildearth':1,'autentic history':1,'abood tv':1,'trace africa':1,'chamuka tv':1,'sony max':1,'sony pix':1,'tanzania safari':1,'wild':1,'history':1,'cbeebies':1,'humor mill':1,'2x2':1,'6ter':1,'тнт':1,'тнт4':1,'тв-3':1,'смотрим':1,'пятница':1,'江苏综艺':1,'宁夏卫视':1,'ланет.tv':1,'беларусь 2':1,'zuglo tv':1,'zoytv plus':1,'zoy tv turcas':1,'zee yuva':1,'zee tv uk hd':1,'zee tv hd':1,'zee telugu hd':1,'zee sarthak':1,'zee marathi hd':1,'zee marathi':1,'zee horror nights':1,'zee dil se':1,'zee alwan':1};
+                const REMOVED2 = {};
                 channels = channels.filter(ch => !REMOVED2[ch.name.toLowerCase().trim()]);
-                const LOGO_FIX = {'tbc 1':'https://i.imgur.com/OmiVZ1u.png','tbc 2':'https://i.imgur.com/VkUJt2q.png','cnn':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png','abc news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-news-us.png','cartoon network':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cartoon-network-int.png','wwe':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/wwe-us.png','trace urban':'https://i.imgur.com/DLIbUMx.png','wasafi':'https://i.imgur.com/1TghlCJ.png','crown tv':'https://i.imgur.com/UW7QN4V.png','russia today (global)':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/russia-today-int.png','hbo':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hbo-us.png','bbc news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-news-uk.png','sky news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-news-uk.png','aljazeera':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/aljazeera-uk.png','ibn tv tanzania':'https://upload.wikimedia.org/wikipedia/commons/3/32/IBN_TV_LOGO.png','tyc sports (argentina)':'https://upload.wikimedia.org/wikipedia/commons/5/5c/TyC_Sports_logo_2018.png','mbc 1':'https://upload.wikimedia.org/wikipedia/commons/c/c0/MBC_1_Logo.svg','mbc 3':'https://upload.wikimedia.org/wikipedia/commons/b/b0/MBC_3_Logo.svg','mbc 4':'https://upload.wikimedia.org/wikipedia/en/d/d4/MBC_4_Logo.svg'};
+                const LOGO_FIX = {'tbc 1':'https://i.imgur.com/OmiVZ1u.png','tbc 2':'https://i.imgur.com/VkUJt2q.png','cnn':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png','abc news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-news-us.png','cartoon network':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cartoon-network-int.png','wwe':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/wwe-us.png','trace urban':'https://i.imgur.com/DLIbUMx.png','wasafi tv':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EWasafi%20TV%3C/text%3E%3C/svg%3E','crowns tv':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECrowns%20TV%3C/text%3E%3C/svg%3E','cheka plus':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECheka%20Plus%3C/text%3E%3C/svg%3E','universal action':'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg','universal crime':'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg','universal monsters':'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg','universal westerns':'https://upload.wikimedia.org/wikipedia/commons/3/3a/Universal_Pictures_logo_%282000%29.svg','kix':'https://upload.wikimedia.org/wikipedia/commons/0/0b/KIX_logo.svg','amc theatres':'https://upload.wikimedia.org/wikipedia/commons/d/d4/AMC_Theatres_logo_%282%29.svg','moviesphere golden':'https://upload.wikimedia.org/wikipedia/commons/8/87/MovieSphere_Gold_2025_logo.svg','lionsgate':'https://upload.wikimedia.org/wikipedia/commons/6/65/Lionsgate_Logo.svg','bet':'https://upload.wikimedia.org/wikipedia/commons/9/90/BET_Logo.svg','bet+':'https://upload.wikimedia.org/wikipedia/commons/0/08/BET%2B_logo_2019.svg','bet plus':'https://upload.wikimedia.org/wikipedia/commons/0/08/BET%2B_logo_2019.svg','zbc':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EZBC%3C/text%3E%3C/svg%3E','tyc sports (argentina)':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ETyC%20Sports%3C/text%3E%3C/svg%3E','nick jr.':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENick%20Jr.%3C/text%3E%3C/svg%3E','disney jr.':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EDisney%20Jr.%3C/text%3E%3C/svg%3E','disney channel':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EDisney%20Channel%3C/text%3E%3C/svg%3E','wasafi tv':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EWasafi%20TV%3C/text%3E%3C/svg%3E','crowns tv':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECrowns%20TV%3C/text%3E%3C/svg%3E','cheka plus':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECheka%20Plus%3C/text%3E%3C/svg%3E','zbc':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EZBC%3C/text%3E%3C/svg%3E','russia today (global)':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/russia-today-int.png','hbo':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hbo-us.png','bbc news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-news-uk.png','sky news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-news-uk.png','aljazeera':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/aljazeera-uk.png','ibn tv tanzania':'https://upload.wikimedia.org/wikipedia/commons/3/32/IBN_TV_LOGO.png','tyc sports (argentina)':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ETyC%20Sports%3C/text%3E%3C/svg%3E','nickelodeon':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nickelodeon-us.png','nick jr.':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENick%20Jr.%3C/text%3E%3C/svg%3E','disney jr.':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EDisney%20Jr.%3C/text%3E%3C/svg%3E','disney channel':'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EDisney%20Channel%3C/text%3E%3C/svg%3E','mbc 1':'https://upload.wikimedia.org/wikipedia/commons/c/c0/MBC_1_Logo.svg','mbc 3':'https://upload.wikimedia.org/wikipedia/commons/b/b0/MBC_3_Logo.svg','mbc 4':'https://upload.wikimedia.org/wikipedia/en/d/d4/MBC_4_Logo.svg','national geographic':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png','national geographic wild':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png','nat geo':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png','nat geo wild':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png','nat geo africa':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png','nat geo wild africa':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png','natgeo':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png','natgeo africa':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png','natgeo wild':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png','natgeo wild africa':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png'};
                 channels.forEach(ch => { const l = ch.name.toLowerCase().trim(); if (LOGO_FIX[l]) ch.logo = LOGO_FIX[l]; });
                 renderChannels(); renderCategoryFilter(); loadIPTV();
             } catch (e) {
@@ -1893,8 +2009,17 @@
         function channelCard(c, idx) {
             const escapedName = c.name.replace(/'/g, "\\'");
             const escapedUrl = c.stream_url.replace(/'/g, "\\'");
-            const hasDrm = c.drm && c.drm.licenseUrl;
-            const drmJson = hasDrm ? JSON.stringify(c.drm).replace(/'/g, "\\'") : 'null';
+            if (c._azam) {
+                return `<div class="channel-card" style="transition-delay: ${idx * 0.04}s;" onclick="openAzamChannel('${escapedName}', '${escapedUrl}')">
+                    <div class="channel-poster">
+                        <img src="${c.logo}" alt="" onerror="this.outerHTML='<div class=\\'placeholder\\'><i class=\\'fa-solid fa-tower-broadcast\\'></i></div>'">
+                        <div class="live-badge"><span class="pulse-dot"></span>LIVE</div>
+                    </div>
+                    <h4>${c.name}</h4>
+                </div>`;
+            }
+            const hasDrm = c.drm && (c.drm.licenseUrl || c.drm.clearKeys);
+            const drmStr = hasDrm ? JSON.stringify(c.drm) : '';
             let logoHtml;
             if (c.logo && c.logo.match(/^(https?:\/\/|data:)/)) {
                 logoHtml = `<img src="${c.logo}" alt="" onerror="this.outerHTML='<div class=\\'placeholder\\'><i class=\\'fa-solid fa-tower-broadcast\\'></i></div>'">`;
@@ -1903,7 +2028,7 @@
             } else {
                 logoHtml = `<div class="placeholder"><i class="fa-solid fa-tower-broadcast"></i></div>`;
             }
-            return `<div class="channel-card" style="transition-delay: ${idx * 0.04}s;" onclick="openVideoPlayer('${escapedName}', '${escapedUrl}', ${drmJson})">
+            return `<div class="channel-card" style="transition-delay: ${idx * 0.04}s;" onclick="openVideoPlayer('${escapedName}', '${escapedUrl}', '${encodeURIComponent(drmStr)}')">
                 <div class="channel-poster">
                     ${logoHtml}
                     <div class="live-badge"><span class="pulse-dot"></span>LIVE</div>
@@ -1936,11 +2061,10 @@
         }
         async function loadIPTV() {
             const categories = [
-                { url: 'https://iptv-org.github.io/iptv/categories/sports.m3u', cat: 'Sports' },
                 { url: 'https://iptv-org.github.io/iptv/categories/kids.m3u', cat: 'Kids' },
                 { url: 'https://iptv-org.github.io/iptv/categories/movies.m3u', cat: 'Movies' },
             ];
-            const IPTV_REMOVED = {'espn':1,'espn 2':1,'national geographic':1,'national geographic wild':1,'nat geo':1,'nat geo wild':1,'natgeo':1,'natgeo wild':1,'khl tv':1,'khl tv hd':1,'nickelodeon':1,'toonami':1,'draftkings network':1,'30a golf kingdom':1,'kartoon channel':1,'baby shark tv':1,'happykids':1,'love nature':1,'wildearth':1,'autentic history':1,'humor mill':1,'2x2':1,'6ter':1,'тнт':1,'тнт4':1,'тв-3':1,'смотрим':1,'пятница':1,'江苏综艺':1,'宁夏卫视':1,'ланет.tv':1,'беларусь 2':1,'zuglo tv':1,'zoytv plus':1,'zoy tv turcas':1,'zee yuva':1,'zee tv uk hd':1,'zee tv hd':1,'zee telugu hd':1,'zee sarthak':1,'zee marathi hd':1,'zee marathi':1,'zee horror nights':1,'zee dil se':1,'zee alwan':1};
+            const IPTV_REMOVED = {};
             for (const { url, cat } of categories) {
                 try {
                     const res = await fetch(url);
@@ -2085,6 +2209,15 @@
             }
         }
 
+        function parseTokExpiry(tokenUrl) {
+            try {
+                const m = tokenUrl.match(/tok_[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\./);
+                if (!m) return null;
+                const payload = JSON.parse(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')));
+                return payload.exp ? parseInt(payload.exp) : null;
+            } catch(e) { return null; }
+        }
+
         // ═══ SUBSCRIPTION ═══
         function hasActiveSubscription() {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
@@ -2189,7 +2322,392 @@
             window.open('https://wa.me/255712345678?text=Habari%20HEIS5%20TV!%20Nataka%20kujiandikisha%20na%20kupata%20chaneli%20zote.%20Akaunti%3A%20' + encodeURIComponent(session.email), '_blank');
         }
 
-        function openVideoPlayer(name, url, drm) {
+        // ═══ AZAM STREAM INTEGRATION (no xploitechstv) ═══
+        const AZAM_CHANNEL_MAP = {
+            AzamOne: { channel_id: '5842b548-7a86-40f7-9eee-feb5b32c3eff' },
+            AzamTwo: { channel_id: 'feb7f040-ba80-4207-9c9b-91b13f95e697' },
+            AzamSport1: { channel_id: '8f8fc9c0-096d-4ae9-b549-c51a56d8c4bc' },
+            AzamSport2: { channel_id: '1e574a1c-0e58-4e10-8c89-61f16eec87f3' },
+            AzamSport3: { channel_id: 'e6ce7312-8b03-48c2-975b-0292997d623e' },
+            AzamSport4: { channel_id: 'c4187de8-17e4-4eff-b3f8-8994d5ee6b24' },
+            SinemaZetu: { channel_id: '127e133c-485f-45c6-bfe4-350b8aa8a403' },
+            UTV: { channel_id: 'd0289735-5a6b-4f45-9c2d-f319811111fb' },
+            WasafiTV: { channel_id: '0fec02c1-c297-414a-935d-a41af3bea513' },
+            ChekaPlusTV: { channel_id: 'b2173a95-d44f-4524-a088-94212f258d41' },
+            MBC2: { channel_id: '173473fa-9f2b-4b2a-8e46-6e9e7fc536f2' },
+            CrownTv: { channel_id: 'be9b98df-5e49-4fcc-9211-d4524e66799c' },
+            ZBC: { channel_id: 'f3245217-af9c-4f98-92f6-d193651cd5f8' },
+            MBCMax: { channel_id: '6f0ddd58-3e55-41f4-ae5d-526d91991f61' },
+            NickJr: { channel_id: 'e6d574f9-6924-487f-8bbe-26e7bab7d962' },
+            SonySportTen2: { channel_id: '47dd4b5f-20ee-4569-ae24-41f40cf465bc' },
+            SonySportTen1: { channel_id: '12a9190d-1b18-4980-8353-9f3f34297fe1' },
+            SonyPix: { channel_id: '5526a590-7804-42ab-aeaf-6eb2c7ef5667' },
+            Nickelodeon: { channel_id: '0461fd58-09ef-49b3-8b59-5942711847fa' },
+            MoviesNow: { channel_id: '5b7f507b-7ee6-4657-ae1b-06e1e0611eb0' },
+            HBO: { channel_id: '825bdf8c-3b78-4c6c-b4bf-91603cd4225f' },
+            KIXMovies: { channel_id: '996e2c82-b51c-49fe-8770-56bf8ff7f5ba' },
+            ESPN: { channel_id: '219f9eda-e667-41dc-bdbe-5a4cb4bd5f7f' },
+            ESPN2: { channel_id: '87536e79-e98e-44b4-bbc5-96cf97ac7234' },
+            Cartoonito: { channel_id: '7e64801b-cc82-4b2c-8fd2-1b08d3610cd8' },
+            NatGeoWild: { channel_id: '09e4a917-2564-45f0-a275-c6928987c0d5' },
+            NatGeo: { channel_id: 'f2cb1870-4c1f-49f9-9f38-2ed6aea70c9c' },
+            DisneyJr: { channel_id: 'c1e3b572-510e-4289-b965-af09cb430db0' },
+            DisneyChannel: { channel_id: '266b46c1-21b9-4fd9-ad2f-62d008b8948a' },
+            BabyTV: { channel_id: '568966cf-a42a-4984-ac87-5e1ef065275d' },
+        };
+        async function refreshTokFromSupabase() {
+            const statusEl = document.getElementById('azam-stream-status');
+            statusEl.innerHTML = '<span style="color:var(--muted);">⏳ Loading tok_ from Supabase...</span>';
+            try {
+                const resp = await fetch('/load-tok-from-supabase');
+                const data = await resp.json();
+                if (data.success && data.tok) {
+                    const prefix = extractTokPrefix(data.tok) || data.tok;
+                    localStorage.setItem('heis5_azam_token_prefix', prefix);
+                    // Also save to selected channel
+                    const sel = document.getElementById('wv-channel-select');
+                    if (sel) saveTokForChannel(sel.value, prefix);
+                    statusEl.innerHTML = '<span style="color:var(--accent3);">✅ tok_ loaded from Supabase!</span>';
+                    return data.tok;
+                } else {
+                    statusEl.innerHTML = '<span style="color:#ff4444;">❌ ' + (data.error || 'No token found') + '</span>';
+                    throw new Error(data.error || 'No token');
+                }
+            } catch (e) {
+                statusEl.innerHTML = '<span style="color:#ff4444;">❌ ' + e.message + '</span>';
+                throw e;
+            }
+        }
+        async function fetchTokFromSupabase() {
+            const data = await refreshTokFromSupabase();
+            return data;
+        }
+        function extractTokPrefix(raw) {
+            const m = raw.match(/^https?:\/\/[^/]+\/tok_[A-Za-z0-9_.=-]+/);
+            return m ? m[0] : null;
+        }
+        function getTokForChannel(channelId) {
+            try { const m = JSON.parse(localStorage.getItem('heis5_azam_tok_map') || '{}'); return m[channelId] || null; } catch { return null; }
+        }
+        function saveTokForChannel(channelId, tok) {
+            try { const m = JSON.parse(localStorage.getItem('heis5_azam_tok_map') || '{}'); m[channelId] = tok; localStorage.setItem('heis5_azam_tok_map', JSON.stringify(m)); } catch {}
+        }
+        async function callGetStream(channelName) {
+            const channelInfo = AZAM_CHANNEL_MAP[channelName];
+            const channelId = channelInfo ? channelInfo.channel_id : null;
+            let tokPrefix = channelId ? getTokForChannel(channelId) : null;
+            if (!tokPrefix) tokPrefix = localStorage.getItem('heis5_azam_token_prefix');
+            if (!tokPrefix) {
+                try {
+                    const resp = await sbFetch('/rest/v1/azam_config?select=*&limit=1');
+                    const rows = await resp.json();
+                    if (rows && rows[0] && rows[0].tok) { tokPrefix = rows[0].tok; localStorage.setItem('heis5_azam_token_prefix', tokPrefix); }
+                } catch (e) {}
+            }
+            tokPrefix = extractTokPrefix(tokPrefix);
+            const url = tokPrefix
+                ? tokPrefix + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd'
+                : 'https://cdnblncr.azamtvltd.co.tz/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+            return { ok: true, url };
+        }
+        function getStoredAuthTokens() {
+            try { return JSON.parse(localStorage.getItem('heis5_wv_auth_tokens') || '{}'); } catch { return {}; }
+        }
+        function getChannelDetails(channelId) {
+            try { const d = JSON.parse(localStorage.getItem('heis5_wv_channel_details') || '{}'); return d[channelId] || {}; } catch { return {}; }
+        }
+        function saveChannelDetails(channelId, data) {
+            try { const d = JSON.parse(localStorage.getItem('heis5_wv_channel_details') || '{}'); d[channelId] = { ...d[channelId], ...data }; localStorage.setItem('heis5_wv_channel_details', JSON.stringify(d)); } catch {}
+        }
+        function loadChannelDetails() {
+            const sel = document.getElementById('wv-channel-select');
+            const channelId = sel.value;
+            const details = getChannelDetails(channelId);
+            if (details.tok) document.getElementById('wv-channel-tok-input').value = details.tok;
+            else document.getElementById('wv-channel-tok-input').value = getTokForChannel(channelId) || '';
+            if (details.contentDtl) document.getElementById('wv-content-dtl-input').value = details.contentDtl;
+            if (details.subscriptionDtl) document.getElementById('wv-subscription-dtl-input').value = details.subscriptionDtl;
+        }
+        function saveChannelTok() {
+            const sel = document.getElementById('wv-channel-select');
+            const channelId = sel.value;
+            const tok = document.getElementById('wv-channel-tok-input').value.trim();
+            saveTokForChannel(channelId, tok);
+            saveChannelDetails(channelId, { tok });
+            document.getElementById('wv-auth-status').textContent = 'tok_ saved for ' + sel.options[sel.selectedIndex].text;
+        }
+        function saveChannelDtl() {
+            const sel = document.getElementById('wv-channel-select');
+            const channelId = sel.value;
+            const tok = document.getElementById('wv-channel-tok-input').value.trim();
+            const contentDtl = document.getElementById('wv-content-dtl-input').value.trim();
+            const subscriptionDtl = document.getElementById('wv-subscription-dtl-input').value.trim();
+            saveChannelDetails(channelId, { tok, contentDtl, subscriptionDtl });
+            if (tok) saveTokForChannel(channelId, tok);
+            document.getElementById('wv-auth-status').textContent = 'Details saved for ' + sel.options[sel.selectedIndex].text;
+        }
+        function saveWvAuthToken() {
+            const sel = document.getElementById('wv-channel-select');
+            const inp = document.getElementById('wv-auth-token-input');
+            const channelId = sel.value;
+            const channelName = sel.options[sel.selectedIndex].text;
+            const token = inp.value.trim();
+            if (!token) { document.getElementById('wv-auth-status').textContent = 'Paste an authXmlToken first.'; return; }
+            const tokens = getStoredAuthTokens();
+            tokens[channelId] = token;
+            localStorage.setItem('heis5_wv_auth_tokens', JSON.stringify(tokens));
+            inp.value = '';
+            document.getElementById('wv-auth-status').textContent = 'Saved for ' + channelName + ' (' + channelId.substring(0,8) + '...)';
+        }
+        function loadWvAuthToken() {
+            const sel = document.getElementById('wv-channel-select');
+            const inp = document.getElementById('wv-auth-token-input');
+            const channelId = sel.value;
+            const channelName = sel.options[sel.selectedIndex].text;
+            const tokens = getStoredAuthTokens();
+            if (tokens[channelId]) {
+                inp.value = tokens[channelId];
+                document.getElementById('wv-auth-status').textContent = 'Loaded for ' + channelName;
+            } else {
+                inp.value = '';
+                document.getElementById('wv-auth-status').textContent = 'No token saved for ' + channelName;
+            }
+        }
+        function getStoredAzamTokens() {
+            try { return JSON.parse(localStorage.getItem('heis5_azam_session_tokens') || '{}'); } catch { return {}; }
+        }
+        function saveAzamTokens() {
+            const bearer = document.getElementById('wv-bearer-input').value.trim();
+            localStorage.setItem('heis5_azam_session_tokens', JSON.stringify({ bearer }));
+            document.getElementById('wv-auth-status').textContent = 'Bearer token saved to localStorage.';
+        }
+        function loadAzamTokens() {
+            const saved = getStoredAzamTokens();
+            if (saved.bearer) document.getElementById('wv-bearer-input').value = saved.bearer;
+        }
+        function jwtDecodeSimple(token) {
+            try {
+                const parts = token.split('.');
+                if (parts.length < 2) return null;
+                let p = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                while (p.length % 4) p += '=';
+                return JSON.parse(atob(p));
+            } catch (e) { return null; }
+        }
+        async function fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl) {
+            const endpoint = location.hostname.includes('netlify.app') ? '/.netlify/functions/drm-auth' : '/drm-auth';
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bearer, contentDtl, subscriptionDtl })
+            });
+            return await resp.json();
+        }
+        async function fetchSingleAuthXmlToken() {
+            const sel = document.getElementById('wv-channel-select');
+            const channelId = sel.value;
+            const channelName = sel.options[sel.selectedIndex].text;
+            const statusEl = document.getElementById('wv-auth-status');
+            const saved = getStoredAzamTokens();
+            const bearer = document.getElementById('wv-bearer-input').value.trim() || saved.bearer;
+            const contentDtl = document.getElementById('wv-content-dtl-input').value.trim();
+            const subscriptionDtl = document.getElementById('wv-subscription-dtl-input').value.trim();
+            if (!bearer) { statusEl.textContent = 'Weka Bearer token kwanza.'; return; }
+            if (!contentDtl || !subscriptionDtl) { statusEl.textContent = 'Weka contentDtl na subscriptionDtl kwanza.'; return; }
+            saveAzamTokens();
+            statusEl.textContent = 'Fetching authXmlToken for ' + channelName + '...';
+            try {
+                const data = await fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl);
+                if (data.status && data.data && data.data.authXmlToken) {
+                    const tokens = getStoredAuthTokens();
+                    tokens[channelId] = data.data.authXmlToken;
+                    localStorage.setItem('heis5_wv_auth_tokens', JSON.stringify(tokens));
+                    // Save per-channel contentDtl/subscriptionDtl
+                    saveChannelDetails(channelId, { contentDtl, subscriptionDtl });
+                    const expires = data.data.authXmlTokenExpiresAt ? new Date(parseInt(data.data.authXmlTokenExpiresAt) * 1000).toLocaleString() : 'unknown';
+                    const jwtBody = jwtDecodeSimple(data.data.authXmlToken);
+                    const contentId = jwtBody && jwtBody.contentRights ? jwtBody.contentRights[0].contentId : '?';
+                    statusEl.textContent = 'Saved authXmlToken for ' + channelName + ' | Content: ' + contentId + ' | Expires: ' + expires;
+                } else {
+                    statusEl.textContent = 'Azam API error: ' + (data.message || JSON.stringify(data));
+                }
+            } catch (e) {
+                statusEl.textContent = 'Fetch failed: ' + e.message;
+            }
+        }
+        async function fetchAllAuthXmlTokens() {
+            const statusEl = document.getElementById('wv-auth-status');
+            const saved = getStoredAzamTokens();
+            const bearer = document.getElementById('wv-bearer-input').value.trim() || saved.bearer;
+            const currentContentDtl = document.getElementById('wv-content-dtl-input').value.trim();
+            const currentSubscriptionDtl = document.getElementById('wv-subscription-dtl-input').value.trim();
+            if (!bearer) { statusEl.textContent = 'Weka Bearer token kwanza (kutoka web.azamtvmax.com DevTools).'; return; }
+            saveAzamTokens();
+            statusEl.textContent = 'Fetching DRM authXmlToken...';
+            let success = 0, fail = 0;
+            try {
+                const tokens = getStoredAuthTokens();
+                let detailLog = [];
+                for (const [name, info] of Object.entries(AZAM_CHANNEL_MAP)) {
+                    try {
+                        // Use per-channel details if saved, otherwise use current input
+                        const perChannel = getChannelDetails(info.channel_id);
+                        const cd = perChannel.contentDtl || currentContentDtl;
+                        const sd = perChannel.subscriptionDtl || currentSubscriptionDtl;
+                        if (!cd || !sd) { detailLog.push(name + '=NO_DTL'); fail++; continue; }
+                        const data = await fetchDrmAuthToken(bearer, cd, sd);
+                        if (data.status && data.data && data.data.authXmlToken) {
+                            tokens[info.channel_id] = data.data.authXmlToken;
+                            // Save per-channel details
+                            saveChannelDetails(info.channel_id, { contentDtl: cd, subscriptionDtl: sd });
+                            const jwtBody = jwtDecodeSimple(data.data.authXmlToken);
+                            const cid = jwtBody && jwtBody.contentRights ? jwtBody.contentRights[0].contentId : '?';
+                            detailLog.push(name + '=' + cid);
+                            success++;
+                        } else {
+                            detailLog.push(name + '=FAIL');
+                            fail++;
+                        }
+                    } catch { detailLog.push(name + '=ERR'); fail++; }
+                }
+                localStorage.setItem('heis5_wv_auth_tokens', JSON.stringify(tokens));
+                statusEl.textContent = 'Done: ' + success + ' ok, ' + fail + ' fail | ' + detailLog.join(', ');
+            } catch (e) {
+                statusEl.textContent = 'Fetch failed: ' + e.message;
+            }
+        }
+        function getExpiryFromAuthXml(token) {
+            try {
+                const parts = token.split('.');
+                if (parts.length < 2) return null;
+                let p = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                while (p.length % 4) p += '=';
+                const body = JSON.parse(atob(p));
+                return body.exp ? parseInt(body.exp) : null;
+            } catch { return null; }
+        }
+        async function ensureValidAuthXml(channelId) {
+            const tokens = JSON.parse(localStorage.getItem('heis5_wv_auth_tokens') || '{}');
+            const raw = tokens[channelId];
+            if (raw) {
+                const exp = getExpiryFromAuthXml(raw);
+                if (exp && exp * 1000 > Date.now() + 300000) return raw; // valid for >5 min
+                console.log('[AZAM] authXmlToken expired/expiring soon, refreshing...');
+            }
+            const saved = JSON.parse(localStorage.getItem('heis5_azam_session_tokens') || '{}');
+            const bearer = document.getElementById('wv-bearer-input').value.trim() || saved.bearer;
+            // Try per-channel details first, fallback to input fields
+            const perChannel = getChannelDetails(channelId);
+            const contentDtl = perChannel.contentDtl || document.getElementById('wv-content-dtl-input').value.trim();
+            const subscriptionDtl = perChannel.subscriptionDtl || document.getElementById('wv-subscription-dtl-input').value.trim();
+            if (!bearer || !contentDtl || !subscriptionDtl) {
+                console.warn('[AZAM] Cannot auto-refresh authXmlToken: missing bearer/contentDtl/subscriptionDtl');
+                return raw || null;
+            }
+            try {
+                const data = await fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl);
+                if (data.status && data.data && data.data.authXmlToken) {
+                    tokens[channelId] = data.data.authXmlToken;
+                    localStorage.setItem('heis5_wv_auth_tokens', JSON.stringify(tokens));
+                    // Save per-channel details for future use
+                    saveChannelDetails(channelId, { contentDtl, subscriptionDtl });
+                    console.log('[AZAM] Auto-refreshed authXmlToken for', channelId);
+                    return data.data.authXmlToken;
+                }
+            } catch (e) { console.warn('[AZAM] Auto-refresh failed:', e.message); }
+            return raw || null;
+        }
+        async function ensureValidTokPrefix(channelId) {
+            // Try per-channel tok_ first
+            let raw = channelId ? getTokForChannel(channelId) : null;
+            if (raw) {
+                const exp = parseTokExpiry(raw);
+                if (exp && exp * 1000 > Date.now() + 300000) return raw;
+                console.log('[AZAM] Per-channel tok_ expired/expiring soon, refreshing...');
+            }
+            // Fallback to global tok_
+            raw = localStorage.getItem('heis5_azam_token_prefix');
+            if (raw) {
+                const exp = parseTokExpiry(raw);
+                if (exp && exp * 1000 > Date.now() + 300000) {
+                    if (channelId) saveTokForChannel(channelId, raw);
+                    return raw;
+                }
+                console.log('[AZAM] Global tok_ expired/expiring soon, refreshing...');
+            }
+            try {
+                const resp = await sbFetch('/rest/v1/azam_config?select=*&limit=1');
+                const rows = await resp.json();
+                if (rows && rows[0] && rows[0].tok) {
+                    const prefix = extractTokPrefix(rows[0].tok) || rows[0].tok;
+                    localStorage.setItem('heis5_azam_token_prefix', prefix);
+                    if (channelId) saveTokForChannel(channelId, prefix);
+                    console.log('[AZAM] Auto-refreshed tok_');
+                    return prefix;
+                }
+            } catch (e) { console.warn('[AZAM] tok_ refresh failed:', e.message); }
+            return raw || null;
+        }
+        async function openAzamChannel(name, fakeUrl) {
+            if (!hasActiveSubscription()) { showPlans(); return; }
+            const channelName = fakeUrl.replace('azam://', '');
+            document.getElementById('modal-channel-name').textContent = name;
+            document.getElementById('now-playing-name').textContent = name;
+            document.getElementById('video-modal').classList.add('show');
+            document.getElementById('now-playing-bar').classList.add('show');
+            document.getElementById('player-error').style.display = 'none';
+            document.getElementById('player-error').classList.remove('show');
+            document.getElementById('buffering-spinner').style.display = 'flex';
+            try {
+                const channelInfo = AZAM_CHANNEL_MAP[channelName];
+                const channelId = channelInfo ? channelInfo.channel_id : null;
+
+                // Auto-refresh tok_ prefix before loading (per-channel)
+                const tokPrefix = await ensureValidTokPrefix(channelId);
+                if (!tokPrefix) console.warn('[AZAM] No valid tok_ prefix');
+
+                let authXmlToken = channelId ? await ensureValidAuthXml(channelId) : null;
+
+                const data = await callGetStream(channelName);
+                openVideoPlayer(name, data.url, '', authXmlToken, null);
+
+            } catch (e) {
+                console.error('[AZAM] stream error:', e);
+                document.getElementById('buffering-spinner').style.display = 'none';
+                alert('Failed to load Azam stream: ' + e.message);
+            }
+        }
+
+        function formatExpiry(expUnix) {
+            if (!expUnix) return '';
+            const expDate = new Date(expUnix * 1000);
+            const now = Date.now();
+            const remaining = expUnix * 1000 - now;
+            if (remaining <= 0) return '<span style="color:#ff4444;">Expired</span>';
+            const hrs = Math.floor(remaining / 3600000);
+            const mins = Math.floor((remaining % 3600000) / 60000);
+            return `${expDate.toLocaleDateString()} ${expDate.toLocaleTimeString()} (<strong>${hrs}h ${mins}m</strong>)`;
+        }
+        function renderAzamStreamStatus() {
+            const el = document.getElementById('azam-stream-status');
+            if (!el) return;
+            const sel = document.getElementById('wv-channel-select');
+            const channelId = sel ? sel.value : null;
+            let tokPrefix = channelId ? getTokForChannel(channelId) : null;
+            let label = channelId ? '(channel)' : '';
+            if (!tokPrefix) { tokPrefix = localStorage.getItem('heis5_azam_token_prefix'); label = '(global)'; }
+            const tokExp = tokPrefix ? parseTokExpiry(tokPrefix) : null;
+            const tokValid = tokExp && tokExp * 1000 > Date.now();
+            el.innerHTML = (tokValid
+                ? '<span style="color:var(--accent3);">✅ tok_</span>'
+                : '<span style="color:#ff4444;">❌ No tok_</span>')
+                + (tokExp ? ' <span style="color:var(--muted);font-size:0.5rem;">exp: ' + formatExpiry(tokExp) + ' ' + label + '</span>' : '')
+                + ' | <span style="color:var(--muted);">' + Object.keys(AZAM_CHANNEL_MAP).length + ' ch</span>';
+        }
+
+
+        function openVideoPlayer(name, url, drmStr, authXmlToken, psshData) {
+            const drm = drmStr ? JSON.parse(decodeURIComponent(drmStr)) : null;
             if (!hasActiveSubscription()) {
                 showPlans();
                 return;
@@ -2217,56 +2735,80 @@
             videoEl.style.display = 'block';
             videoEl.removeAttribute('src');
             videoEl.muted = true;
+            videoEl.volume = 1.0;
 
-            // Auto-wrap Azam URLs through Netlify proxy
-            if (url.includes('azamtvltd.co.tz') || url.includes('cdnblncr.azamtvltd.co.tz')) {
-                url = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(url);
-                console.log('[PROXY] Routed through Azam proxy:', url);
-            }
-
-            const isDash = url.includes('.mpd') || url.includes('azam-proxy');
+            const isDash = url.includes('.mpd') || url.includes('workers.dev');
             console.log(`[PLAYER] ${isDash ? 'shaka-player (DASH)' : 'HLS.js'} | URL:`, url);
 
             if (isDash) {
                 currentEngine = 'shaka';
                 shakaPlayer = new shaka.Player(videoEl);
-                shakaPlayer.configure({
+                const drmConfig = {
                     streaming: { rebufferingGoal: 15, bufferingGoal: 30 },
-                });
-                // Override headers for Azam CDN
-                const netEngine = shakaPlayer.getNetworkingEngine();
-                if (netEngine) {
-                    netEngine.registerRequestFilter((type, request) => {
-                        if (request.uris[0] && request.uris[0].includes('azamtvltd.co.tz')) {
-                            request.headers['Origin'] = 'https://web.azamtvmax.com';
-                            request.headers['Referer'] = 'https://web.azamtvmax.com/';
-                            request.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-                        }
-                    });
+                    manifest: { dash: { ignoreMinBufferTime: true } },
+                };
+                if (authXmlToken) {
+                    const wvProxy = location.hostname.includes('netlify.app') ? '/.netlify/functions/wv-proxy' : 'http://localhost:3000/wv-proxy';
+                    drmConfig.drm = {
+                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(authXmlToken) }
+                    };
+                    if (psshData && psshData.success && psshData.pssh) {
+                        const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
+                        drmConfig.drm.initData = [{ initDataType: 'cenc', initData, systemId: psshData.systemId || 'com.widevine.alpha' }];
+                        console.log('[PSSH] Configured initData, pssh length:', psshData.pssh.length);
+                    }
                 }
-                if (drm && drm.licenseUrl) {
-                    shakaPlayer.configure({
-                        drm: {
-                            servers: { 'com.widevine.alpha': drm.licenseUrl },
-                        },
-                    });
+                shakaPlayer.configure(drmConfig);
+                const netEng = shakaPlayer.getNetworkingEngine();
+                console.log('[FILTER] NetworkingEngine:', !!netEng);
+                if (netEng) {
+                netEng.registerRequestFilter((type, request) => {
+                    if (request.uris[0].includes('workers.dev')) return;
+                    const isMpd = request.uris[0].includes('.mpd');
+                    const authSuffix = (isMpd && authXmlToken) ? '&auth=' + encodeURIComponent(authXmlToken) : '';
+                    if (request.uris[0].includes('azamtvltd.co.tz')) {
+                        if (AZAM_PROXY_MODE === 'cf-proxy') {
+                            request.uris[0] = CF_WORKER_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
+                        } else if (AZAM_PROXY_MODE === 'supabase-proxy') {
+                            request.uris[0] = SUPABASE_PROXY_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
+                        } else if (AZAM_PROXY_MODE === 'netlify') {
+                            request.uris[0] = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
+                        } else if (AZAM_PROXY_MODE === 'local') {
+                            request.uris[0] = LOCAL_PROXY_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
+                        } else {
+                            request.headers['Referer'] = 'https://web.azamtvmax.com/';
+                        }
+                    }
+                    if (request.uris[0].includes('akamaized.net') || request.uris[0].includes('3bbtv.com')) {
+                        request.headers['Referer'] = 'https://heis5tv.netlify.app/';
+                    }
+                });
                 }
                 shakaPlayer.load(url).then(() => {
                     clearTimeout(bufferingTimer);
                     document.getElementById('buffering-spinner').style.display = 'none';
-                    videoEl.play().catch(() => {});
+                    videoEl.play().catch(() => {
+                        videoEl.muted = true;
+                        videoEl.play().catch(() => {});
+                    });
                     document.title = '▶ ' + name;
                 }).catch((e) => {
                     console.error('[SHAKA] Error:', e);
-                    showPlayerError('shaka-error');
+                    if (typeof e === 'object' && e !== null) {
+                        console.error('[SHAKA] code:', e.code, 'message:', e.message, 'data:', e.data);
+                    }
+                    showPlayerError('shaka-error: ' + (e?.message || ''));
                 });
-                shakaPlayer.addEventListener('error', () => {
+                shakaPlayer.addEventListener('error', (e) => {
                     clearTimeout(bufferingTimer);
-                    showPlayerError('shaka-error');
+                    const detail = e?.detail;
+                    console.error('[SHAKA] Player error event:', detail);
+                    showPlayerError('shaka-error: ' + (detail?.message || ''));
                 });
                 videoEl.addEventListener('playing', () => {
                     document.getElementById('buffering-spinner').style.display = 'none';
                     document.title = '▶ ' + name;
+                    setTimeout(() => { videoEl.muted = false; }, 100);
                 }, {once: true});
                 videoEl.addEventListener('waiting', () => {
                     document.getElementById('buffering-spinner').style.display = 'flex';
@@ -2298,6 +2840,7 @@
                     liveSyncDurationCount: 3,
                     liveMaxLatencyDurationCount: 10,
                     xhrSetup: function(xhr, url) {
+                        if (url.includes('workers.dev') || url.includes('workers.dev')) return;
                         if (url.includes('shahid.net') || url.includes('akamaized.net') || url.includes('edgenextcdn.net') || url.includes('fastly.net')) {
                             try { xhr.setRequestHeader('Origin', 'https://shahid.net'); } catch(e) {}
                             try { xhr.setRequestHeader('Referer', 'https://shahid.net/'); } catch(e) {}
@@ -2310,7 +2853,10 @@
 
                 hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => {
                     console.log('[HLS] Manifest parsed, levels:', hlsPlayer.levels.length);
-                    videoEl.play().catch(() => {});
+                    videoEl.play().catch(() => {
+                        videoEl.muted = true;
+                        videoEl.play().catch(() => {});
+                    });
                 });
                 hlsPlayer.on(Hls.Events.LEVEL_LOADED, () => {
                     clearTimeout(bufferingTimer);
@@ -2328,6 +2874,7 @@
                 videoEl.addEventListener('playing', () => {
                     document.getElementById('buffering-spinner').style.display = 'none';
                     document.title = '▶ ' + name;
+                    setTimeout(() => { videoEl.muted = false; }, 100);
                 }, {once: true});
                 videoEl.addEventListener('waiting', () => {
                     document.getElementById('buffering-spinner').style.display = 'flex';
@@ -2361,6 +2908,14 @@
             document.getElementById('buffering-spinner').style.display = 'none';
             document.getElementById('player-error').style.display = 'flex';
             document.getElementById('player-error').classList.add('show');
+            const errEl = document.getElementById('player-error-message');
+            if (errEl) {
+                let msg = source || '';
+                if (msg.includes('LOAD_FAILED') || msg.includes('1001')) msg = 'MPD manifest iliyofeli kupakia. Angalia internet connection yako.';
+                else if (msg.includes('HTTP_ERROR') || msg.includes('1002')) msg = 'CDN imekataa kuitikia. Tatizo la CORS au IP block.';
+                else if (msg.includes('shaka-error')) msg = 'License error. Hakikisha ume fetch authXmlToken ya channel hii.';
+                if (msg) errEl.textContent = '🔍 ' + msg;
+            }
         }
 
         function getVideoEl() { return document.getElementById('hls-video'); }

@@ -1,0 +1,14 @@
+{
+  "name": "heis5-tv-server",
+  "version": "1.0.0",
+  "description": "HEIS5 TV proxy server for Azam streams",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^2.7.0"
+  }
+}
