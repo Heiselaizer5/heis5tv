@@ -1469,13 +1469,20 @@
                                 </select>
                             </div>
                             <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                                <input id="azam-tok-input" type="text" placeholder="tok_prefix" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <input id="azam-content-input" type="text" placeholder="content_dtl" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <input id="azam-tok-input" type="text" placeholder="tok_prefix (MPD URL token)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('tok_prefix')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
                             </div>
                             <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                                <input id="azam-sub-input" type="text" placeholder="subscription_dtl" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamChannelUi()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save Ch</button>
+                                <input id="azam-content-input" type="text" placeholder="content_dtl" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('content_dtl')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
+                            </div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                                <input id="azam-sub-input" type="text" placeholder="subscription_dtl" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('subscription_dtl')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
+                            </div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                                <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('authXmlToken')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
                             </div>
                             <div id="azam-ui-status" style="font-size:0.5rem;color:var(--muted);margin-top:4px;"></div>
                         </div>
@@ -2443,17 +2450,15 @@ const REMOVED = {};
             document.getElementById('azam-sub-input').value = data.subscription_dtl || '';
             document.getElementById('azam-xml-input').value = data.authXmlToken || '';
         }
-        function saveAzamChannelUi() {
+        function saveAzamField(field) {
             const sel = document.getElementById('azam-channel-select');
             const name = sel.value;
-            const data = {
-                tok_prefix: document.getElementById('azam-tok-input').value.trim(),
-                content_dtl: document.getElementById('azam-content-input').value.trim(),
-                subscription_dtl: document.getElementById('azam-sub-input').value.trim(),
-                authXmlToken: document.getElementById('azam-xml-input').value.trim(),
-            };
+            const idMap = {tok_prefix:'azam-tok-input',content_dtl:'azam-content-input',subscription_dtl:'azam-sub-input',authXmlToken:'azam-xml-input'};
+            const val = document.getElementById(idMap[field]).value.trim();
+            const data = getAzamChannelData(name);
+            data[field] = val;
             setAzamChannelData(name, data);
-            document.getElementById('azam-ui-status').textContent = 'Saved ' + name;
+            document.getElementById('azam-ui-status').textContent = field + ' saved for ' + name;
             updateAzamStatus();
         }
         function saveGlobalBearer() {
@@ -2569,6 +2574,10 @@ const REMOVED = {};
                     loadUrl = API_AZAM_PROXY + '?url=' + encodeURIComponent(url);
                     if (authXmlToken) loadUrl += '&auth=' + encodeURIComponent(authXmlToken);
                 }
+                console.log('[PLAYER] Proxy URL:', loadUrl);
+                fetch(loadUrl, { method: 'GET' }).then(r => {
+                    r.text().then(t => console.log('[PROXY_TEST] status:', r.status, 'type:', r.headers.get('content-type'), 'body:', t.substring(0, 200)));
+                }).catch(e => console.warn('[PROXY_TEST] fetch error:', e));
                 shakaPlayer.load(loadUrl).then(() => {
                     clearTimeout(bufferingTimer);
                     document.getElementById('buffering-spinner').style.display = 'none';
