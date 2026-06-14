@@ -16,19 +16,22 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' } };
   }
   try {
-    const paths = ['/rest/v1/azam_config?select=*&limit=1', '/rest/v1/azam_config?select=value&name=eq.global_tok&limit=1'];
-    const results = {};
-    for (const p of paths) {
-      results[p] = await tryQuery(p);
-      if (results[p].json && Array.isArray(results[p].json) && results[p].json.length > 0) {
-        const row = results[p].json[0];
-        const tok = row.tok || row.value || null;
-        if (tok) return respond({ success: true, tok, row });
+    // Try stream_tokens table first (populated by refresh-token.js)
+    const queries = [
+      '/rest/v1/stream_tokens?select=tok_url,channel_key,expires_at&order=expires_at.desc&limit=1',
+      '/rest/v1/stream_tokens?select=*&order=expires_at.desc&limit=1',
+      '/rest/v1/azam_config?select=*&limit=1',
+      '/rest/v1/azam_config?select=value&name=eq.global_tok&limit=1',
+    ];
+    for (const path of queries) {
+      const result = await tryQuery(path);
+      if (result.json && Array.isArray(result.json) && result.json.length > 0) {
+        const row = result.json[0];
+        const tok = row.tok_url || row.tok || row.value || null;
+        if (tok) return respond({ success: true, tok, source: path });
       }
     }
-    // Try listing tables
-    const schema = await tryQuery('/rest/v1/?query=select+table_name+from+information_schema.tables+where+table_schema=%27public%27');
-    return respond({ success: false, error: 'No token found', debug: results, schema: schema.json || schema.text });
+    return respond({ success: false, error: 'No token found in any Supabase table' });
   } catch (e) {
     return respond({ success: false, error: e.message });
   }

@@ -2766,10 +2766,14 @@ const REMOVED = {};
                         console.log('[PSSH] Configured initData, pssh length:', psshData.pssh.length);
                     }
                 }
+                let azamCdnBaseUrl = '';
                 shakaPlayer.configure(drmConfig);
                 const netEng = shakaPlayer.getNetworkingEngine();
                 console.log('[FILTER] NetworkingEngine:', !!netEng);
                 if (netEng) {
+                const mpdUrl = url;
+                const lastSlash = mpdUrl.lastIndexOf('/');
+                if (lastSlash > 0) azamCdnBaseUrl = mpdUrl.substring(0, lastSlash + 1);
                 netEng.registerRequestFilter((type, request) => {
                     if (request.uris[0].includes('workers.dev')) return;
                     const isMpd = request.uris[0].includes('.mpd');
@@ -2785,6 +2789,13 @@ const REMOVED = {};
                             request.uris[0] = LOCAL_PROXY_URL + '?url=' + encodeURIComponent(request.uris[0]) + authSuffix;
                         } else {
                             request.headers['Referer'] = 'https://web.azamtvmax.com/';
+                        }
+                        return;
+                    }
+                    if (request.uris[0].startsWith('/.netlify/functions/') && !request.uris[0].includes('?url=') && !request.uris[0].includes('azam-proxy')) {
+                        const segName = request.uris[0].replace('/.netlify/functions/', '');
+                        if (azamCdnBaseUrl && segName) {
+                            request.uris[0] = '/.netlify/functions/azam-proxy?url=' + encodeURIComponent(azamCdnBaseUrl + segName) + authSuffix;
                         }
                     }
                     if (request.uris[0].includes('akamaized.net') || request.uris[0].includes('3bbtv.com')) {
