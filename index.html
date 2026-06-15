@@ -1091,7 +1091,7 @@
                     <span style="font-size:0.55rem;color:var(--text-dim);letter-spacing:0.15em;font-weight:500;">PREMIUM</span>
                     <span style="width:5px;height:5px;border-radius:50%;background:var(--accent);animation:livePulse 1.5s ease-in-out infinite;"></span>
                     <span id="header-user" style="font-size:0.55rem;color:var(--text-dim);font-weight:600;display:none;"></span>
-                    <span id="settings-gear" onclick="toggleAdminPanel()" style="display:none;cursor:pointer;font-size:0.75rem;color:var(--muted);transition:color 0.3s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'"><i class="fa-solid fa-gear"></i></span>
+                    <span id="logout-link" onclick="handleLogout()" style="display:none;cursor:pointer;font-size:0.65rem;color:var(--muted);transition:color 0.3s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'"><i class="fa-solid fa-right-from-bracket"></i> Logout</span>
                 </div>
             </header>
 
@@ -1524,9 +1524,57 @@
             setTimeout(() => { checkPendingSubscription(); goToApp(); }, 800);
         }
 
+        function deleteUser(id) {
+            const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
+            if (!users[id]) return;
+            if (users[id].username === 'Admin') { alert('Cannot delete the system admin.'); return; }
+            if (!confirm('Delete user ' + users[id].username + '?')) return;
+            delete users[id];
+            localStorage.setItem('heis5_users', JSON.stringify(users));
+            renderHero();
+        }
         async function renderHero() {
             const container = document.getElementById('hero-container');
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            const isAdmin = session && session.role === 'admin';
+
+            let adminSection = '';
+            if (isAdmin) {
+                const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
+                const userList = Object.entries(users).map(([id, u]) =>
+                    `<div class="admin-user-item"><span>${u.username} (${u.name})</span><span style="font-size:0.5rem;color:var(--muted);">${u.email} · ${u.role}</span><span class="admin-del" onclick="deleteUser('${id}')"><i class="fa-solid fa-trash-can"></i></span></div>`
+                ).join('');
+                adminSection = `
+                    <div class="admin-dash-section">
+                        <h3><i class="fa-solid fa-users"></i> User Management</h3>
+                        <div class="admin-user-count">${Object.keys(users).length} registered user(s)</div>
+                        ${userList || '<div class="admin-empty">No users registered.</div>'}
+                        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="toggleAdminPanel()" style="font-size:0.5rem;"><i class="fa-solid fa-gear"></i> Token Manager</button>
+                        </div>
+                    </div>`;
+            }
+
             container.innerHTML = `
+                <div id="hero-content">
+                    <div class="hero-banner">
+                        <div class="hero-content">
+                            <h1>Unlimited Entertainment</h1>
+                            <p>Watch premium live TV channels — sports, news, movies & more.</p>
+                            <div class="hero-live">
+                                <span class="live-dot"></span>
+                                <span>${channels.length} Live Channels</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hero-banner" style="margin-top:12px;background:linear-gradient(135deg,rgba(255,45,149,0.08),rgba(255,215,0,0.05));border:1px solid rgba(255,45,149,0.15);cursor:pointer;" onclick="showPlans()">
+                        <div class="hero-content" style="text-align:center;padding:20px;">
+                            <h2 style="font-size:0.85rem;margin-bottom:4px;">Subscribe to Unlock All Channels</h2>
+                            <p style="font-size:0.6rem;color:var(--muted);">Azam Sports, HBO, ESPN, Movies & more — from TSh 3,000/week</p>
+                        </div>
+                    </div>
+                    ${adminSection}
+                </div>
                 <div id="admin-view" style="display:none;">
                     <div class="hero-banner">
                         <div class="hero-content">
@@ -1595,16 +1643,17 @@
 
         function toggleAdminPanel() {
             const channels = document.getElementById('channels-container');
+            const hero = document.getElementById('hero-content');
             const admin = document.getElementById('admin-view');
             if (!admin) { renderHero(); return toggleAdminPanel(); }
             if (admin.style.display !== 'none') {
                 admin.style.display = 'none';
+                if (hero) hero.style.display = '';
                 channels.style.display = '';
-                document.getElementById('settings-gear').style.color = 'var(--muted)';
             } else {
                 admin.style.display = 'block';
+                if (hero) hero.style.display = 'none';
                 channels.style.display = 'none';
-                document.getElementById('settings-gear').style.color = 'var(--accent)';
                 loadAzamChannelUi();
                 updateAzamStatus();
             }
@@ -1672,7 +1721,7 @@
             if (session) {
                 document.getElementById('header-user').textContent = session.name || 'Viewer';
                 document.getElementById('header-user').style.display = 'inline';
-                document.getElementById('settings-gear').style.display = 'inline';
+                document.getElementById('logout-link').style.display = 'inline';
             }
             document.getElementById('auth-overlay').style.display = 'none';
             const splash = document.getElementById('splash-screen');
@@ -1704,9 +1753,22 @@
                 console.warn('⚠ Opened as file:// — some HTTP streams may be blocked. Serve via a local web server (e.g. "npx serve ." or Python http.server) for best results.');
             }
             if (!localStorage.getItem('heis5_session')) {
-                localStorage.setItem('heis5_session', JSON.stringify({ username: 'viewer', name: 'Viewer', email: '', role: 'viewer' }));
+                document.getElementById('splash-screen').style.display = 'flex';
+                document.getElementById('splash-screen').style.opacity = '1';
+                document.querySelectorAll('.auth-msg').forEach(m => { m.classList.remove('show', 'error', 'success'); m.textContent = ''; });
+                document.getElementById('login-username').value = '';
+                document.getElementById('login-pass').value = '';
+                switchAuthTab('login');
+                setTimeout(() => {
+                    document.getElementById('splash-screen').style.opacity = '0';
+                    setTimeout(() => {
+                        document.getElementById('splash-screen').style.display = 'none';
+                        document.getElementById('auth-overlay').style.display = 'flex';
+                    }, 800);
+                }, 1200);
+            } else {
+                goToApp();
             }
-            goToApp();
             startTokenRefresh();
         });
 
@@ -2184,7 +2246,7 @@ const REMOVED = {};
         function renderCategoryFilter() {
             const cats = {};
             channels.forEach(c => { const cat = c.category || 'General'; cats[cat] = (cats[cat] || 0) + 1; });
-            const order = ['Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'FREE CHANNELS', 'Wild'];
+            const order = ['Azam', 'Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'FREE CHANNELS', 'Wild'];
             const sorted = ['All', ...order.filter(c => cats[c]), ...Object.keys(cats).filter(c => !order.includes(c))];
             const el = document.getElementById('category-filter');
             el.innerHTML = sorted.map(c => `<button class="cat-filter-btn${c === activeCategory ? ' active' : ''}" data-cat="${c.replace(/"/g,'&quot;')}">${c}${c !== 'All' ? ` <span class="cat-count">${cats[c]||0}</span>` : ''}</button>`).join('');
@@ -2213,7 +2275,7 @@ const REMOVED = {};
                 if (!groups[cat]) groups[cat] = [];
                 groups[cat].push(c);
             });
-            const categoryOrder = ['Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'FREE CHANNELS', 'Wild'];
+            const categoryOrder = ['Azam', 'Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'FREE CHANNELS', 'Wild'];
             let html = '';
             let cardIndex = 0;
             if (activeCategory !== 'All') {
@@ -2319,7 +2381,12 @@ const REMOVED = {};
 
         // ═══ SUBSCRIPTION ═══
         function hasActiveSubscription() {
-            return true;
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            if (!session) return false;
+            if (session.role === 'admin') return true;
+            const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
+            const sub = subs[session.username];
+            return sub && new Date(sub.end) > new Date();
         }
         function getSubscriptionInfo() {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
