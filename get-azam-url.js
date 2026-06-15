@@ -15,6 +15,7 @@ export async function onRequest(context) {
     let authXmlToken = null;
     let expiresAt = null;
 
+    let debugDrmResp = null;
     // --- Strategy 1: Call Azam DRM Auth API ---
     const AZAM_DRM_AUTH = 'https://api.aztv.videoready.tv/drm-auth-integration/v1/drm/authToken';
     try {
@@ -49,7 +50,8 @@ export async function onRequest(context) {
           if (cdnBase) break;
         }
       }
-    } catch (e) { console.warn('DRM auth failed:', e.message); }
+      debugDrmResp = { status: drmResp.status, body: drmText.substring(0, 2000) };
+    } catch (e) { console.warn('DRM auth failed:', e.message); debugDrmResp = { error: e.message }; }
 
     // --- Strategy 2: Try Supabase as fallback ---
     if (!cdnBase) {
@@ -104,7 +106,8 @@ export async function onRequest(context) {
       authXmlToken,
       expiresAt,
       mpdPath,
-      mpdUrl
+      mpdUrl,
+      _debug: debugDrmResp
     }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: e.message }), { status: 502, headers: CORS });
