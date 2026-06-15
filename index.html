@@ -253,14 +253,11 @@
         }
         .channels-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 10px;
         }
         @media (max-width: 700px) {
             .channels-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        }
-        @media (max-width: 450px) {
-            .channels-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
         }
         #channels-container { padding-bottom: 80px; }
         #main-app { min-height: 100vh; display: flex; flex-direction: column; }
@@ -490,49 +487,37 @@
 
         /* WhatsApp */
         .whatsapp-btn {
-            position: fixed; bottom: 80px; right: 24px; z-index: 30;
-            width: 56px; height: 56px; border-radius: 16px;
-            background: linear-gradient(135deg, #25D366, #128C7E);
+            position: fixed; bottom: 24px; right: 24px; z-index: 30;
+            width: 54px; height: 54px; border-radius: 50%;
+            background: linear-gradient(135deg, #25D366, #1ebe5d);
             display: flex; align-items: center; justify-content: center;
             color: #fff; font-size: 1.5rem;
-            box-shadow: 0 4px 25px rgba(37,211,102,0.35);
-            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(37,211,102,0.3), 0 2px 6px rgba(0,0,0,0.15);
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
             text-decoration: none;
-            animation: waPulse 2s ease-in-out infinite;
-        }
-        .whatsapp-btn::before {
-            content: '';
-            position: absolute; inset: -6px; border-radius: 20px;
-            background: linear-gradient(135deg, #25D366, #128C7E);
-            opacity: 0.25; z-index: -1;
-            animation: waGlow 2s ease-in-out infinite;
         }
         .whatsapp-btn::after {
-            content: 'Chat with us';
-            position: absolute; right: 64px;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
-            color: #fff; font-size: 0.7rem; font-family: 'Rajdhani', sans-serif;
-            padding: 6px 14px; border-radius: 8px; white-space: nowrap;
-            opacity: 0; transform: translateX(10px);
-            transition: all 0.3s ease; pointer-events: none;
-            border: 1px solid rgba(37,211,102,0.3);
+            content: '';
+            position: absolute; inset: 0; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.15);
+            animation: waRing 2.5s ease-in-out infinite;
         }
         .whatsapp-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 40px rgba(37,211,102,0.5);
+            transform: scale(1.08);
+            box-shadow: 0 8px 30px rgba(37,211,102,0.45);
         }
-        .whatsapp-btn:hover::after { opacity: 1; transform: translateX(0); }
-        .whatsapp-btn:active { transform: scale(0.95); }
+        .whatsapp-btn:active { transform: scale(0.92); }
         @media (max-width: 500px) {
-            .whatsapp-btn { bottom: 72px; right: 14px; width: 48px; height: 48px; font-size: 1.2rem; }
+            .whatsapp-btn { bottom: 16px; right: 16px; width: 48px; height: 48px; font-size: 1.3rem; }
         }
-        @keyframes waPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+        @keyframes waRing {
+            0% { transform: scale(1); opacity: 0.4; }
+            50% { transform: scale(1.15); opacity: 0; }
+            100% { transform: scale(1.15); opacity: 0; }
         }
-        @keyframes waGlow {
-            0%, 100% { opacity: 0.2; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(1.1); }
+        .wa-player-open { bottom: 80px !important; }
+        @media (max-width: 500px) {
+            .wa-player-open { bottom: 72px !important; }
         }
 
         /* Animations */
@@ -1401,7 +1386,7 @@
         // 'direct' = browser fetches directly from Azam CDN
         const IS_NETLIFY = location.hostname.includes('netlify.app');
         const IS_CLOUDFLARE = location.hostname.includes('pages.dev') || location.hostname.includes('cloudflare');
-        const AZAM_PROXY_MODE = IS_CLOUDFLARE ? 'cf-pages' : IS_NETLIFY ? 'netlify' : 'local';
+        const AZAM_PROXY_MODE = IS_CLOUDFLARE ? 'supabase-proxy' : IS_NETLIFY ? 'netlify' : 'local';
         const AZAM_PROXY_URL = 'https://azam-render-proxy.onrender.com';
         const CF_WORKER_URL = 'https://azam-proxy.erastokasoga5.workers.dev';
         const SUPABASE_PROXY_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co/functions/v1/azam-proxy';
@@ -2833,6 +2818,7 @@ const REMOVED = {};
             document.getElementById('now-playing-name').textContent = name;
             document.getElementById('video-modal').classList.add('show');
             document.getElementById('now-playing-bar').classList.add('show');
+            document.querySelector('.whatsapp-btn')?.classList.add('wa-player-open');
             document.getElementById('buffering-spinner').style.display = 'flex';
             document.getElementById('player-error').style.display = 'none';
             document.getElementById('player-error').classList.remove('show');
@@ -2894,6 +2880,9 @@ const REMOVED = {};
                             : AZAM_PROXY_MODE === 'netlify' || AZAM_PROXY_MODE === 'cf-pages' ? API_AZAM_PROXY
                             : AZAM_PROXY_MODE === 'local' ? LOCAL_PROXY_URL : null;
                         if (proxyBase) {
+                            if (AZAM_PROXY_MODE === 'supabase-proxy') {
+                                request.headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
+                            }
                             request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + (currentCdntoken ? '&cdntoken=' + encodeURIComponent(currentCdntoken) : '') + authSuffix;
                         } else {
                             request.headers['Referer'] = 'https://web.azamtvmax.com/';
@@ -3055,6 +3044,7 @@ const REMOVED = {};
             document.getElementById('player-error').classList.remove('show');
             document.getElementById('video-modal').classList.remove('show');
             document.getElementById('now-playing-bar').classList.remove('show');
+            document.querySelector('.whatsapp-btn')?.classList.remove('wa-player-open');
             document.body.style.overflow = '';
         }
 
