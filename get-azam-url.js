@@ -12,9 +12,9 @@ export async function onRequest(context) {
       bearer = url.searchParams.get('bearer');
       channelName = url.searchParams.get('channel');
       const cd = url.searchParams.get('contentDtl');
-      if (cd) try { contentDtl = JSON.parse(cd); } catch {}
+      if (cd) { try { contentDtl = JSON.parse(cd); } catch { contentDtl = cd; } }
       const sd = url.searchParams.get('subscriptionDtl');
-      if (sd) try { subscriptionDtl = JSON.parse(sd); } catch {}
+      if (sd) { try { subscriptionDtl = JSON.parse(sd); } catch { subscriptionDtl = sd; } }
     } else {
       const body = await request.json();
       bearer = body.bearer;

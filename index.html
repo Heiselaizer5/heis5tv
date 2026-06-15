@@ -1584,6 +1584,12 @@
                                 <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
                                 <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('authXmlToken')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
                             </div>
+                                <hr style="border-color:var(--border);margin:8px 0;">
+                            <div style="display:flex;gap:4px;margin-bottom:4px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="pasteAzamCapture()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-paste"></i> Paste from Azam</button>
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="showAzamCaptureHelp()" style="font-size:0.5rem;color:#fff;"><i class="fa-solid fa-question"></i></button>
+                            </div>
+                            <textarea id="azam-capture-input" placeholder='Paste JSON from Azam console script here (content_dtl, subscription_dtl, authXmlToken, tok_prefix)' style="width:100%;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;min-height:60px;resize:vertical;box-sizing:border-box;"></textarea>
                             <div id="azam-ui-status" style="font-size:0.5rem;color:var(--muted);margin-top:4px;"></div>
                         </div>
 
@@ -2788,23 +2794,115 @@ const REMOVED = {};
             localStorage.setItem('heis5_azam_global_bearer', val);
             document.getElementById('azam-ui-status').textContent = 'Bearer saved';
         }
+        function pasteAzamCapture() {
+            const raw = document.getElementById('azam-capture-input').value.trim();
+            if (!raw) { document.getElementById('azam-ui-status').textContent = 'Paste JSON first!'; return; }
+            try {
+                const data = JSON.parse(raw);
+                const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
+                let saved = [];
+                // Save for ALL channels (tokens are shared)
+                Object.keys(AZAM_CHANNEL_MAP).forEach(name => {
+                    if (!all[name]) all[name] = {};
+                    if (data.tok_prefix) { all[name].tok_prefix = data.tok_prefix; }
+                    if (data.authXmlToken) { all[name].authXmlToken = data.authXmlToken; }
+                    if (data.content_dtl) { all[name].content_dtl = data.content_dtl; }
+                    if (data.subscription_dtl) { all[name].subscription_dtl = data.subscription_dtl; }
+                });
+                if (data.tok_prefix) saved.push('tok_prefix');
+                if (data.authXmlToken) saved.push('authXmlToken');
+                if (data.content_dtl) saved.push('content_dtl');
+                if (data.subscription_dtl) saved.push('subscription_dtl');
+                if (data.bearer) { localStorage.setItem('heis5_azam_global_bearer', data.bearer); saved.push('bearer'); }
+                localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
+                loadAzamChannelUi();
+                const tokExp = getTokenExpiry(data.tok_prefix);
+                const xmlExp = data.authXmlToken ? getExpiryFromAuthXml(data.authXmlToken) : null;
+                let expInfo = '';
+                if (tokExp) expInfo += ' | tok_: ' + fmtExpiry(tokExp);
+                if (xmlExp) expInfo += ' | authXml: ' + fmtExpiry(xmlExp);
+                document.getElementById('azam-ui-status').textContent = '✅ Saved ' + saved.join(', ') + ' for ALL ' + Object.keys(AZAM_CHANNEL_MAP).length + ' channels' + expInfo;
+                document.getElementById('azam-capture-input').value = '';
+            } catch (e) {
+                document.getElementById('azam-ui-status').textContent = '❌ Invalid JSON: ' + e.message;
+            }
+        }
+        function showAzamCaptureHelp() {
+            const help = `=== HOW TO GET TOKENS FROM AZAM WEBSITE ===
+
+💡 tok_prefix + authXmlToken zinafanya kazi kwa CHANNEL ZOTE.
+   Sawa kwa AzamSport1, AzamSport2, ZBC1, n.k.
+   Zinadumu ~saa 3 (tok_) na ~saa 12 (authXml).
+
+Option A — AUTO (Console script)
+  1. web.azamtvmax.com → login (USIACHEZE bado)
+  2. F12 → Console → paste hii → Enter:
+
+let _a=window.fetch;let _d=false;
+window.fetch=(...a)=>{let u=typeof a[0]=='string'?a[0]:a[0]?.url||'';
+if(!_d&&u.includes('authToken')){_d=true;let h=a[1]?.headers||{};
+let b=h.Authorization||h.authorization||'';b=b.replace(/^Bearer\s+/i,'');
+window.fetch=_a;
+return _a(...a).then(async r=>{let j=await r.clone().json();
+let tp=j.data?.tok_prefix||j.data?.cdn_url||'';
+let out={bearer:b||localStorage.getItem('accessToken')||'',
+tok_prefix:tp,
+authXmlToken:j.data?.authXmlToken||''};
+if(j.data?.cdns?.length) out.tok_prefix=j.data.cdns[0];
+console.log('AZAM CAPTURED',out);copy(JSON.stringify(out,null,2));
+alert('Copied! Go paste in HEIS5 TV Admin Panel.');return r;})}
+return _a(...a);};
+console.log('✅ Active. Now play any channel...');
+
+  3. Play channel → alert "Copied!" → JSON clipboard
+
+Option B — MANUAL
+  1. Play channel → F12 → Network → authToken response
+  2. Copy authXmlToken + tok_prefix values
+
+Paste JSON → "Paste from Azam" → itaona expiry kwenye status bar.
+`;
+            alert(help);
+        }
+        function fmtExpiry(expTs) {
+            if (!expTs) return 'N/A';
+            const diff = expTs * 1000 - Date.now();
+            if (diff <= 0) return 'EXPIRED';
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            return h + 'h ' + m + 'm';
+        }
+        function getTokenExpiry(tok) {
+            if (!tok) return null;
+            try {
+                const parts = tok.replace(/^.*\/tok_/, '').split('.');
+                if (parts.length < 2) return null;
+                let p = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                while (p.length % 4) p += '=';
+                return JSON.parse(atob(p)).exp || null;
+            } catch { return null; }
+        }
         function updateAzamStatus() {
             const el = document.getElementById('azam-stream-status');
             if (!el) return;
             const bearer = getGlobalBearer();
             const total = Object.keys(AZAM_CHANNEL_MAP).length;
             let withTok = 0, withXml = 0;
+            let tokExp = null, xmlExp = null;
             try {
                 const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
                 Object.keys(AZAM_CHANNEL_MAP).forEach(name => {
-                    if (all[name] && all[name].tok_prefix) withTok++;
-                    if (all[name] && all[name].authXmlToken) withXml++;
+                    const d = all[name];
+                    if (d && d.tok_prefix) { withTok++; if (!tokExp) tokExp = getTokenExpiry(d.tok_prefix); }
+                    if (d && d.authXmlToken) { withXml++; if (!xmlExp) xmlExp = getExpiryFromAuthXml(d.authXmlToken); }
                 });
             } catch {}
             el.innerHTML = `<span style="color:var(--accent3);">${total} channels</span>`
                 + ` | tok_: ${withTok}/${total}`
                 + ` | authXml: ${withXml}/${total}`
-                + (bearer ? ' | ✅ Bearer' : ' | ❌ No Bearer');
+                + (bearer ? ' | ✅ Bearer' : ' | ❌ No Bearer')
+                + (tokExp ? ` | CDN: <span style="color:${tokExp*1000<Date.now()?'red':'var(--accent)'};">${fmtExpiry(tokExp)}</span>` : '')
+                + (xmlExp ? ` | AuthXML: <span style="color:${xmlExp*1000<Date.now()?'red':'var(--accent)'};">${fmtExpiry(xmlExp)}</span>` : '');
         }
 
 
