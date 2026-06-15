@@ -7,11 +7,19 @@ export async function onRequest(context) {
   if (request.method === 'HEAD') return new Response(null, { status: 200, headers: CORS });
 
   const params = new URL(request.url).searchParams;
-  const targetUrl = decodeURIComponent(params.get('url') || '');
+  let targetUrl = decodeURIComponent(params.get('url') || '');
   const cdntoken = params.get('cdntoken');
   if (!targetUrl) return new Response('Missing url param', { status: 400 });
 
-  const proxyUrl = RENDER_PROXY_URL + '/proxy?url=' + encodeURIComponent(targetUrl) + (cdntoken ? '&cdntoken=' + encodeURIComponent(cdntoken) : '');
+  // Prepend tok_<cdntoken>/ to CDN URL path
+  if (cdntoken && !targetUrl.includes('/tok_')) {
+    const slashIdx = targetUrl.indexOf('/', 8);
+    if (slashIdx > 0) {
+      targetUrl = targetUrl.slice(0, slashIdx) + '/tok_' + cdntoken + targetUrl.slice(slashIdx);
+    }
+  }
+
+  const proxyUrl = RENDER_PROXY_URL + '/proxy?url=' + encodeURIComponent(targetUrl);
 
   try {
     const res = await fetch(proxyUrl);
