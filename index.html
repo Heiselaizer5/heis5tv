@@ -1851,7 +1851,6 @@
 const REMOVED = {};
                 return !REMOVED[ch.name.toLowerCase()] && ch.category !== 'Sports';
                             });
-                        if (channels.length > 0) {
                         // Merge in extra working HLS channels from iptv-org
                         const extra = [
                                 // ─── Azam (DASH via get-stream + Cloudflare Worker proxy) ───
@@ -2074,7 +2073,7 @@ const REMOVED = {};
                              const lower = ch.name.toLowerCase();
                              if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
                          });
-                           renderChannels(); renderCategoryFilter(); loadIPTV(); return;
+                           renderChannels(); renderCategoryFilter(); loadIPTV();
                     }
                 }
             } catch (e) {
