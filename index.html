@@ -154,8 +154,9 @@
             transform: translateY(12px);
             transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
             width: 100%;
-            max-width: 130px;
             justify-self: center;
+            display: flex;
+            flex-direction: column;
         }
         .channel-card.visible {
             opacity: 1;
@@ -230,6 +231,10 @@
             white-space: nowrap;
             filter: drop-shadow(0 0 8px rgba(255,215,0,0.12));
             letter-spacing: 0.03em;
+            text-align: center;
+            padding: 2px 0 0;
+            min-height: 1.8em;
+            line-height: 1.3;
         }
 
         .category-section { margin-bottom: 20px; }
@@ -248,8 +253,14 @@
         }
         .channels-grid {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+            gap: 10px;
+        }
+        @media (max-width: 700px) {
+            .channels-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        }
+        @media (max-width: 450px) {
+            .channels-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
         }
         #channels-container { padding-bottom: 80px; }
         #main-app { min-height: 100vh; display: flex; flex-direction: column; }
@@ -464,26 +475,65 @@
             display: none;
             position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
             background: rgba(11,7,25,0.95);
-            border-top: 1px solid var(--border);
+            border-top: 1px solid rgba(255,215,0,0.15);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            padding: 10px 16px;
+            padding: 12px 16px;
+            box-shadow: 0 -4px 30px rgba(255,215,0,0.06);
         }
         #now-playing-bar.show { display: block; }
+        #now-playing-bar .wa-label { display: inline; }
+        @media (max-width: 500px) {
+            #now-playing-bar { padding: 10px 12px; }
+            #now-playing-bar .now-label { display: inline !important; }
+        }
 
         /* WhatsApp */
         .whatsapp-btn {
-            position: fixed; bottom: 16px; right: 16px; z-index: 30;
-            width: 42px; height: 42px; border-radius: 12px;
+            position: fixed; bottom: 80px; right: 24px; z-index: 30;
+            width: 56px; height: 56px; border-radius: 16px;
             background: linear-gradient(135deg, #25D366, #128C7E);
             display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 1.1rem;
-            box-shadow: 0 4px 20px rgba(37,211,102,0.25);
-            transition: all 0.3s;
+            color: #fff; font-size: 1.5rem;
+            box-shadow: 0 4px 25px rgba(37,211,102,0.35);
+            transition: all 0.3s ease;
             text-decoration: none;
+            animation: waPulse 2s ease-in-out infinite;
         }
-        .whatsapp-btn:hover { transform: scale(1.1); box-shadow: 0 4px 30px rgba(37,211,102,0.4); }
+        .whatsapp-btn::before {
+            content: '';
+            position: absolute; inset: -6px; border-radius: 20px;
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            opacity: 0.25; z-index: -1;
+            animation: waGlow 2s ease-in-out infinite;
+        }
+        .whatsapp-btn::after {
+            content: 'Chat with us';
+            position: absolute; right: 64px;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+            color: #fff; font-size: 0.7rem; font-family: 'Rajdhani', sans-serif;
+            padding: 6px 14px; border-radius: 8px; white-space: nowrap;
+            opacity: 0; transform: translateX(10px);
+            transition: all 0.3s ease; pointer-events: none;
+            border: 1px solid rgba(37,211,102,0.3);
+        }
+        .whatsapp-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 40px rgba(37,211,102,0.5);
+        }
+        .whatsapp-btn:hover::after { opacity: 1; transform: translateX(0); }
         .whatsapp-btn:active { transform: scale(0.95); }
+        @media (max-width: 500px) {
+            .whatsapp-btn { bottom: 72px; right: 14px; width: 48px; height: 48px; font-size: 1.2rem; }
+        }
+        @keyframes waPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes waGlow {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.1); }
+        }
 
         /* Animations */
         @keyframes fadeUp {
@@ -507,10 +557,13 @@
             display: flex;
             gap: 6px;
             overflow-x: auto;
-            padding: 4px 0 12px;
+            padding: 4px 16px 12px;
             scrollbar-width: none;
             -ms-overflow-style: none;
             flex-wrap: nowrap;
+            margin: 0 -16px;
+            -webkit-mask: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+            mask: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
         }
         #category-filter::-webkit-scrollbar { display: none; }
         .cat-filter-btn {
@@ -813,6 +866,21 @@
         }
         .plan-card.plan-featured:hover {
             box-shadow: 0 0 50px rgba(255,215,0,0.15);
+        }
+        .plan-card.plan-wa {
+            border-color: rgba(37,211,102,0.2);
+            background: rgba(37,211,102,0.04);
+            box-shadow: 0 0 30px rgba(37,211,102,0.06);
+            animation: waCardPulse 2.5s ease-in-out infinite;
+        }
+        .plan-card.plan-wa:hover {
+            border-color: #25D366;
+            box-shadow: 0 0 50px rgba(37,211,102,0.2);
+            transform: translateY(-3px);
+        }
+        @keyframes waCardPulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(37,211,102,0.06); }
+            50% { box-shadow: 0 0 50px rgba(37,211,102,0.15); }
         }
         .plan-badge {
             position: absolute; top: -8px; left: 50%;
@@ -1223,6 +1291,18 @@
                     </ul>
                     <button class="plan-select-btn">Choose Monthly</button>
                 </div>
+                <div class="plan-card plan-wa" onclick="subscribeViaWA()">
+                    <div class="plan-icon" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;"><i class="fa-brands fa-whatsapp"></i></div>
+                    <h3>Subscribe via WhatsApp</h3>
+                    <div class="plan-price" style="font-size:0.6rem;"><span style="color:var(--muted);">Chat directly with our team</span></div>
+                    <ul class="plan-features" style="font-size:0.6rem;">
+                        <li><i class="fa-solid fa-check" style="color:#25D366;"></i> Quick & easy payment</li>
+                        <li><i class="fa-solid fa-check" style="color:#25D366;"></i> M-Pesa / Tigo Pesa / Airtel Money</li>
+                        <li><i class="fa-solid fa-check" style="color:#25D366;"></i> Instant activation</li>
+                        <li><i class="fa-solid fa-check" style="color:#25D366;"></i> 24/7 support</li>
+                    </ul>
+                    <button class="plan-select-btn" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;"><i class="fa-brands fa-whatsapp"></i> Chat Now</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1289,9 +1369,10 @@
     <div id="now-playing-bar">
         <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;">
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:livePulse 1.5s ease-in-out infinite;flex-shrink:0;"></span>
-                <span id="now-playing-name" style="font-size:0.85rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Channel</span>
-                <span style="font-size:0.65rem;color:var(--muted);display:none;" class="now-label">· Sasa Inacheza</span>
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--accent2);animation:livePulse 1.5s ease-in-out infinite;flex-shrink:0;box-shadow:0 0 10px var(--accent2);"></span>
+                <span class="now-label" style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:none;">Now Playing</span>
+                <span id="now-playing-name" style="font-size:0.85rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;filter:drop-shadow(0 0 10px rgba(255,215,0,0.15));">Channel</span>
+                <span style="font-size:0.6rem;color:var(--accent3);background:rgba(0,229,255,0.1);padding:2px 8px;border-radius:4px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;flex-shrink:0;">LIVE</span>
             </div>
             <button onclick="closeVideoPlayer()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(255,255,255,0.03);color:var(--muted);border:1px solid var(--border);font-size:0.7rem;font-weight:500;cursor:pointer;transition:all 0.2s;">
                 <i class="fa-solid fa-xmark" style="font-size:0.7rem;"></i> Funga
@@ -1347,6 +1428,10 @@
         let currentEngine = null;
         let shakaPlayer = null;
         let bufferingTimer = null;
+        let currentCdntoken = '';
+        let currentCdnBase = '';
+        let currentAuthXmlToken = '';
+        let proactiveRefreshTimer = null;
 
         // ═══ AUTH ═══
         function switchAuthTab(tab) {
@@ -1368,7 +1453,7 @@
             el.className = 'auth-msg show ' + type;
         }
 
-        function handleLogin() {
+        async function handleLogin() {
             const username = document.getElementById('login-username').value.trim();
             const pass = document.getElementById('login-pass').value.trim();
             if (!username || !pass) {
@@ -1381,6 +1466,20 @@
                 goToApp();
                 return;
             }
+            try {
+                const resp = await fetch('/api-users?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password: pass })
+                });
+                const json = await resp.json();
+                if (json.success && json.user) {
+                    localStorage.setItem('heis5_session', JSON.stringify({ username: json.user.username, name: json.user.name, email: json.user.email, role: json.user.role }));
+                    checkPendingSubscription();
+                    goToApp();
+                    return;
+                }
+            } catch (e) { console.warn('[AUTH] API login failed, falling back to localStorage:', e.message); }
             const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
             const found = Object.values(users).find(u => u.username === username);
             if (!found || found.password !== pass) {
@@ -1392,7 +1491,7 @@
             goToApp();
         }
 
-        function handleSignup() {
+        async function handleSignup() {
             const name = document.getElementById('signup-name').value.trim();
             const username = document.getElementById('signup-username').value.trim();
             const email = document.getElementById('signup-email').value.trim();
@@ -1405,6 +1504,24 @@
                 showAuthMsg('signup-msg', 'Password must be at least 6 characters.', 'error');
                 return;
             }
+            try {
+                const resp = await fetch('/api-users?action=signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, username, email, password: pass })
+                });
+                const json = await resp.json();
+                if (json.success) {
+                    localStorage.setItem('heis5_session', JSON.stringify({ username, name, email, role: 'user' }));
+                    showAuthMsg('signup-msg', 'Account created! Welcome to HEIS5 TV.', 'success');
+                    setTimeout(() => { checkPendingSubscription(); goToApp(); }, 800);
+                    return;
+                }
+                if (json.error) {
+                    showAuthMsg('signup-msg', json.error, 'error');
+                    return;
+                }
+            } catch (e) { console.warn('[AUTH] API signup failed, falling back to localStorage:', e.message); }
             const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
             if (Object.values(users).some(u => u.username === username)) {
                 showAuthMsg('signup-msg', 'Username already taken.', 'error');
@@ -1422,12 +1539,10 @@
             setTimeout(() => { checkPendingSubscription(); goToApp(); }, 800);
         }
 
-        function renderHero() {
+        async function renderHero() {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
             const container = document.getElementById('hero-container');
             if (session && session.role === 'admin') {
-                const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
-                const keys = Object.keys(users);
                 const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
                 container.innerHTML = `
                     <div id="admin-view">
@@ -1446,9 +1561,9 @@
                                 Registered Users
                                 <span class="admin-section-refresh" onclick="renderHero()"><i class="fa-solid fa-rotate"></i> Refresh</span>
                             </h3>
-                            <div class="admin-user-count">${keys.length} user${keys.length !== 1 ? 's' : ''} total</div>
+                            <div class="admin-user-count" id="admin-user-count">Loading...</div>
                             <div id="admin-user-list">
-                                ${keys.length === 0 ? '<div class="admin-empty">No registered users yet.</div>' : ''}
+                                <div class="admin-empty">Loading users...</div>
                             </div>
                         </div>
                         <div class="admin-dash-section">
@@ -1495,16 +1610,33 @@
                         </div>
                     </div>
                 `;
-                if (keys.length > 0) {
+                let userData = null;
+                let userKeys = [];
+                try {
+                    const resp = await fetch('/api-users?action=list');
+                    const json = await resp.json();
+                    if (json.success && json.users) {
+                        userData = json.users;
+                        userKeys = Object.keys(userData);
+                    }
+                } catch (e) { console.warn('[AUTH] API list failed, falling back to localStorage:', e.message); }
+                if (!userData) {
+                    userData = JSON.parse(localStorage.getItem('heis5_users') || '{}');
+                    userKeys = Object.keys(userData);
+                }
+                const countEl = document.getElementById('admin-user-count');
+                if (countEl) countEl.textContent = userKeys.length + ' user' + (userKeys.length !== 1 ? 's' : '') + ' total';
+                if (userKeys.length > 0) {
                     const list = document.getElementById('admin-user-list');
-                    list.innerHTML = keys.map(id => {
-                        const userSub = subs[users[id].username];
+                    list.innerHTML = userKeys.map(id => {
+                        const u = userData[id];
+                        const userSub = subs[u.username];
                         const subBadge = userSub && new Date(userSub.end) > new Date()
                             ? `<span style="color:var(--accent3);font-size:0.5rem;margin-left:6px;"><i class="fa-solid fa-check-circle"></i> ${userSub.plan}</span>`
                             : '';
                         return `
                         <div class="admin-user-item">
-                            <span><strong>${users[id].username}</strong> — ${users[id].name} &lt;${users[id].email}&gt;${subBadge}</span>
+                            <span><strong>${u.username}</strong> — ${u.name} &lt;${u.email}&gt;${subBadge}</span>
                             <span class="admin-del" onclick="adminDeleteUser('${id}')"><i class="fa-solid fa-trash-can"></i></span>
                         </div>`;
                     }).join('');
@@ -1579,9 +1711,18 @@
             document.getElementById('channels-container').style.display = 'none';
         }
 
-        function adminDeleteUser(id) {
+        async function adminDeleteUser(id) {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
             if (!session || session.role !== 'admin') return;
+            try {
+                const resp = await fetch('/api-users?action=delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const json = await resp.json();
+                if (json.success) { renderHero(); return; }
+            } catch (e) { console.warn('[AUTH] API delete failed:', e.message); }
             const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
             if (!users[id]) return;
             if (users[id].username === 'Admin') {
@@ -1653,7 +1794,57 @@
                 localStorage.setItem('heis5_session', JSON.stringify({ username: 'viewer', name: 'Viewer', email: '', role: 'admin' }));
             }
             goToApp();
+            startTokenRefresh();
         });
+
+        function startTokenRefresh() {
+            async function refreshLoop() {
+                const bearer = getGlobalBearer();
+                const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
+                for (const name of Object.keys(all)) {
+                    const data = all[name];
+                    if (data.content_dtl && data.subscription_dtl && bearer) {
+                        // Try API refresh endpoint first
+                        try {
+                            const resp = await fetch('/get-azam-url', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ bearer, contentDtl: data.content_dtl, subscriptionDtl: data.subscription_dtl, channelName: name })
+                            });
+                            const json = await resp.json();
+                            if (json.success) {
+                                if (json.authXmlToken) data.authXmlToken = json.authXmlToken;
+                                if (json.cdnBase && json.cdntoken) {
+                                    // If this channel is currently playing, update globals
+                                    if (currentCdnBase === json.cdnBase) {
+                                        currentCdntoken = json.cdntoken;
+                                        currentAuthXmlToken = json.authXmlToken || currentAuthXmlToken;
+                                    }
+                                }
+                                console.log('[TOKEN] Background API refresh OK:', name);
+                                continue;
+                            }
+                        } catch (e) { console.warn('[TOKEN] Background API refresh failed for', name, e.message); }
+                        // Fall back to individual refreshes
+                        if (data.authXmlToken) {
+                            const exp = getExpiryFromAuthXml(data.authXmlToken);
+                            if (!exp || exp * 1000 < Date.now() + 1800000) {
+                                try {
+                                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                                    if (result.status && result.data?.authXmlToken) {
+                                        data.authXmlToken = result.data.authXmlToken;
+                                        console.log('[TOKEN] Background refresh OK:', name);
+                                    }
+                                } catch (e) { console.warn('[TOKEN] Background refresh failed for', name, e.message); }
+                            }
+                        }
+                    }
+                }
+                localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
+            }
+            refreshLoop();
+            setInterval(refreshLoop, 600000);
+        }
 
         // Catch unhandled promise rejections (e.g., CDN errors)
         window.addEventListener('unhandledrejection', (e) => {
@@ -1780,7 +1971,15 @@ const REMOVED = {};
                                   {name:'Disney Channel',category:'Kids',stream_url:'azam://DisneyChannel',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Disney_Channel_logo_%282014%29.svg/480px-Disney_Channel_logo_%282014%29.svg.png',_azam:true},
 
                                   {name:'Baby TV',category:'Kids',stream_url:'azam://BabyTV',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/BabyTV_logo.svg/480px-BabyTV_logo.svg.png',_azam:true},
-                              // ─── Wurl (confirmed working) ───
+                                  {name:'Fix & Fox',category:'Kids',stream_url:'azam://FixAndFox',logo:'',_azam:true},
+                                  {name:'CBeebies',category:'Kids',stream_url:'azam://CBeebies',logo:'',_azam:true},
+                                  {name:'Boing',category:'Kids',stream_url:'azam://Boing',logo:'',_azam:true},
+                                  {name:'MBC Action',category:'Movies',stream_url:'azam://MBCAction',logo:'',_azam:true},
+                                  {name:'MBC PlusPower',category:'Movies',stream_url:'azam://MBCPlusPower',logo:'',_azam:true},
+                                  {name:'MBC Drama',category:'Movies',stream_url:'azam://MBCDrama',logo:'',_azam:true},
+                                  {name:'Zamaradi TV',category:'Local',stream_url:'azam://ZamaradiTV',logo:'',_azam:true},
+                                  {name:'ZBC 2',category:'Local',stream_url:'azam://ZBC2',logo:'',_azam:true},
+                               // ─── Wurl (confirmed working) ───
 {name:'FIFA+',category:'Sports',stream_url:'https://a62dad94.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0ZJRkFQbHVzRW5nbGlzaF9ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
                              {name:'FIFA+ Women',category:'Sports',stream_url:'https://cffda8ff.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/U2Ftc3VuZy1nYl9GSUZBUGx1c3dvbWVuX0hMUw/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg'},
                              {name:'Red Bull TV',category:'Sports',stream_url:'https://3ea22335.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWdiX1JlZEJ1bGxUVl9ITFM/playlist.m3u8',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Logo_of_Red_bull.svg/480px-Logo_of_Red_bull.svg.png'},
@@ -2179,16 +2378,23 @@ const REMOVED = {};
                 'monthly': 'https://selar.com/5170d01884'
             };
             if (urls[plan]) {
-                // Create a temporary link element and click it programmatically
                 const tempLink = document.createElement('a');
                 tempLink.href = urls[plan];
                 tempLink.target = '_blank';
-                tempLink.rel = 'noopener noreferrer'; // For security with target="_blank"
-                tempLink.style.display = 'none'; // Hide the link
+                tempLink.rel = 'noopener noreferrer';
+                tempLink.style.display = 'none';
                 document.body.appendChild(tempLink);
                 tempLink.click();
-                document.body.removeChild(tempLink); // Clean up the temporary link
+                document.body.removeChild(tempLink);
             }
+        }
+        function subscribeViaWA() {
+            closePlans();
+            const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
+            const msg = session
+                ? 'Habari HEIS5 TV! Nataka kujiandikisha na kupata chaneli zote. Akaunti yangu: ' + session.email + ' (%40' + session.username + ')'
+                : 'Habari HEIS5 TV! Nataka kujiandikisha na kupata chaneli zote.';
+            window.open('https://wa.me/255656424007?text=' + encodeURIComponent(msg), '_blank');
         }
 
         function parseTokExpiry(tokenUrl) {
@@ -2295,7 +2501,7 @@ const REMOVED = {};
                 switchAuthTab('signup');
                 return;
             }
-            window.open('https://wa.me/255712345678?text=Habari%20HEIS5%20TV!%20Nataka%20kujiandikisha%20na%20kupata%20chaneli%20zote.%20Akaunti%3A%20' + encodeURIComponent(session.email), '_blank');
+            window.open('https://wa.me/255656424007?text=' + encodeURIComponent('Habari HEIS5 TV! Nataka kujiandikisha na kupata chaneli zote. Akaunti: ' + session.email + ' (@' + session.username + ')'), '_blank');
         }
 
         // ═══ AZAM STREAM INTEGRATION ═══
@@ -2331,6 +2537,15 @@ const REMOVED = {};
             DisneyJr: { channel_id: 'c1e3b572-510e-4289-b965-af09cb430db0' },
             DisneyChannel: { channel_id: '266b46c1-21b9-4fd9-ad2f-62d008b8948a' },
             BabyTV: { channel_id: '568966cf-a42a-4984-ac87-5e1ef065275d' },
+            FixAndFox: { channel_id: '' },
+            CBeebies: { channel_id: '' },
+            Boing: { channel_id: '' },
+            MBCAction: { channel_id: '' },
+            MBCPlusPower: { channel_id: '' },
+            MBCDrama: { channel_id: '' },
+            AriseAndShine: { channel_id: '' },
+            ZamaradiTV: { channel_id: '' },
+            ZBC2: { channel_id: '' },
         };
         function getAzamChannelData(channelName) {
             try { const d = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}'); return d[channelName] || {}; } catch { return {}; }
@@ -2344,6 +2559,35 @@ const REMOVED = {};
         function extractTokPrefix(raw) {
             const m = raw.match(/^https?:\/\/[^/]+\/tok_[A-Za-z0-9_.=-]+/);
             return m ? m[0] : null;
+        }
+        function getTokExpiry(tokPrefix) {
+            try {
+                const m = tokPrefix.match(/\/tok_([A-Za-z0-9_.=-]+)/);
+                if (!m) return null;
+                const parts = m[1].split('.');
+                if (parts.length < 2) return null;
+                let p = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                while (p.length % 4) p += '=';
+                const payload = JSON.parse(atob(p));
+                return payload.exp ? parseInt(payload.exp) : null;
+            } catch { return null; }
+        }
+        async function tryRefreshTokPrefix(channelName) {
+            try {
+                const resp = await fetch(API_LOAD_TOK || '/load-tok');
+                const result = await resp.json();
+                if (result.success && result.tok) {
+                    const prefix = extractTokPrefix(result.tok) || result.tok;
+                    if (prefix) {
+                        const data = getAzamChannelData(channelName);
+                        data.tok_prefix = prefix;
+                        setAzamChannelData(channelName, data);
+                        console.log('[AZAM] Refreshed tok_prefix for', channelName, 'from Supabase');
+                        return prefix;
+                    }
+                }
+            } catch (e) { console.warn('[AZAM] tok_prefix refresh failed:', e.message); }
+            return null;
         }
 
 
@@ -2391,6 +2635,11 @@ const REMOVED = {};
                 const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
                 if (result.status && result.data && result.data.authXmlToken) {
                     setAzamChannelData(channelName, { authXmlToken: result.data.authXmlToken });
+                    if (result.data.tok_prefix || result.data.cdn_url) {
+                        const cdn = result.data.tok_prefix || result.data.cdn_url;
+                        setAzamChannelData(channelName, { tok_prefix: cdn });
+                        console.log('[AZAM] Also updated tok_prefix from DRM auth response');
+                    }
                     console.log('[AZAM] Refreshed authXmlToken for', channelName);
                     return result.data.authXmlToken;
                 }
@@ -2400,22 +2649,79 @@ const REMOVED = {};
         async function ensureValidTokPrefix(channelName) {
             const data = getAzamChannelData(channelName);
             if (data.tok_prefix) {
-                const parsed = extractTokPrefix(data.tok_prefix);
-                return parsed || data.tok_prefix;
-            }
-            try {
-                const resp = await fetch(API_LOAD_TOK || '/load-tok');
-                const result = await resp.json();
-                if (result.success && result.tok) {
-                    const prefix = extractTokPrefix(result.tok) || result.tok;
-                    console.log('[AZAM] Using global tok_ from Supabase');
-                    return prefix;
+                const parsed = extractTokPrefix(data.tok_prefix) || data.tok_prefix;
+                const exp = getTokExpiry(parsed);
+                if (exp && exp * 1000 < Date.now() + 3600000) {
+                    console.log('[AZAM] tok_prefix for', channelName, 'expiring within 1h, refreshing...');
+                    const fresh = await tryRefreshTokPrefix(channelName);
+                    if (fresh) return fresh;
                 }
-            } catch (e) { console.warn('[AZAM] load-tok fallback failed:', e.message); }
-            return null;
+                return parsed;
+            }
+            console.log('[AZAM] No tok_prefix for', channelName, 'trying Supabase fallback...');
+            return await tryRefreshTokPrefix(channelName);
         }
         function buildAzamMpdUrl(tokPrefix, channelName) {
             return tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+        }
+        async function fetchAzamTokensFromApi(channelName) {
+            const bearer = getGlobalBearer();
+            const data = getAzamChannelData(channelName);
+            if (!bearer || !data.content_dtl || !data.subscription_dtl) return null;
+            try {
+                const resp = await fetch('/get-azam-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bearer, contentDtl: data.content_dtl, subscriptionDtl: data.subscription_dtl, channelName })
+                });
+                const json = await resp.json();
+                if (json.success && json.cdnBase && json.cdntoken && json.authXmlToken) {
+                    currentCdnBase = json.cdnBase;
+                    currentCdntoken = json.cdntoken;
+                    currentAuthXmlToken = json.authXmlToken;
+                    setAzamChannelData(channelName, { authXmlToken: json.authXmlToken });
+                    console.log('[AZAM] Got fresh tokens from API for', channelName);
+                    return json;
+                }
+            } catch (e) { console.warn('[AZAM] API token fetch failed:', e.message); }
+            return null;
+        }
+        function scheduleProactiveRefresh(expiresAt, channelName) {
+            if (proactiveRefreshTimer) { clearTimeout(proactiveRefreshTimer); proactiveRefreshTimer = null; }
+            if (!expiresAt) return;
+            const now = Date.now();
+            const expiryMs = expiresAt * 1000;
+            const refreshIn = Math.max(10000, expiryMs - now - 120000);
+            proactiveRefreshTimer = setTimeout(async () => {
+                console.log('[AZAM] Proactive refresh for', channelName);
+                try {
+                    const resp = await fetch('/get-azam-url', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bearer: getGlobalBearer(), contentDtl: getAzamChannelData(channelName).content_dtl, subscriptionDtl: getAzamChannelData(channelName).subscription_dtl, channelName })
+                    });
+                    const json = await resp.json();
+                    if (json.success && json.cdntoken) {
+                        currentCdntoken = json.cdntoken;
+                        currentCdnBase = json.cdnBase || currentCdnBase;
+                        if (json.authXmlToken) {
+                            currentAuthXmlToken = json.authXmlToken;
+                            setAzamChannelData(channelName, { authXmlToken: json.authXmlToken });
+                            if (shakaPlayer && shakaPlayer.configure) {
+                                const wvProxy = API_WV_PROXY || '/wv-proxy';
+                                shakaPlayer.configure({
+                                    drm: {
+                                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(json.authXmlToken) }
+                                    }
+                                });
+                                console.log('[AZAM] Updated Shaka DRM config with refreshed authXmlToken');
+                            }
+                        }
+                        console.log('[AZAM] Proactive refresh done for', channelName);
+                        scheduleProactiveRefresh(json.expiresAt || expiresAt, channelName);
+                    }
+                } catch (e) { console.warn('[AZAM] Proactive refresh failed:', e.message); }
+            }, refreshIn);
         }
         async function openAzamChannel(name, fakeUrl) {
             if (!hasActiveSubscription()) { showPlans(); return; }
@@ -2427,19 +2733,50 @@ const REMOVED = {};
             document.getElementById('player-error').style.display = 'none';
             document.getElementById('player-error').classList.remove('show');
             document.getElementById('buffering-spinner').style.display = 'flex';
-            try {
+            let mpdUrl = null;
+            let authXml = null;
+            // Try API first for fresh tokens
+            const apiTokens = await fetchAzamTokensFromApi(channelName);
+            if (apiTokens) {
+                mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                authXml = currentAuthXmlToken;
+                scheduleProactiveRefresh(apiTokens.expiresAt, channelName);
+            } else {
                 const tokPrefix = await ensureValidTokPrefix(channelName);
-                const authXmlToken = await ensureValidAuthXml(channelName);
-                if (!tokPrefix) {
+                authXml = await ensureValidAuthXml(channelName);
+                if (tokPrefix) {
+                    currentCdnBase = extractCdnHost(tokPrefix);
+                    currentCdntoken = extractCdntoken(tokPrefix);
+                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                }
+            }
+            try {
+                if (!mpdUrl || !currentCdntoken) {
                     throw new Error('No tok_ for ' + channelName + '. Weka tok_prefix kwenye Admin Panel → Azam Channels.');
                 }
-                const mpdUrl = buildAzamMpdUrl(tokPrefix, channelName);
-                openVideoPlayer(name, mpdUrl, '', authXmlToken, null);
+                openVideoPlayer(name, mpdUrl, '', authXml, null, currentCdntoken);
             } catch (e) {
+                console.warn('[AZAM] First attempt failed, retrying with fresh tok...');
+                try {
+                    const apiRetry = await fetchAzamTokensFromApi(channelName);
+                    if (apiRetry && currentCdntoken) {
+                        const retryUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                        openVideoPlayer(name, retryUrl, '', currentAuthXmlToken, null, currentCdntoken);
+                        return;
+                    }
+                } catch (e2) { console.warn('[AZAM] Retry also failed:', e2.message); }
                 console.error('[AZAM] stream error:', e);
                 document.getElementById('buffering-spinner').style.display = 'none';
                 alert('Failed to load Azam stream: ' + e.message);
             }
+        }
+        function extractCdnHost(tokPrefix) {
+            const m = tokPrefix.match(/^(https?:\/\/[^/]+)/);
+            return m ? m[1] : null;
+        }
+        function extractCdntoken(tokPrefix) {
+            const m = tokPrefix.match(/\/tok_([A-Za-z0-9_.=-]+)/);
+            return m ? m[1] : null;
         }
         function loadAzamChannelUi() {
             const sel = document.getElementById('azam-channel-select');
@@ -2486,7 +2823,7 @@ const REMOVED = {};
         }
 
 
-        function openVideoPlayer(name, url, drmStr, authXmlToken, psshData) {
+        function openVideoPlayer(name, url, drmStr, authXmlToken, psshData, cdntoken) {
             const drm = drmStr ? JSON.parse(decodeURIComponent(drmStr)) : null;
             if (!hasActiveSubscription()) {
                 showPlans();
@@ -2527,10 +2864,11 @@ const REMOVED = {};
                     streaming: { rebufferingGoal: 15, bufferingGoal: 30 },
                     manifest: { dash: { ignoreMinBufferTime: true } },
                 };
-                if (authXmlToken) {
+                const finalXmlToken = authXmlToken || currentAuthXmlToken;
+                if (finalXmlToken) {
                     const wvProxy = API_WV_PROXY || '/wv-proxy';
                     drmConfig.drm = {
-                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(authXmlToken) }
+                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(finalXmlToken) }
                     };
                     if (psshData && psshData.success && psshData.pssh) {
                         const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
@@ -2549,14 +2887,14 @@ const REMOVED = {};
                 netEng.registerRequestFilter((type, request) => {
                     const uri = request.uris[0];
                     const isMpdReq = uri.includes('.mpd');
-                    const authSuffix = (isMpdReq && authXmlToken) ? '&auth=' + encodeURIComponent(authXmlToken) : '';
+                    const authSuffix = (isMpdReq && currentAuthXmlToken) ? '&auth=' + encodeURIComponent(currentAuthXmlToken) : '';
                     if (uri.includes('azamtvltd.co.tz') && !uri.includes('/azam-proxy?')) {
                         const proxyBase = AZAM_PROXY_MODE === 'cf-proxy' ? CF_WORKER_URL
                             : AZAM_PROXY_MODE === 'supabase-proxy' ? SUPABASE_PROXY_URL
                             : AZAM_PROXY_MODE === 'netlify' || AZAM_PROXY_MODE === 'cf-pages' ? API_AZAM_PROXY
                             : AZAM_PROXY_MODE === 'local' ? LOCAL_PROXY_URL : null;
                         if (proxyBase) {
-                            request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + authSuffix;
+                            request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + (currentCdntoken ? '&cdntoken=' + encodeURIComponent(currentCdntoken) : '') + authSuffix;
                         } else {
                             request.headers['Referer'] = 'https://web.azamtvmax.com/';
                         }
@@ -2566,9 +2904,7 @@ const REMOVED = {};
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
                     }
                 });
-                netEng.registerResponseFilter((type, response) => {
-                    console.log('[FILTER] response type:', type, 'uri:', response.uri, 'data len:', response.data?.byteLength || response.data?.length);
-                });
+
                 }
                 console.log('[PLAYER] CDN URL:', url);
                 shakaPlayer.load(url).then(() => {
