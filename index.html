@@ -2073,8 +2073,7 @@ const REMOVED = {};
                              const lower = ch.name.toLowerCase();
                              if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
                          });
-                           renderChannels(); renderCategoryFilter(); loadIPTV();
-                    }
+                            renderChannels(); renderCategoryFilter(); loadIPTV();
                 }
             } catch (e) {
                 console.warn('RTDB failed, falling back to Supabase:', e.message);
