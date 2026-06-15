@@ -6,7 +6,22 @@ export async function onRequest(context) {
   const { request } = context;
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   try {
-    const { bearer, contentDtl, subscriptionDtl, channelName } = await request.json();
+    let bearer, contentDtl, subscriptionDtl, channelName;
+    if (request.method === 'GET') {
+      const url = new URL(request.url);
+      bearer = url.searchParams.get('bearer');
+      channelName = url.searchParams.get('channel');
+      const cd = url.searchParams.get('contentDtl');
+      if (cd) try { contentDtl = JSON.parse(cd); } catch {}
+      const sd = url.searchParams.get('subscriptionDtl');
+      if (sd) try { subscriptionDtl = JSON.parse(sd); } catch {}
+    } else {
+      const body = await request.json();
+      bearer = body.bearer;
+      contentDtl = body.contentDtl;
+      subscriptionDtl = body.subscriptionDtl;
+      channelName = body.channelName;
+    }
     if (!bearer) return new Response(JSON.stringify({ success: false, error: 'Missing bearer' }), { status: 400, headers: CORS });
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
 
