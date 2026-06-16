@@ -29,6 +29,7 @@ export async function onRequest(context) {
     let cdntoken = null;
     let authXmlToken = null;
     let expiresAt = null;
+    let cdnTokenQuery = null;
 
     let debugDrmResp = null;
     // --- Strategy 1: Call Azam DRM Auth API ---
@@ -57,6 +58,10 @@ export async function onRequest(context) {
       let drmJson;
       try { drmJson = JSON.parse(drmText); } catch { drmJson = null; }
       if (drmJson?.data?.authXmlToken) authXmlToken = drmJson.data.authXmlToken;
+      // Use cdnToken (query string format) from DRM API
+      if (drmJson?.data?.cdnToken) {
+        cdnTokenQuery = drmJson.data.cdnToken.startsWith('?') ? drmJson.data.cdnToken : '?' + drmJson.data.cdnToken;
+      }
       const rawTok = drmJson?.data?.tok_prefix || drmJson?.data?.cdn_url || null;
       if (rawTok) parseTokPrefix(rawTok, (base, token, exp) => { cdnBase = base; cdntoken = token; expiresAt = exp; });
       if (!cdnBase && drmJson?.data?.cdns && Array.isArray(drmJson.data.cdns) && drmJson.data.cdns.length > 0) {
@@ -115,9 +120,10 @@ export async function onRequest(context) {
     const mpdUrl = (cdnBase && mpdPath) ? cdnBase + mpdPath : null;
 
     return new Response(JSON.stringify({
-      success: !!(authXmlToken && cdnBase && cdntoken),
+      success: !!(authXmlToken && cdnBase && (cdntoken || cdnTokenQuery)),
       cdnBase,
       cdntoken,
+      cdnTokenQuery,
       authXmlToken,
       expiresAt,
       mpdPath,

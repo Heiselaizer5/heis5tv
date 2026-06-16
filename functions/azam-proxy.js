@@ -14,14 +14,24 @@ export async function onRequest(context) {
   if (!targetUrl) return new Response('Missing url param', { status: 400, headers: CORS });
 
   try {
-    // Inject tok_<JWT> into URL path if cdntoken is provided and not already present
     let fetchUrl = targetUrl;
-    if (cdntoken) {
+    // Use cdnTokenQuery (query params: ?cdntoken=...&hdnts=...) from DRM API
+    const cdnTokenQuery = params.get('cdnTokenQuery') || '';
+    if (cdnTokenQuery) {
+      const sep = targetUrl.includes('?') ? '&' : '';
+      fetchUrl = targetUrl + sep + cdnTokenQuery.replace(/^\?/, '');
+    } else if (cdntoken) {
+      // Fallback: inject tok_<JWT> into URL path (legacy)
       const u = new URL(targetUrl);
       if (!u.pathname.includes('/tok_')) {
         u.pathname = '/tok_' + cdntoken + u.pathname;
         fetchUrl = u.toString();
       }
+    }
+    const authToken = params.get('auth');
+    if (authToken) {
+      const sep = fetchUrl.includes('?') ? '&' : '?';
+      fetchUrl += sep + 'auth=' + encodeURIComponent(authToken);
     }
 
     const headers = {

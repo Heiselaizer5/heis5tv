@@ -1,0 +1,4 @@
+Endesha kwa Command Prompt:
+
+cd /d "C:\Users\heiselaizer5\Desktop\heis5-deploy"
+git push --set-upstream origin main

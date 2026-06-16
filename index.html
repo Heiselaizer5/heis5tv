@@ -1400,6 +1400,7 @@
         let currentCdntoken = '';
         let currentCdnBase = '';
         let currentAuthXmlToken = '';
+        let currentCdnTokenQuery = '';
         let proactiveRefreshTimer = null;
 
         // ═══ AUTH ═══
@@ -1741,10 +1742,11 @@
                             const json = await resp.json();
                             if (json.success) {
                                 if (json.authXmlToken) data.authXmlToken = json.authXmlToken;
-                                if (json.cdnBase && json.cdntoken) {
+                                if (json.cdnBase && (json.cdntoken || json.cdnTokenQuery)) {
                                     // If this channel is currently playing, update globals
                                     if (currentCdnBase === json.cdnBase) {
-                                        currentCdntoken = json.cdntoken;
+                                        currentCdntoken = json.cdntoken || '';
+                                        currentCdnTokenQuery = json.cdnTokenQuery || '';
                                         currentAuthXmlToken = json.authXmlToken || currentAuthXmlToken;
                                     }
                                 }
@@ -2608,11 +2610,12 @@ const REMOVED = {};
                     body: JSON.stringify({ bearer, contentDtl: data.content_dtl, subscriptionDtl: data.subscription_dtl, channelName })
                 });
                 const json = await resp.json();
-                if (json.success && json.cdnBase && json.cdntoken && json.authXmlToken) {
+                if (json.success && json.cdnBase && (json.cdntoken || json.cdnTokenQuery) && json.authXmlToken) {
                     currentCdnBase = json.cdnBase;
-                    currentCdntoken = json.cdntoken;
+                    currentCdntoken = json.cdntoken || '';
+                    currentCdnTokenQuery = json.cdnTokenQuery || '';
                     currentAuthXmlToken = json.authXmlToken;
-                    const freshTokPrefix = json.cdnBase + '/tok_' + json.cdntoken;
+                    const freshTokPrefix = json.cdnBase + '/tok_' + (json.cdntoken || '');
                     setAzamChannelData(channelName, { authXmlToken: json.authXmlToken, tok_prefix: freshTokPrefix });
                     console.log('[AZAM] Got fresh tokens from API for', channelName);
                     return json;
@@ -2635,8 +2638,9 @@ const REMOVED = {};
                         body: JSON.stringify({ bearer: getGlobalBearer(), contentDtl: getAzamChannelData(channelName).content_dtl, subscriptionDtl: getAzamChannelData(channelName).subscription_dtl, channelName })
                     });
                     const json = await resp.json();
-                    if (json.success && json.cdntoken) {
-                        currentCdntoken = json.cdntoken;
+                    if (json.success && (json.cdntoken || json.cdnTokenQuery)) {
+                        currentCdntoken = json.cdntoken || '';
+                        currentCdnTokenQuery = json.cdnTokenQuery || '';
                         currentCdnBase = json.cdnBase || currentCdnBase;
                         const freshTokPrefix = currentCdnBase + '/tok_' + currentCdntoken;
                         if (json.authXmlToken) {
@@ -2673,7 +2677,8 @@ const REMOVED = {};
             const apiTokens = await fetchAzamTokensFromApi(channelName);
             if (apiTokens) {
                 currentCdnBase = apiTokens.cdnBase;
-                currentCdntoken = apiTokens.cdntoken;
+                currentCdntoken = apiTokens.cdntoken || '';
+                currentCdnTokenQuery = apiTokens.cdnTokenQuery || '';
                 currentAuthXmlToken = apiTokens.authXmlToken;
                 mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 authXml = currentAuthXmlToken;
@@ -2688,7 +2693,7 @@ const REMOVED = {};
                 }
             }
             try {
-                if (!mpdUrl || !currentCdntoken) {
+                if (!mpdUrl || (!currentCdntoken && !currentCdnTokenQuery)) {
                     throw new Error('No tok_ for ' + channelName + '. Weka tok_prefix kwenye Admin Panel → Azam Channels.');
                 }
                 openVideoPlayer(name, mpdUrl, '', authXml, null, currentCdntoken);
@@ -2696,7 +2701,7 @@ const REMOVED = {};
                 console.warn('[AZAM] First attempt failed, retrying with fresh tok...');
                 try {
                     const apiRetry = await fetchAzamTokensFromApi(channelName);
-                    if (apiRetry && currentCdntoken) {
+                    if (apiRetry && (currentCdntoken || currentCdnTokenQuery)) {
                         const retryUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                         openVideoPlayer(name, retryUrl, '', currentAuthXmlToken, null, currentCdntoken);
                         return;
@@ -2867,7 +2872,8 @@ const REMOVED = {};
                             if (AZAM_PROXY_MODE === 'supabase-proxy') {
                                 request.headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
                             }
-                            request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + (currentCdntoken ? '&cdntoken=' + encodeURIComponent(currentCdntoken) : '') + authSuffix;
+                            const tokenQuery = currentCdnTokenQuery || (currentCdntoken ? '?cdntoken=' + encodeURIComponent(currentCdntoken) : '');
+                            request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + '&cdnTokenQuery=' + encodeURIComponent(tokenQuery) + authSuffix;
                         } else {
                             request.headers['Referer'] = 'https://web.azamtvmax.com/';
                         }
