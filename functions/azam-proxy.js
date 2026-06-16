@@ -8,21 +8,29 @@ export async function onRequest(context) {
   let targetUrl = decodeURIComponent(params.get('url') || '');
   const cdntoken = params.get('cdntoken');
 
-  // If no explicit url param, read the request body (can be raw URL string)
   if (!targetUrl && request.method === 'POST') {
     targetUrl = await request.text();
   }
   if (!targetUrl) return new Response('Missing url param', { status: 400, headers: CORS });
 
   try {
+    // Inject tok_<JWT> into URL path if cdntoken is provided and not already present
+    let fetchUrl = targetUrl;
+    if (cdntoken) {
+      const u = new URL(targetUrl);
+      if (!u.pathname.includes('/tok_')) {
+        u.pathname = '/tok_' + cdntoken + u.pathname;
+        fetchUrl = u.toString();
+      }
+    }
+
     const headers = {
       'Referer': 'https://web.azamtvmax.com/',
       'Origin': 'https://web.azamtvmax.com/',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
     };
-    if (cdntoken) headers['Cookie'] = 'tok=' + cdntoken;
 
-    const res = await fetch(targetUrl, { headers });
+    const res = await fetch(fetchUrl, { headers });
     const contentType = res.headers.get('content-type') || 'application/octet-stream';
     const buf = await res.arrayBuffer();
     return new Response(buf, {

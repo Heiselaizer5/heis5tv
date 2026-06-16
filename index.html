@@ -2723,8 +2723,7 @@ const REMOVED = {};
                 currentCdnBase = apiTokens.cdnBase;
                 currentCdntoken = apiTokens.cdntoken;
                 currentAuthXmlToken = apiTokens.authXmlToken;
-                const tokPrefix = currentCdnBase + '/tok_' + currentCdntoken;
-                mpdUrl = tokPrefix + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 authXml = currentAuthXmlToken;
                 scheduleProactiveRefresh(apiTokens.expiresAt, channelName);
             } else {
@@ -2733,7 +2732,7 @@ const REMOVED = {};
                 if (tokPrefix) {
                     currentCdnBase = extractCdnHost(tokPrefix);
                     currentCdntoken = extractCdntoken(tokPrefix);
-                    mpdUrl = tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 }
             }
             try {
@@ -2746,8 +2745,7 @@ const REMOVED = {};
                 try {
                     const apiRetry = await fetchAzamTokensFromApi(channelName);
                     if (apiRetry && currentCdntoken) {
-                        const retryTokPrefix = currentCdnBase + '/tok_' + currentCdntoken;
-                        const retryUrl = retryTokPrefix + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                        const retryUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                         openVideoPlayer(name, retryUrl, '', currentAuthXmlToken, null, currentCdntoken);
                         return;
                     }
