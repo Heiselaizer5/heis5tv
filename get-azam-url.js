@@ -112,7 +112,7 @@ export async function onRequest(context) {
     // --- Build response ---
     let mpdPath = null;
     if (channelName) mpdPath = '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
-    const mpdUrl = (cdnBase && mpdPath) ? cdnBase + mpdPath : null;
+    const mpdUrl = (cdnBase && cdntoken && mpdPath) ? cdnBase + '/tok_' + cdntoken + mpdPath : null;
 
     return new Response(JSON.stringify({
       success: !!(authXmlToken && cdnBase && cdntoken),

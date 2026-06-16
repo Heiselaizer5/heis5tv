@@ -1,29 +1,35 @@
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'HEAD, GET, OPTIONS' };
-const SUPABASE_PROXY_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co/functions/v1/azam-proxy';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU';
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, HEAD, OPTIONS' };
 
 export async function onRequest(context) {
   const { request } = context;
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-  if (request.method === 'HEAD') return new Response(null, { status: 200, headers: CORS });
 
   const params = new URL(request.url).searchParams;
-  const targetUrl = decodeURIComponent(params.get('url') || '');
+  let targetUrl = decodeURIComponent(params.get('url') || '');
   const cdntoken = params.get('cdntoken');
-  if (!targetUrl) return new Response('Missing url param', { status: 400 });
 
-  const supabaseUrl = SUPABASE_PROXY_URL + '?url=' + encodeURIComponent(targetUrl) + (cdntoken ? '&cdntoken=' + encodeURIComponent(cdntoken) : '');
+  // If no explicit url param, read the request body (can be raw URL string)
+  if (!targetUrl && request.method === 'POST') {
+    targetUrl = await request.text();
+  }
+  if (!targetUrl) return new Response('Missing url param', { status: 400, headers: CORS });
 
   try {
-    const res = await fetch(supabaseUrl, {
-      headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      return new Response(body, { status: res.status, headers: { 'Content-Type': 'text/plain', ...CORS } });
-    }
-    const contentType = res.headers.get('content-type') || '';
+    const headers = {
+      'Referer': 'https://web.azamtvmax.com/',
+      'Origin': 'https://web.azamtvmax.com/',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
+    };
+    if (cdntoken) headers['Cookie'] = 'tok=' + cdntoken;
+
+    const res = await fetch(targetUrl, { headers });
+    const contentType = res.headers.get('content-type') || 'application/octet-stream';
     const buf = await res.arrayBuffer();
-    return new Response(buf, { status: 200, headers: { 'Content-Type': contentType || 'application/octet-stream', ...CORS, 'Cache-Control': 'no-cache' } });
-  } catch (e) { return new Response('Relay error: ' + e.message, { status: 500, headers: CORS }); }
+    return new Response(buf, {
+      status: 200,
+      headers: { 'Content-Type': contentType, ...CORS, 'Cache-Control': 'no-cache' }
+    });
+  } catch (e) {
+    return new Response('Proxy error: ' + e.message, { status: 500, headers: CORS });
+  }
 }

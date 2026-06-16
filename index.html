@@ -1589,17 +1589,20 @@
                     <div class="admin-dash-section">
                         <h3><i class="fa-solid fa-cloud-arrow-down" style="margin-right:4px;"></i> Azam Tokens</h3>
                         <div id="azam-stream-status" style="font-size:0.6rem;margin-bottom:8px;color:var(--muted);"></div>
+                        <div style="display:flex;gap:4px;margin-bottom:6px;">
+                            <select id="azam-channel-select" onchange="loadAzamChannelUi()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">${Object.keys(AZAM_CHANNEL_MAP).map(n => `<option value="${n}">${n}</option>`).join('')}</select>
+                        </div>
                         <div style="display:flex;gap:4px;margin-bottom:4px;">
                             <input id="azam-bearer-input" type="text" placeholder="GLOBAL_BEARER token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
                             <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveGlobalBearer()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
                         </div>
                         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
                             <input id="azam-tok-input" type="text" placeholder="tok_prefix (e.g. https://cdnedgch2.azamtvltd.co.tz/tok_...)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('tok_prefix')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save All</button>
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('tok_prefix')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
                         </div>
                         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
                             <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('authXmlToken')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save All</button>
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('authXmlToken')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
                         </div>
                         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
                             <input id="azam-content-input" type="text" placeholder="content_dtl (for auto-refresh)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
@@ -2657,7 +2660,8 @@ const REMOVED = {};
                     currentCdnBase = json.cdnBase;
                     currentCdntoken = json.cdntoken;
                     currentAuthXmlToken = json.authXmlToken;
-                    setAzamChannelData(channelName, { authXmlToken: json.authXmlToken });
+                    const freshTokPrefix = json.cdnBase + '/tok_' + json.cdntoken;
+                    setAzamChannelData(channelName, { authXmlToken: json.authXmlToken, tok_prefix: freshTokPrefix });
                     console.log('[AZAM] Got fresh tokens from API for', channelName);
                     return json;
                 }
@@ -2682,9 +2686,10 @@ const REMOVED = {};
                     if (json.success && json.cdntoken) {
                         currentCdntoken = json.cdntoken;
                         currentCdnBase = json.cdnBase || currentCdnBase;
+                        const freshTokPrefix = currentCdnBase + '/tok_' + currentCdntoken;
                         if (json.authXmlToken) {
                             currentAuthXmlToken = json.authXmlToken;
-                            setAzamChannelData(channelName, { authXmlToken: json.authXmlToken });
+                            setAzamChannelData(channelName, { authXmlToken: json.authXmlToken, tok_prefix: freshTokPrefix });
                             if (shakaPlayer && shakaPlayer.configure) {
                                 const wvProxy = API_WV_PROXY || '/wv-proxy';
                                 shakaPlayer.configure({
@@ -2713,10 +2718,13 @@ const REMOVED = {};
             document.getElementById('buffering-spinner').style.display = 'flex';
             let mpdUrl = null;
             let authXml = null;
-            // Try API first for fresh tokens
             const apiTokens = await fetchAzamTokensFromApi(channelName);
             if (apiTokens) {
-                mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                currentCdnBase = apiTokens.cdnBase;
+                currentCdntoken = apiTokens.cdntoken;
+                currentAuthXmlToken = apiTokens.authXmlToken;
+                const tokPrefix = currentCdnBase + '/tok_' + currentCdntoken;
+                mpdUrl = tokPrefix + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 authXml = currentAuthXmlToken;
                 scheduleProactiveRefresh(apiTokens.expiresAt, channelName);
             } else {
@@ -2725,7 +2733,7 @@ const REMOVED = {};
                 if (tokPrefix) {
                     currentCdnBase = extractCdnHost(tokPrefix);
                     currentCdntoken = extractCdntoken(tokPrefix);
-                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                    mpdUrl = tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 }
             }
             try {
@@ -2738,7 +2746,8 @@ const REMOVED = {};
                 try {
                     const apiRetry = await fetchAzamTokensFromApi(channelName);
                     if (apiRetry && currentCdntoken) {
-                        const retryUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                        const retryTokPrefix = currentCdnBase + '/tok_' + currentCdntoken;
+                        const retryUrl = retryTokPrefix + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                         openVideoPlayer(name, retryUrl, '', currentAuthXmlToken, null, currentCdntoken);
                         return;
                     }
@@ -2769,24 +2778,18 @@ const REMOVED = {};
             const idMap = {tok_prefix:'azam-tok-input',content_dtl:'azam-content-input',subscription_dtl:'azam-sub-input',authXmlToken:'azam-xml-input'};
             const val = document.getElementById(idMap[field]).value.trim();
             if (!val) return;
+            const sel = document.getElementById('azam-channel-select');
+            const name = sel.value;
             const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
-            if (field === 'tok_prefix' || field === 'authXmlToken') {
-                Object.keys(AZAM_CHANNEL_MAP).forEach(name => {
-                    if (!all[name]) all[name] = {};
-                    all[name][field] = val;
-                });
-            } else {
-                const sel = document.getElementById('azam-channel-select');
-                const name = sel.value;
-                if (!all[name]) all[name] = {};
-                all[name][field] = val;
-            }
+            if (!all[name]) all[name] = {};
+            all[name][field] = val;
             localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
             loadAzamChannelUi();
             updateAzamStatus();
-            const tokExp = getTokenExpiry(all[Object.keys(AZAM_CHANNEL_MAP)[0]]?.tok_prefix);
-            const xmlExp = getExpiryFromAuthXml(all[Object.keys(AZAM_CHANNEL_MAP)[0]]?.authXmlToken);
-            let expInfo = '';
+            const data = all[name];
+            const tokExp = data.tok_prefix ? getTokenExpiry(data.tok_prefix) : null;
+            const xmlExp = data.authXmlToken ? getExpiryFromAuthXml(data.authXmlToken) : null;
+            let expInfo = ' [' + name + ']';
             if (tokExp) expInfo += ' | tok_: ' + fmtExpiry(tokExp);
             if (xmlExp) expInfo += ' | authXml: ' + fmtExpiry(xmlExp);
             document.getElementById('azam-ui-status').textContent = field + ' saved' + expInfo;
@@ -2803,27 +2806,29 @@ const REMOVED = {};
                 const data = JSON.parse(raw);
                 const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
                 let saved = [];
-                // Save for ALL channels (tokens are shared)
+                const currentName = document.getElementById('azam-channel-select').value;
                 Object.keys(AZAM_CHANNEL_MAP).forEach(name => {
                     if (!all[name]) all[name] = {};
+                    if (name !== currentName) return;
                     if (data.tok_prefix) { all[name].tok_prefix = data.tok_prefix; }
                     if (data.authXmlToken) { all[name].authXmlToken = data.authXmlToken; }
                     if (data.content_dtl) { all[name].content_dtl = data.content_dtl; }
                     if (data.subscription_dtl) { all[name].subscription_dtl = data.subscription_dtl; }
                 });
-                if (data.tok_prefix) saved.push('tok_prefix');
-                if (data.authXmlToken) saved.push('authXmlToken');
-                if (data.content_dtl) saved.push('content_dtl');
-                if (data.subscription_dtl) saved.push('subscription_dtl');
+                if (data.tok_prefix) saved.push('tok_prefix [' + currentName + ']');
+                if (data.authXmlToken) saved.push('authXmlToken [' + currentName + ']');
+                if (data.content_dtl) saved.push('content_dtl [' + currentName + ']');
+                if (data.subscription_dtl) saved.push('subscription_dtl [' + currentName + ']');
                 if (data.bearer) { localStorage.setItem('heis5_azam_global_bearer', data.bearer); saved.push('bearer'); }
                 localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
                 loadAzamChannelUi();
+                updateAzamStatus();
                 const tokExp = getTokenExpiry(data.tok_prefix);
                 const xmlExp = data.authXmlToken ? getExpiryFromAuthXml(data.authXmlToken) : null;
                 let expInfo = '';
                 if (tokExp) expInfo += ' | tok_: ' + fmtExpiry(tokExp);
                 if (xmlExp) expInfo += ' | authXml: ' + fmtExpiry(xmlExp);
-                document.getElementById('azam-ui-status').textContent = '✅ Saved ' + saved.join(', ') + ' for ALL ' + Object.keys(AZAM_CHANNEL_MAP).length + ' channels' + expInfo;
+                document.getElementById('azam-ui-status').textContent = '✅ Saved ' + saved.join(', ') + ' [' + currentName + ']' + expInfo;
                 document.getElementById('azam-capture-input').value = '';
             } catch (e) {
                 document.getElementById('azam-ui-status').textContent = '❌ Invalid JSON: ' + e.message;
@@ -2832,35 +2837,39 @@ const REMOVED = {};
         function showAzamCaptureHelp() {
             const help = `=== HOW TO GET TOKENS FROM AZAM WEBSITE ===
 
-💡 tok_prefix + authXmlToken zinafanya kazi kwa CHANNEL ZOTE.
+💡 Kila channel ina tok_prefix + authXmlToken yake.
    Sawa kwa AzamSport1, AzamSport2, ZBC1, n.k.
    Zinadumu ~saa 3 (tok_) na ~saa 12 (authXml).
 
-Option A — AUTO (Console script)
-  1. web.azamtvmax.com → login (USIACHEZE bado)
-  2. F12 → Console → paste hii → Enter:
+🔴 CHAGUA channel kwenye dropdown kabla ya kuweka data!
+
+Option A — Console script (hii inakamata yote)
+   1. Chagua channel kwenye dropdown (mfano AzamSport1)
+   2. web.azamtvmax.com → login → play channel HIYO HIYO
+   3. F12 → Console → paste hii → Enter:
 
 let _a=window.fetch;let _d=false;
 window.fetch=(...a)=>{let u=typeof a[0]=='string'?a[0]:a[0]?.url||'';
 if(!_d&&u.includes('authToken')){_d=true;let h=a[1]?.headers||{};
 let b=h.Authorization||h.authorization||'';b=b.replace(/^Bearer\s+/i,'');
+let body=a[1]?.body;let cd={},sd={};
+try{let j=JSON.parse(body);cd=j.contentDtl||{};sd=j.subscriptionDtl||{}}catch{}
 window.fetch=_a;
 return _a(...a).then(async r=>{let j=await r.clone().json();
 let tp=j.data?.tok_prefix||j.data?.cdn_url||'';
-let out={bearer:b||localStorage.getItem('accessToken')||'',
-tok_prefix:tp,
-authXmlToken:j.data?.authXmlToken||''};
-if(j.data?.cdns?.length) out.tok_prefix=j.data.cdns[0];
+if(j.data?.cdns?.length) tp=j.data.cdns[0];
+let out={bearer:b,tok_prefix:tp,content_dtl:cd,subscription_dtl:sd,authXmlToken:j.data?.authXmlToken||''};
 console.log('AZAM CAPTURED',out);copy(JSON.stringify(out,null,2));
-alert('Copied! Go paste in HEIS5 TV Admin Panel.');return r;})}
+alert('Copied! Paste in HEIS5 TV.');return r;})}
 return _a(...a);};
-console.log('✅ Active. Now play any channel...');
+console.log('✅ Active. Now play the channel...');
 
-  3. Play channel → alert "Copied!" → JSON clipboard
+   4. Paste JSON → "Paste from Azam"
 
 Option B — MANUAL
-  1. Play channel → F12 → Network → authToken response
-  2. Copy authXmlToken + tok_prefix values
+   1. Play channel → F12 → Network → authToken request → Body (contentDtl, subscriptionDtl)
+   2. authToken response → authXmlToken + tok_prefix
+   3. Weka manually kwenye form hapo juu
 
 Paste JSON → "Paste from Azam" → itaona expiry kwenye status bar.
 `;
