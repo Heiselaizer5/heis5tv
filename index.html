@@ -2663,7 +2663,6 @@ const REMOVED = {};
             }, refreshIn);
         }
         async function openAzamChannel(name, fakeUrl) {
-            if (!hasActiveSubscription()) { showPlans(); return; }
             const channelName = fakeUrl.replace('azam://', '');
             document.getElementById('modal-channel-name').textContent = name;
             document.getElementById('now-playing-name').textContent = name;
