@@ -2872,8 +2872,10 @@ const REMOVED = {};
                             if (AZAM_PROXY_MODE === 'supabase-proxy') {
                                 request.headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
                             }
-                            const tokenQuery = currentCdnTokenQuery || (currentCdntoken ? '?cdntoken=' + encodeURIComponent(currentCdntoken) : '');
-                            request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + '&cdnTokenQuery=' + encodeURIComponent(tokenQuery) + authSuffix;
+                            const fallbackQuery = (currentCdntoken ? '?cdntoken=' + encodeURIComponent(currentCdntoken) + '&hdnts=' : '');
+                            const tokenQuery = currentCdnTokenQuery || fallbackQuery;
+                            const cdntokParam = currentCdntoken ? '&cdntoken=' + encodeURIComponent(currentCdntoken) : '';
+                            request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + cdntokParam + '&cdnTokenQuery=' + encodeURIComponent(tokenQuery) + authSuffix;
                         } else {
                             request.headers['Referer'] = 'https://web.azamtvmax.com/';
                         }
