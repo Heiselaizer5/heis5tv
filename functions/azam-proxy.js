@@ -15,18 +15,28 @@ export async function onRequest(context) {
 
   try {
     let fetchUrl = targetUrl;
-    // Use cdnTokenQuery (query params: ?cdntoken=...&hdnts=...) from DRM API
     const cdnTokenQuery = params.get('cdnTokenQuery') || '';
+
+    // Extract hdnts (Akamai token) from cdnTokenQuery
+    let hdnts = '';
     if (cdnTokenQuery) {
-      const sep = targetUrl.includes('?') ? '&' : '?';
-      fetchUrl = targetUrl + sep + cdnTokenQuery.replace(/^\?/, '');
-    } else if (cdntoken) {
-      // Fallback: inject tok_<JWT> into URL path (legacy)
-      const u = new URL(targetUrl);
+      const hdntsMatch = cdnTokenQuery.match(/hdnts=([^&]+)/);
+      if (hdntsMatch) hdnts = hdntsMatch[1];
+    }
+
+    // Inject cdntoken in path (path-based JWT from tok_prefix)
+    if (cdntoken) {
+      const u = new URL(fetchUrl);
       if (!u.pathname.includes('/tok_')) {
         u.pathname = '/tok_' + cdntoken + u.pathname;
         fetchUrl = u.toString();
       }
+    }
+
+    // Append hdnts as query param
+    if (hdnts) {
+      const sep = fetchUrl.includes('?') ? '&' : '?';
+      fetchUrl += sep + 'hdnts=' + encodeURIComponent(hdnts);
     }
     const headers = {
       'Referer': 'https://web.azamtvmax.com/',
