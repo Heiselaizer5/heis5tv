@@ -18,7 +18,7 @@ export async function onRequest(context) {
     // Use cdnTokenQuery (query params: ?cdntoken=...&hdnts=...) from DRM API
     const cdnTokenQuery = params.get('cdnTokenQuery') || '';
     if (cdnTokenQuery) {
-      const sep = targetUrl.includes('?') ? '&' : '';
+      const sep = targetUrl.includes('?') ? '&' : '?';
       fetchUrl = targetUrl + sep + cdnTokenQuery.replace(/^\?/, '');
     } else if (cdntoken) {
       // Fallback: inject tok_<JWT> into URL path (legacy)
@@ -28,12 +28,6 @@ export async function onRequest(context) {
         fetchUrl = u.toString();
       }
     }
-    const authToken = params.get('auth');
-    if (authToken) {
-      const sep = fetchUrl.includes('?') ? '&' : '?';
-      fetchUrl += sep + 'auth=' + encodeURIComponent(authToken);
-    }
-
     const headers = {
       'Referer': 'https://web.azamtvmax.com/',
       'Origin': 'https://web.azamtvmax.com/',
