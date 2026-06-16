@@ -2899,12 +2899,10 @@ const REMOVED = {};
                 };
                 const finalXmlToken = authXmlToken || currentAuthXmlToken;
                 if (finalXmlToken) {
-                    // Point directly to Nagra license server (no proxy — Pages functions crash)
+                    const wvProxy = API_WV_PROXY || '/wv-proxy';
                     drmConfig.drm = {
-                        servers: { 'com.widevine.alpha': WIDEVINE_LICENSE_URL }
+                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(finalXmlToken) }
                     };
-                    // store authXmlToken for filter to add nv-authorizations header
-                    currentAuthXmlToken = finalXmlToken;
                     if (psshData && psshData.success && psshData.pssh) {
                         const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
                         drmConfig.drm.initData = [{ initDataType: 'cenc', initData, systemId: psshData.systemId || 'com.widevine.alpha' }];
@@ -2922,15 +2920,6 @@ const REMOVED = {};
                 netEng.registerRequestFilter((type, request) => {
                     const uri = request.uris[0];
                     const isMpdReq = uri.includes('.mpd');
-                    // License request — add nv-authorizations header
-                    if (uri.includes('nagra.com') || uri.includes('contentlicenseservice')) {
-                        if (currentAuthXmlToken) {
-                            request.headers['nv-authorizations'] = currentAuthXmlToken;
-                            console.log('[LICENSE] Added nv-authorizations header');
-                        }
-                        return;
-                    }
-                    const authSuffix = (isMpdReq && currentAuthXmlToken) ? '&auth=' + encodeURIComponent(currentAuthXmlToken) : '';
                     if (uri.includes('azamtvltd.co.tz')) {
                         console.log('[CDN] Fetching directly:', uri.substring(0, 120));
                         return;
