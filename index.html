@@ -2600,27 +2600,80 @@ const REMOVED = {};
             return tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
         }
         async function fetchAzamTokensFromApi(channelName) {
-            const bearer = getGlobalBearer();
             const data = getAzamChannelData(channelName);
+            // Use locally stored tokens first — no backend call needed
+            if (data.tok_prefix && data.authXmlToken) {
+                const parsed = extractTokPrefix(data.tok_prefix);
+                if (parsed) {
+                    const cdnBase = extractCdnHost(parsed);
+                    const cdntoken = extractCdntoken(parsed);
+                    if (cdnBase && cdntoken) {
+                        currentCdnBase = cdnBase;
+                        currentCdntoken = cdntoken;
+                        currentCdnTokenQuery = '';
+                        currentAuthXmlToken = data.authXmlToken;
+                        console.log('[AZAM] Using stored tokens for', channelName);
+                        return {
+                            success: true,
+                            cdnBase,
+                            cdntoken,
+                            cdnTokenQuery: '',
+                            authXmlToken: data.authXmlToken,
+                            expiresAt: getTokExpiry(parsed) || null
+                        };
+                    }
+                }
+            }
+            // Fall back to API (may fail if backend is down)
+            const bearer = getGlobalBearer();
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return null;
             try {
-                const resp = await fetch('/get-azam-url', {
+                // Call DRM API directly from browser (official site does same)
+                const body = JSON.stringify({ offlineDownload: false, subscriptionDtl: data.subscription_dtl, contentDtl: data.content_dtl });
+                const resp = await fetch('https://api.aztv.videoready.tv/drm-auth-integration/v1/drm/authToken', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bearer, contentDtl: data.content_dtl, subscriptionDtl: data.subscription_dtl, channelName })
+                    headers: {
+                        'Authorization': 'Bearer ' + bearer,
+                        'Content-Type': 'application/json',
+                        'tenant_identifier': 'master',
+                        'platform': 'WEB',
+                        'device_id': 'undefined',
+                        'languageCode': 'eng',
+                        'language': 'eng',
+                        'local': 'TZ',
+                        'profileId': '25222709',
+                        'requestCount': '0'
+                    },
+                    body
                 });
                 const json = await resp.json();
-                if (json.success && json.cdnBase && (json.cdntoken || json.cdnTokenQuery) && json.authXmlToken) {
-                    currentCdnBase = json.cdnBase;
-                    currentCdntoken = json.cdntoken || '';
-                    currentCdnTokenQuery = json.cdnTokenQuery || '';
-                    currentAuthXmlToken = json.authXmlToken;
-                    const freshTokPrefix = json.cdnBase + '/tok_' + (json.cdntoken || '');
-                    setAzamChannelData(channelName, { authXmlToken: json.authXmlToken, tok_prefix: freshTokPrefix });
-                    console.log('[AZAM] Got fresh tokens from API for', channelName);
-                    return json;
+                if (json?.data?.authXmlToken) {
+                    const authXmlToken = json.data.authXmlToken;
+                    const cdnTokenQuery = json.data.cdnToken || '';
+                    const rawTok = json.data.tok_prefix || json.data.cdn_url || null;
+                    let cdnBase = null, cdntoken = null;
+                    if (rawTok) {
+                        const m = rawTok.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
+                        if (m) { cdnBase = m[1]; cdntoken = m[2]; }
+                    }
+                    if (!cdnBase && json.data.cdns && Array.isArray(json.data.cdns)) {
+                        for (const c of json.data.cdns) {
+                            const m = c.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
+                            if (m) { cdnBase = m[1]; cdntoken = m[2]; break; }
+                        }
+                    }
+                    if (cdnBase && cdntoken && authXmlToken) {
+                        currentCdnBase = cdnBase;
+                        currentCdntoken = cdntoken;
+                        currentCdnTokenQuery = cdnTokenQuery;
+                        currentAuthXmlToken = authXmlToken;
+                        const freshTokPrefix = cdnBase + '/tok_' + cdntoken;
+                        setAzamChannelData(channelName, { authXmlToken, tok_prefix: freshTokPrefix });
+                        console.log('[AZAM] Got fresh tokens from direct DRM call for', channelName);
+                        return { success: true, cdnBase, cdntoken, cdnTokenQuery, authXmlToken, expiresAt: null };
+                    }
                 }
-            } catch (e) { console.warn('[AZAM] API token fetch failed:', e.message); }
+            } catch (e) { console.warn('[AZAM] Direct DRM call failed:', e.message); }
             return null;
         }
         function scheduleProactiveRefresh(expiresAt, channelName) {
@@ -2846,10 +2899,12 @@ const REMOVED = {};
                 };
                 const finalXmlToken = authXmlToken || currentAuthXmlToken;
                 if (finalXmlToken) {
-                    const wvProxy = API_WV_PROXY || '/wv-proxy';
+                    // Point directly to Nagra license server (no proxy — Pages functions crash)
                     drmConfig.drm = {
-                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(finalXmlToken) }
+                        servers: { 'com.widevine.alpha': WIDEVINE_LICENSE_URL }
                     };
+                    // store authXmlToken for filter to add nv-authorizations header
+                    currentAuthXmlToken = finalXmlToken;
                     if (psshData && psshData.success && psshData.pssh) {
                         const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
                         drmConfig.drm.initData = [{ initDataType: 'cenc', initData, systemId: psshData.systemId || 'com.widevine.alpha' }];
@@ -2867,12 +2922,17 @@ const REMOVED = {};
                 netEng.registerRequestFilter((type, request) => {
                     const uri = request.uris[0];
                     const isMpdReq = uri.includes('.mpd');
+                    // License request — add nv-authorizations header
+                    if (uri.includes('nagra.com') || uri.includes('contentlicenseservice')) {
+                        if (currentAuthXmlToken) {
+                            request.headers['nv-authorizations'] = currentAuthXmlToken;
+                            console.log('[LICENSE] Added nv-authorizations header');
+                        }
+                        return;
+                    }
                     const authSuffix = (isMpdReq && currentAuthXmlToken) ? '&auth=' + encodeURIComponent(currentAuthXmlToken) : '';
-                    if (uri.includes('azamtvltd.co.tz') && !uri.includes('/azam-proxy?')) {
-                        // Direct browser fetch (not proxy) — simple JWT has sip: user's IP
-                        // CDN responds with access-control-allow-origin: *
-                        request.headers['Referer'] = 'https://web.azamtvmax.com/';
-                        request.headers['Origin'] = 'https://web.azamtvmax.com/';
+                    if (uri.includes('azamtvltd.co.tz')) {
+                        console.log('[CDN] Fetching directly:', uri.substring(0, 120));
                         return;
                     }
                     if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
