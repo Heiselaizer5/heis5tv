@@ -11,12 +11,12 @@ async function tryQuery(path) {
   return { status: resp.status, ok: resp.ok, text: text.slice(0, 500), json };
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' } };
+export async function onRequest(context) {
+  const { request } = context;
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' } });
   }
   try {
-    // Try stream_tokens table first (populated by refresh-token.js)
     const queries = [
       '/rest/v1/stream_tokens?select=tok_url,channel_key,expires_at&order=expires_at.desc&limit=1',
       '/rest/v1/stream_tokens?select=*&order=expires_at.desc&limit=1',
@@ -35,12 +35,11 @@ exports.handler = async (event) => {
   } catch (e) {
     return respond({ success: false, error: e.message });
   }
-};
+}
 
 function respond(body) {
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    body: JSON.stringify(body)
-  };
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+  });
 }

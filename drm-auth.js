@@ -1,10 +1,11 @@
-exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' } };
+export async function onRequest(context) {
+  const { request } = context;
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' } });
   }
   try {
-    const { bearer, contentDtl, subscriptionDtl, profileId } = JSON.parse(event.body || '{}');
-    if (!bearer) return { statusCode: 400, body: JSON.stringify({ status: false, message: 'Missing bearer token' }) };
+    const { bearer, contentDtl, subscriptionDtl, profileId } = await request.json();
+    if (!bearer) return new Response(JSON.stringify({ status: false, message: 'Missing bearer token' }), { status: 400 });
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
     const AZAM_DRM_AUTH_URL = 'https://api.aztv.videoready.tv/drm-auth-integration/v1/drm/authToken';
     const resp = await fetch(AZAM_DRM_AUTH_URL, {
@@ -34,12 +35,11 @@ exports.handler = async (event) => {
     let json;
     try { json = JSON.parse(text); } catch { json = { raw: text, status: false }; }
     json._debug = { statusCode: resp.status };
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' },
-      body: JSON.stringify(json)
-    };
+    return new Response(JSON.stringify(json), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }
+    });
   } catch (e) {
-    return { statusCode: 502, body: JSON.stringify({ status: false, message: e.message }) };
+    return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502 });
   }
-};
+}
