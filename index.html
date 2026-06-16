@@ -2864,18 +2864,14 @@ const REMOVED = {};
                     const isMpdReq = uri.includes('.mpd');
                     const authSuffix = (isMpdReq && currentAuthXmlToken) ? '&auth=' + encodeURIComponent(currentAuthXmlToken) : '';
                     if (uri.includes('azamtvltd.co.tz') && !uri.includes('/azam-proxy?')) {
-                        const proxyBase = AZAM_PROXY_MODE === 'cf-proxy' ? CF_WORKER_URL
-                            : AZAM_PROXY_MODE === 'supabase-proxy' ? SUPABASE_PROXY_URL
-                            : AZAM_PROXY_MODE === 'netlify' || AZAM_PROXY_MODE === 'cf-pages' ? API_AZAM_PROXY
-                            : AZAM_PROXY_MODE === 'local' ? LOCAL_PROXY_URL : null;
-                        if (proxyBase) {
-                            if (AZAM_PROXY_MODE === 'supabase-proxy') {
-                                request.headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
-                            }
-                            const tokenQuery = currentCdnTokenQuery || (currentCdntoken ? '?cdntoken=' + encodeURIComponent(currentCdntoken) : '');
-                            request.uris[0] = proxyBase + '?url=' + encodeURIComponent(uri) + '&cdnTokenQuery=' + encodeURIComponent(tokenQuery) + authSuffix;
-                        } else {
-                            request.headers['Referer'] = 'https://web.azamtvmax.com/';
+                        // Direct CDN fetch — browser IP must match sip in JWT
+                        request.headers['Referer'] = 'https://web.azamtvmax.com/';
+                        request.headers['Origin'] = 'https://web.azamtvmax.com/';
+                        // Append cdnTokenQuery to CDN URL directly
+                        if (currentCdnTokenQuery) {
+                            request.uris[0] = uri + (uri.includes('?') ? '&' : '?') + currentCdnTokenQuery.replace(/^\?/, '');
+                        } else if (currentCdntoken) {
+                            request.uris[0] = uri + (uri.includes('?') ? '&' : '?') + 'cdntoken=' + encodeURIComponent(currentCdntoken);
                         }
                         return;
                     }
