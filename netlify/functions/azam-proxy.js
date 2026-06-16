@@ -15,6 +15,7 @@ exports.handler = async (event) => {
       const abs = (rel) => rel.startsWith('http') ? rel : cdnBase + rel;
       mpd = mpd.replace(/<BaseURL[^>]*>[^<]*<\/BaseURL>/g, '');
       mpd = mpd.replace(/(?:media|initialization)="([^"]+)"/g, (m, val) => m.replace(val, abs(val)));
+      mpd = mpd.replace(/(?:media|initialization)='([^']+)'/g, (m, val) => m.replace(val, abs(val)));
       return { statusCode: 200, headers: { 'Content-Type': 'application/dash+xml', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }, body: mpd };
     }
     const buf = Buffer.from(await res.arrayBuffer());
