@@ -119,15 +119,6 @@ export async function onRequest(context) {
     if (channelName) mpdPath = '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
     const mpdUrl = (cdnBase && mpdPath) ? cdnBase + mpdPath : null;
 
-    // Official site flow: cdnblncr?cdntoken=<simple_JWT> -> 302 -> cdnedgch2/tok_<path_JWT>/...
-    let cdnblncrUrl = null;
-    if (channelName && cdnTokenQuery) {
-      const simpleJwt = cdnTokenQuery.replace(/^\?cdntoken=/, '');
-      if (simpleJwt) {
-        cdnblncrUrl = 'https://cdnblncr.azamtvltd.co.tz/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(simpleJwt);
-      }
-    }
-
     return new Response(JSON.stringify({
       success: !!(authXmlToken && cdnBase && (cdntoken || cdnTokenQuery)),
       cdnBase,
@@ -137,7 +128,6 @@ export async function onRequest(context) {
       expiresAt,
       mpdPath,
       mpdUrl,
-      cdnblncrUrl,
       _debug: debugDrmResp
     }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
   } catch (e) {

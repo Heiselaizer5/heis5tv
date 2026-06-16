@@ -2679,12 +2679,10 @@ const REMOVED = {};
                 currentCdntoken = apiTokens.cdntoken || '';
                 currentCdnTokenQuery = apiTokens.cdnTokenQuery || '';
                 currentAuthXmlToken = apiTokens.authXmlToken;
-                // Official site flow: cdnblncr?cdntoken=<simple_JWT> -> 302 -> cdnedgch2/tok_<path_JWT>/...
-                // Simple JWT has sip: user's IP, so browser must fetch directly (not proxy)
-                if (apiTokens.cdnblncrUrl) {
-                    mpdUrl = apiTokens.cdnblncrUrl;
-                } else if (currentCdntoken) {
-                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                // Path injection with PATH JWT (has sip: "", no IP restriction) — works from any browser
+                // Official site flow confirms: cdnedgch2/tok_<path_JWT>/live/eds/... returns 200
+                if (currentCdntoken) {
+                    mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 } else {
                     mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 }
