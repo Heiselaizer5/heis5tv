@@ -101,33 +101,52 @@ export async function onRequest(context) {
       } catch (e) { console.warn('Supabase fallback failed:', e.message); }
     }
 
-    // --- Extract expiry from cdntoken JWT if not already set ---
-    if (!expiresAt && cdntoken) {
+    // --- Extract expiry and CDN URL from cdntoken JWT ---
+    let cdnIp = null;
+    if (cdntoken) {
       try {
         const parts = cdntoken.split('.');
         if (parts.length >= 2) {
           let p = parts[1].replace(/-/g, '+').replace(/_/g, '/');
           while (p.length % 4) p += '=';
           const payload = JSON.parse(atob(p));
-          if (payload.exp) expiresAt = parseInt(payload.exp);
+          if (!expiresAt && payload.exp) {
+            if (typeof payload.exp === 'string') expiresAt = parseInt(payload.exp);
+            else expiresAt = payload.exp;
+          }
+          if (payload.url) cdnIp = payload.url.replace(/\/+$/, '');
         }
       } catch {}
     }
 
-    // --- Build response ---
+    // --- Build responses ---
+    // Use cdnIp from JWT payload if available (the actual CDN IP, not hostname)
+    const effectiveCdn = cdnIp || cdnBase;
     let mpdPath = null;
     if (channelName) mpdPath = '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
-    const mpdUrl = (cdnBase && mpdPath) ? cdnBase + mpdPath : null;
+    const mpdUrl = (effectiveCdn && mpdPath) ? effectiveCdn + mpdPath : null;
+
+    // Official site flow: browser fetches cdnblncr?cdntoken=<simple_JWT> -> 302 -> cdnedgch2/tok_<path_JWT>/...
+    // The simple JWT has sip: user's IP so it must go through browser directly (not proxy)
+    let cdnblncrUrl = null;
+    if (channelName && cdnTokenQuery) {
+      const simpleJwt = cdnTokenQuery.replace(/^\?cdntoken=/, '');
+      if (simpleJwt) {
+        cdnblncrUrl = 'https://cdnblncr.azamtvltd.co.tz/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(simpleJwt);
+      }
+    }
 
     return new Response(JSON.stringify({
-      success: !!(authXmlToken && cdnBase && (cdntoken || cdnTokenQuery)),
+      success: !!(authXmlToken && effectiveCdn && (cdntoken || cdnTokenQuery)),
       cdnBase,
+      cdnIp,
       cdntoken,
       cdnTokenQuery,
       authXmlToken,
       expiresAt,
       mpdPath,
       mpdUrl,
+      cdnblncrUrl,
       _debug: debugDrmResp
     }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
   } catch (e) {

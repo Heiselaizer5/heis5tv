@@ -2679,7 +2679,15 @@ const REMOVED = {};
                 currentCdntoken = apiTokens.cdntoken || '';
                 currentCdnTokenQuery = apiTokens.cdnTokenQuery || '';
                 currentAuthXmlToken = apiTokens.authXmlToken;
-                mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                // Official site flow: cdnblncr?cdntoken=<simple_JWT> -> 302 -> cdnedgch2/tok_<path_JWT>/...
+                // Simple JWT has sip: user's IP, so browser must fetch directly (not proxy)
+                if (apiTokens.cdnblncrUrl) {
+                    mpdUrl = apiTokens.cdnblncrUrl;
+                } else if (currentCdntoken) {
+                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                } else {
+                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                }
                 authXml = currentAuthXmlToken;
                 scheduleProactiveRefresh(apiTokens.expiresAt, channelName);
             } else {
@@ -2688,7 +2696,7 @@ const REMOVED = {};
                 if (tokPrefix) {
                     currentCdnBase = extractCdnHost(tokPrefix);
                     currentCdntoken = extractCdntoken(tokPrefix);
-                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                    mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 }
             }
             try {
@@ -2701,7 +2709,7 @@ const REMOVED = {};
                 try {
                     const apiRetry = await fetchAzamTokensFromApi(channelName);
                     if (apiRetry && (currentCdntoken || currentCdnTokenQuery)) {
-                        const retryUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                        const retryUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                         openVideoPlayer(name, retryUrl, '', currentAuthXmlToken, null, currentCdntoken);
                         return;
                     }
@@ -2863,15 +2871,10 @@ const REMOVED = {};
                     const isMpdReq = uri.includes('.mpd');
                     const authSuffix = (isMpdReq && currentAuthXmlToken) ? '&auth=' + encodeURIComponent(currentAuthXmlToken) : '';
                     if (uri.includes('azamtvltd.co.tz') && !uri.includes('/azam-proxy?')) {
-                        // Direct CDN fetch — browser IP must match sip in JWT
+                        // Direct browser fetch (not proxy) — simple JWT has sip: user's IP
+                        // CDN responds with access-control-allow-origin: *
                         request.headers['Referer'] = 'https://web.azamtvmax.com/';
                         request.headers['Origin'] = 'https://web.azamtvmax.com/';
-                        // Append cdnTokenQuery to CDN URL directly
-                        if (currentCdnTokenQuery) {
-                            request.uris[0] = uri + (uri.includes('?') ? '&' : '?') + currentCdnTokenQuery.replace(/^\?/, '');
-                        } else if (currentCdntoken) {
-                            request.uris[0] = uri + (uri.includes('?') ? '&' : '?') + 'cdntoken=' + encodeURIComponent(currentCdntoken);
-                        }
                         return;
                     }
                     if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
