@@ -985,10 +985,7 @@
             font-size: 0.65rem; color: var(--text-dim);
             font-weight: 600; letter-spacing: 0.05em;
         }
-        #admin-view { display: block; }
-        #admin-live-view { display: none; }
-        #admin-live-view.show { display: block; }
-        #admin-view.hide { display: none; }
+
     </style>
 </head>
 <body>
@@ -1145,24 +1142,7 @@
                     0%, 100% { opacity: 1; transform: scale(1); }
                     50% { opacity: 0.4; transform: scale(0.7); }
                 }
-                .hero-test-btn {
-                    margin-top: 12px;
-                    padding: 5px 16px;
-                    border-radius: 8px;
-                    border: 1px solid rgba(255,215,0,0.15);
-                    background: rgba(255,215,0,0.06);
-                    color: var(--accent);
-                    font-family: 'Rajdhani', sans-serif;
-                    font-size: 0.65rem;
-                    font-weight: 600;
-                    letter-spacing: 0.05em;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                .hero-test-btn:hover {
-                    background: rgba(255,215,0,0.12);
-                    border-color: rgba(255,215,0,0.3);
-                }
+
                 .hero-signup-btn {
                     margin-top: 12px;
                     padding: 7px 20px;
@@ -1230,6 +1210,10 @@
             <!-- Main -->
             <main style="flex:1;">
                 <div id="hero-container"></div>
+                <div id="admin-back-bar" class="admin-back-bar" style="display:none;">
+                    <span><i class="fa-solid fa-shield"></i> ADMIN VIEW</span>
+                    <button class="admin-glow-btn admin-glow-btn-sm" onclick="adminBackToPanel()" style="font-size:0.5rem;"><i class="fa-solid fa-arrow-left"></i> Back to Admin</button>
+                </div>
                 <div id="category-filter"></div>
                 <div id="channels-container"></div>
             </main>
@@ -1549,8 +1533,36 @@
                         <h3><i class="fa-solid fa-users"></i> User Management</h3>
                         <div class="admin-user-count">${Object.keys(users).length} registered user(s)</div>
                         ${userList || '<div class="admin-empty">No users registered.</div>'}
+                    </div>
+                    <div class="admin-dash-section">
+                        <h3><i class="fa-solid fa-cloud-arrow-down" style="margin-right:4px;"></i> Azam Tokens</h3>
+                        <div id="azam-stream-status" style="font-size:0.6rem;margin-bottom:8px;color:var(--muted);"></div>
+                        <div style="display:flex;gap:4px;margin-bottom:6px;">
+                            <select id="azam-channel-select" onchange="loadAzamChannelUi()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">${Object.keys(AZAM_CHANNEL_MAP).map(n => '<option value="' + n + '">' + n + '</option>').join('')}</select>
+                        </div>
+                        <div style="display:flex;gap:4px;margin-bottom:4px;">
+                            <input id="azam-bearer-input" type="text" placeholder="GLOBAL_BEARER token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveGlobalBearer()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                            <input id="azam-tok-input" type="text" placeholder="tok_prefix" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('tok_prefix')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                            <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('authXmlToken')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                            <input id="azam-content-input" type="text" placeholder="content_dtl (auto-refresh)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('content_dtl')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                            <input id="azam-sub-input" type="text" placeholder="subscription_dtl (auto-refresh)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('subscription_dtl')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
+                        </div>
+                        <div id="azam-ui-status" style="font-size:0.5rem;color:var(--muted);margin-top:4px;"></div>
                         <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="toggleAdminPanel()" style="font-size:0.5rem;"><i class="fa-solid fa-gear"></i> Token Manager</button>
+                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="adminWatchLive()" style="font-size:0.5rem;"><i class="fa-solid fa-eye"></i> Watch Live</button>
                         </div>
                     </div>`;
             }
@@ -1575,53 +1587,6 @@
                     </div>
                     ${adminSection}
                 </div>
-                <div id="admin-view" style="display:none;">
-                    <div class="hero-banner">
-                        <div class="hero-content">
-                            <h1>Token Manager</h1>
-                            <p>Manage Azam TV tokens for all channels.</p>
-                            <div class="hero-live">
-                                <span class="live-dot"></span>
-                                <span>Manual Mode</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="admin-dash-section">
-                        <h3><i class="fa-solid fa-cloud-arrow-down" style="margin-right:4px;"></i> Azam Tokens</h3>
-                        <div id="azam-stream-status" style="font-size:0.6rem;margin-bottom:8px;color:var(--muted);"></div>
-                        <div style="display:flex;gap:4px;margin-bottom:6px;">
-                            <select id="azam-channel-select" onchange="loadAzamChannelUi()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">${Object.keys(AZAM_CHANNEL_MAP).map(n => `<option value="${n}">${n}</option>`).join('')}</select>
-                        </div>
-                        <div style="display:flex;gap:4px;margin-bottom:4px;">
-                            <input id="azam-bearer-input" type="text" placeholder="GLOBAL_BEARER token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveGlobalBearer()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                        </div>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                            <input id="azam-tok-input" type="text" placeholder="tok_prefix (e.g. https://cdnedgch2.azamtvltd.co.tz/tok_...)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('tok_prefix')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
-                        </div>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                            <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('authXmlToken')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
-                        </div>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                            <input id="azam-content-input" type="text" placeholder="content_dtl (for auto-refresh)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('content_dtl')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
-                        </div>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                            <input id="azam-sub-input" type="text" placeholder="subscription_dtl (for auto-refresh)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('subscription_dtl')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
-                        </div>
-                        <hr style="border-color:var(--border);margin:8px 0;">
-                        <div style="display:flex;gap:4px;margin-bottom:4px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="pasteAzamCapture()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-paste"></i> Paste from Azam</button>
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="showAzamCaptureHelp()" style="font-size:0.5rem;color:#fff;"><i class="fa-solid fa-question"></i></button>
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="toggleAdminPanel()" style="font-size:0.5rem;color:#fff;"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                        </div>
-                        <textarea id="azam-capture-input" placeholder='Paste JSON from Azam console script here' style="width:100%;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;min-height:60px;resize:vertical;box-sizing:border-box;"></textarea>
-                        <div id="azam-ui-status" style="font-size:0.5rem;color:var(--muted);margin-top:4px;"></div>
-                    </div>
-                </div>
             `;
             loadAzamChannelUi();
             updateAzamStatus();
@@ -1644,36 +1609,20 @@
         }
 
 
-        function toggleAdminPanel() {
-            const channels = document.getElementById('channels-container');
-            const hero = document.getElementById('hero-content');
-            const admin = document.getElementById('admin-view');
-            if (!admin) { renderHero(); return toggleAdminPanel(); }
-            if (admin.style.display !== 'none') {
-                admin.style.display = 'none';
-                if (hero) hero.style.display = '';
-                channels.style.display = '';
-            } else {
-                admin.style.display = 'block';
-                if (hero) hero.style.display = 'none';
-                channels.style.display = 'none';
-                loadAzamChannelUi();
-                updateAzamStatus();
-            }
-        }
         function adminWatchLive() {
-            document.getElementById('admin-view').style.display = 'none';
-            document.getElementById('admin-live-view').classList.add('show');
+            document.getElementById('hero-container').style.display = 'none';
             document.getElementById('channels-container').style.display = '';
+            document.getElementById('admin-back-bar').style.display = 'flex';
+            setCategory('All');
             const channelsContainer = document.getElementById('channels-container');
             if (!channelsContainer.hasChildNodes() || channelsContainer.innerHTML.trim() === '') {
                 loadChannels();
             }
         }
         function adminBackToPanel() {
-            document.getElementById('admin-view').style.display = 'block';
-            document.getElementById('admin-live-view').classList.remove('show');
+            document.getElementById('hero-container').style.display = '';
             document.getElementById('channels-container').style.display = 'none';
+            document.getElementById('admin-back-bar').style.display = 'none';
         }
 
         async function adminDeleteUser(id) {
@@ -2465,14 +2414,6 @@ const REMOVED = {};
             setTimeout(() => { toast.classList.remove('show'); }, 4000);
         }
 
-        // ═══ TEST STREAM ═══
-        function testStream() {
-            if (!hasActiveSubscription()) {
-                showPlans();
-                return;
-            }
-            openVideoPlayer('Al Jazeera (Test)', 'https://live-hls-web-aje-fa.getaj.net/AJE/index.m3u8');
-        }
 
         function openSignup() {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
@@ -2797,82 +2738,7 @@ const REMOVED = {};
             localStorage.setItem('heis5_azam_global_bearer', val);
             document.getElementById('azam-ui-status').textContent = 'Bearer saved';
         }
-        function pasteAzamCapture() {
-            const raw = document.getElementById('azam-capture-input').value.trim();
-            if (!raw) { document.getElementById('azam-ui-status').textContent = 'Paste JSON first!'; return; }
-            try {
-                const data = JSON.parse(raw);
-                const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
-                let saved = [];
-                const currentName = document.getElementById('azam-channel-select').value;
-                Object.keys(AZAM_CHANNEL_MAP).forEach(name => {
-                    if (!all[name]) all[name] = {};
-                    if (name !== currentName) return;
-                    if (data.tok_prefix) { all[name].tok_prefix = data.tok_prefix; }
-                    if (data.authXmlToken) { all[name].authXmlToken = data.authXmlToken; }
-                    if (data.content_dtl) { all[name].content_dtl = data.content_dtl; }
-                    if (data.subscription_dtl) { all[name].subscription_dtl = data.subscription_dtl; }
-                });
-                if (data.tok_prefix) saved.push('tok_prefix [' + currentName + ']');
-                if (data.authXmlToken) saved.push('authXmlToken [' + currentName + ']');
-                if (data.content_dtl) saved.push('content_dtl [' + currentName + ']');
-                if (data.subscription_dtl) saved.push('subscription_dtl [' + currentName + ']');
-                if (data.bearer) { localStorage.setItem('heis5_azam_global_bearer', data.bearer); saved.push('bearer'); }
-                localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
-                loadAzamChannelUi();
-                updateAzamStatus();
-                const tokExp = getTokenExpiry(data.tok_prefix);
-                const xmlExp = data.authXmlToken ? getExpiryFromAuthXml(data.authXmlToken) : null;
-                let expInfo = '';
-                if (tokExp) expInfo += ' | tok_: ' + fmtExpiry(tokExp);
-                if (xmlExp) expInfo += ' | authXml: ' + fmtExpiry(xmlExp);
-                document.getElementById('azam-ui-status').textContent = '✅ Saved ' + saved.join(', ') + ' [' + currentName + ']' + expInfo;
-                document.getElementById('azam-capture-input').value = '';
-            } catch (e) {
-                document.getElementById('azam-ui-status').textContent = '❌ Invalid JSON: ' + e.message;
-            }
-        }
-        function showAzamCaptureHelp() {
-            const help = `=== HOW TO GET TOKENS FROM AZAM WEBSITE ===
 
-💡 Kila channel ina tok_prefix + authXmlToken yake.
-   Sawa kwa AzamSport1, AzamSport2, ZBC1, n.k.
-   Zinadumu ~saa 3 (tok_) na ~saa 12 (authXml).
-
-🔴 CHAGUA channel kwenye dropdown kabla ya kuweka data!
-
-Option A — Console script (hii inakamata yote)
-   1. Chagua channel kwenye dropdown (mfano AzamSport1)
-   2. web.azamtvmax.com → login → play channel HIYO HIYO
-   3. F12 → Console → paste hii → Enter:
-
-let _a=window.fetch;let _d=false;
-window.fetch=(...a)=>{let u=typeof a[0]=='string'?a[0]:a[0]?.url||'';
-if(!_d&&u.includes('authToken')){_d=true;let h=a[1]?.headers||{};
-let b=h.Authorization||h.authorization||'';b=b.replace(/^Bearer\s+/i,'');
-let body=a[1]?.body;let cd={},sd={};
-try{let j=JSON.parse(body);cd=j.contentDtl||{};sd=j.subscriptionDtl||{}}catch{}
-window.fetch=_a;
-return _a(...a).then(async r=>{let j=await r.clone().json();
-let tp=j.data?.tok_prefix||j.data?.cdn_url||'';
-if(j.data?.cdns?.length) tp=j.data.cdns[0];
-let out={bearer:b,tok_prefix:tp,content_dtl:cd,subscription_dtl:sd,authXmlToken:j.data?.authXmlToken||''};
-console.log('AZAM CAPTURED',out);copy(JSON.stringify(out,null,2));
-alert('Copied! Paste in HEIS5 TV.');return r;})}
-return _a(...a);};
-console.log('✅ Active. Now play the channel...');
-
-   4. Paste JSON → "Paste from Azam"
-
-Option B — MANUAL
-   1. Play channel → F12 → Network → authToken request → Body (contentDtl, subscriptionDtl)
-   2. authToken response → authXmlToken + tok_prefix
-   3. Weka manually kwenye form hapo juu
-
-Paste JSON → "Paste from Azam" → itaona expiry kwenye status bar.
-`;
-            alert(help);
-        }
         function fmtExpiry(expTs) {
             if (!expTs) return 'N/A';
             const diff = expTs * 1000 - Date.now();
