@@ -6,8 +6,7 @@ export async function onRequest(context) {
 
   const params = new URL(request.url).searchParams;
   let targetUrl = decodeURIComponent(params.get('url') || '');
-  const cdntoken = params.get('cdntoken') || '';
-  const authToken = params.get('auth') || '';
+  const cdnTokenQuery = params.get('cdnTokenQuery') || '';
 
   if (!targetUrl && request.method === 'POST') {
     targetUrl = await request.text();
@@ -16,24 +15,24 @@ export async function onRequest(context) {
 
   try {
     let fetchUrl = targetUrl;
-
-    // Strategy: Inject cdntoken in path as /tok_<JWT> + append auth query param
-    if (cdntoken) {
-      const u = new URL(fetchUrl);
-      if (!u.pathname.includes('/tok_')) {
-        u.pathname = '/tok_' + cdntoken + u.pathname;
-        fetchUrl = u.toString();
+    let cookies = '';
+    if (cdnTokenQuery) {
+      // Use cdntoken as query param
+      const cdntokMatch = cdnTokenQuery.match(/cdntoken=([^&]+)/);
+      if (cdntokMatch) {
+        const sep = fetchUrl.includes('?') ? '&' : '?';
+        fetchUrl += sep + 'cdntoken=' + cdntokMatch[1];
       }
-    }
-    if (authToken) {
-      const sep = fetchUrl.includes('?') ? '&' : '?';
-      fetchUrl += sep + 'auth=' + encodeURIComponent(authToken);
+      // Send hdnts as cookie (Akamai standard)
+      const hdntsMatch = cdnTokenQuery.match(/hdnts=([^&]+)/);
+      if (hdntsMatch) cookies = 'hdnts=' + hdntsMatch[1];
     }
     const headers = {
       'Referer': 'https://web.azamtvmax.com/',
       'Origin': 'https://web.azamtvmax.com/',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
     };
+    if (cookies) headers['Cookie'] = cookies;
 
     const res = await fetch(fetchUrl, { headers });
     const contentType = res.headers.get('content-type') || 'application/octet-stream';
