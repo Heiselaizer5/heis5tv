@@ -1734,39 +1734,13 @@
                     if (data.content_dtl && data.subscription_dtl && bearer) {
                         // Try API refresh endpoint first
                         try {
-                            const resp = await fetch('/get-azam-url', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ bearer, contentDtl: data.content_dtl, subscriptionDtl: data.subscription_dtl, channelName: name })
-                            });
-                            const json = await resp.json();
-                            if (json.success) {
-                                if (json.authXmlToken) data.authXmlToken = json.authXmlToken;
-                                if (json.cdnBase && (json.cdntoken || json.cdnTokenQuery)) {
-                                    // If this channel is currently playing, update globals
-                                    if (currentCdnBase === json.cdnBase) {
-                                        currentCdntoken = json.cdntoken || '';
-                                        currentCdnTokenQuery = json.cdnTokenQuery || '';
-                                        currentAuthXmlToken = json.authXmlToken || currentAuthXmlToken;
-                                    }
-                                }
-                                console.log('[TOKEN] Background API refresh OK:', name);
+                            const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                            if (result.status && result.data?.authXmlToken) {
+                                data.authXmlToken = result.data.authXmlToken;
+                                console.log('[TOKEN] Background refresh OK:', name);
                                 continue;
                             }
-                        } catch (e) { console.warn('[TOKEN] Background API refresh failed for', name, e.message); }
-                        // Fall back to individual refreshes
-                        if (data.authXmlToken) {
-                            const exp = getExpiryFromAuthXml(data.authXmlToken);
-                            if (!exp || exp * 1000 < Date.now() + 1800000) {
-                                try {
-                                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
-                                    if (result.status && result.data?.authXmlToken) {
-                                        data.authXmlToken = result.data.authXmlToken;
-                                        console.log('[TOKEN] Background refresh OK:', name);
-                                    }
-                                } catch (e) { console.warn('[TOKEN] Background refresh failed for', name, e.message); }
-                            }
-                        }
+                        } catch (e) { console.warn('[TOKEN] Background refresh failed for', name, e.message); }
                     }
                 }
                 localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
