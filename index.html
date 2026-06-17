@@ -257,7 +257,10 @@
             gap: 10px;
         }
         @media (max-width: 700px) {
-            .channels-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .channel-poster { aspect-ratio: 4/3; padding: 3px; margin-bottom: 2px; }
+            .channel-card h4 { font-size: 0.5rem; min-height: 1.4em; padding: 1px 0 0; }
+            .live-badge { font-size: 0.35rem; padding: 1px 4px; top: 4px; left: 4px; }
+            .channel-poster .placeholder { font-size: 1rem; }
         }
         #channels-container { padding-bottom: 80px; }
         #main-app { min-height: 100vh; display: flex; flex-direction: column; }
@@ -2060,11 +2063,13 @@ const REMOVED = {};
                                'cinelife': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECineLife%3C/text%3E%3C/svg%3E',
                                'nbc comedy vault': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENBC%20Comedy%20Vault%3C/text%3E%3C/svg%3E',
                            };
-                         channels.forEach(ch => {
-                             const lower = ch.name.toLowerCase();
-                             if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
-                         });
-                            renderChannels(); renderCategoryFilter(); loadIPTV();
+                          channels.forEach(ch => {
+                              const lower = ch.name.toLowerCase();
+                              if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
+                          });
+                          channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
+                          channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) ch.category = 'Azam'; });
+                             renderChannels(); renderCategoryFilter(); loadIPTV();
                 }
             } catch (e) {
                 console.warn('RTDB failed, falling back to Supabase:', e.message);
@@ -2090,6 +2095,8 @@ const REMOVED = {};
                     {name:'Sinema Zetu',category:'Azam',stream_url:'azam://SinemaZetu',logo:'https://graph.facebook.com/sinemazetuhd/picture?type=large',_azam:true},
                     {name:'UTV',category:'Azam',stream_url:'azam://UTV',logo:'https://static.wikia.nocookie.net/logopedia/images/1/18/Azam_UTV_Logo_%28Better%29.png',_azam:true}
                 ];
+                channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
+                channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) ch.category = 'Azam'; });
                 const LOGO_FIX = {
 'tbc 1':'https://i.imgur.com/OmiVZ1u.png','tbc1':'https://i.imgur.com/OmiVZ1u.png','tbc 2':'https://i.imgur.com/VkUJt2q.png','tbc2':'https://i.imgur.com/VkUJt2q.png',
 'cnn':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png',
