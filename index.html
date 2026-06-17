@@ -253,7 +253,7 @@
         }
         .channels-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
         }
         @media (max-width: 700px) {
@@ -2069,6 +2069,9 @@ const REMOVED = {};
                           });
                           channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
                           channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) ch.category = 'Azam'; });
+                          const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
+                          const REMOVED3 = {'tnt sport 1':1,'tnt sport 2':1,'tnt sport 3':1,'tnt sport 4':1,'bein sports 1':1,'bein sports 2':1,'bein sports 3':1,'trace sport stars':1,'willow sports':1,'abc news':1,'cnn':1,'france 24 english':1,'russia today (global)':1,'nhk world japan':1,'al jazeera':1,'aljazeera':1};
+                          channels = channels.filter(ch => !REMOVED3[ch.name.toLowerCase().trim()]);
                              renderChannels(); renderCategoryFilter(); loadIPTV();
                 }
             } catch (e) {
@@ -2083,7 +2086,7 @@ const REMOVED = {};
                     throw new Error('HTTP ' + res.status + ' — ' + text.slice(0, 100));
                 }
                 channels = await res.json();
-                const REMOVED2 = {};
+                const REMOVED2 = {'tnt sport 1':1,'tnt sport 2':1,'tnt sport 3':1,'tnt sport 4':1,'bein sports 1':1,'bein sports 2':1,'bein sports 3':1,'trace sport stars':1,'willow sports':1,'abc news':1,'cnn':1,'france 24 english':1,'russia today (global)':1,'nhk world japan':1,'al jazeera':1,'aljazeera':1};
                 channels = channels.filter(ch => !REMOVED2[ch.name.toLowerCase().trim()]);
                 if (extra) channels = [...channels, ...extra]; else channels = [...channels,
                     {name:'Azam Sport 1',category:'Azam',stream_url:'azam://AzamSport1',logo:'https://static.wikia.nocookie.net/logopedia/images/e/e6/Azam_Sports_HD_Logo.png',_azam:true},
@@ -2097,6 +2100,7 @@ const REMOVED = {};
                 ];
                 channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
                 channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) ch.category = 'Azam'; });
+                const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
                 const LOGO_FIX = {
 'tbc 1':'https://i.imgur.com/OmiVZ1u.png','tbc1':'https://i.imgur.com/OmiVZ1u.png','tbc 2':'https://i.imgur.com/VkUJt2q.png','tbc2':'https://i.imgur.com/VkUJt2q.png',
 'cnn':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png',
@@ -2139,6 +2143,7 @@ const REMOVED = {};
 'dw news':'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Deutsche_Welle_symbol_2012.svg/1200px-Deutsche_Welle_symbol_2012.svg.png',
 'abc news live':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-news-us.png',
 'nickelodeon':'https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Nickelodeon_logo_2023.svg/1200px-Nickelodeon_logo_2023.svg.png',
+'nick jr.':'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Nick_Jr._logo_2009.svg/1200px-Nick_Jr._logo_2009.svg.png',
 'pbs kids':'https://upload.wikimedia.org/wikipedia/en/thumb/8/81/PBS_Kids_logo_%282022%29.svg/1200px-PBS_Kids_logo_%282022%29.svg.png',
 'cbeebies':'https://upload.wikimedia.org/wikipedia/en/thumb/d/d6/CBeebies_Logo_2023.svg/1200px-CBeebies_Logo_2023.svg.png',
 'moonbug kids':'https://upload.wikimedia.org/wikipedia/en/thumb/0/0d/Moonbug_logo.svg/1200px-Moonbug_logo.svg.png',
@@ -2146,9 +2151,43 @@ const REMOVED = {};
 'mtv base':'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/MTV_Base_logo.svg/1200px-MTV_Base_logo.svg.png',
 'tbn':'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Trinity_Broadcasting_Network_logo.svg/1200px-Trinity_Broadcasting_Network_logo.svg.png',
 'daystar':'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Daystar_Television_Network_logo.svg/1200px-Daystar_Television_Network_logo.svg.png',
-'sportitalia':'https://www.sportitalia.com/favicon-196.png',
-'cartoon classics':'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Cartoon_Network_2010_logo.svg/1200px-Cartoon_Network_2010_logo.svg.png',
-'sportitalia':'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Sportitalia_logo.svg/1200px-Sportitalia_logo.svg.png'
+'sportitalia':'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Sportitalia_logo.svg/1200px-Sportitalia_logo.svg.png',
+'fifa+':'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg',
+'fifa+ english':'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg',
+'fifa+ spanish':'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg',
+'fifa+ usa':'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg',
+'fifa+ women':'https://upload.wikimedia.org/wikipedia/commons/9/9c/FIFA%2B_%282025%29.svg',
+'tyc sports (argentina)':'https://upload.wikimedia.org/wikipedia/commons/5/5c/TyC_Sports_logo_2018.png',
+'stadium':'https://upload.wikimedia.org/wikipedia/en/5/53/Stadium_%28sports_network%29_logo.svg',
+'accdn':'https://upload.wikimedia.org/wikipedia/commons/7/76/ACC_Network_logo_1c_white.svg',
+'flohockey 24/7':'https://upload.wikimedia.org/wikipedia/commons/3/30/FloSports_logo.png',
+'floracing 24/7':'https://upload.wikimedia.org/wikipedia/commons/3/30/FloSports_logo.png',
+'espn8 the ocho':'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/ESPN8_The_Ocho_logo.svg/1200px-ESPN8_The_Ocho_logo.svg.png',
+'gol classics':'https://statics.goltelevision.com/shared/assets/logos/logo.png',
+'world of freesports':'https://yt3.googleusercontent.com/jnQbXmscLD6pGz2qhTV7GsU26OLeDXAIzkFfCj4ND7xW-jDV4Y8biRwBNnuF38o_0YBbGT5Y4Q=s900-c-k-c0x00ffffff-no-rj',
+'unbeaten sports':'https://i.imgur.com/LmkNt3v.png',
+'trace sport stars':'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Trace_Sport_Stars_logo.svg/1200px-Trace_Sport_Stars_logo.svg.png',
+'mbc max':'https://upload.wikimedia.org/wikipedia/commons/e/e8/MBC_Max_Logo.svg',
+'movies now hd':'https://upload.wikimedia.org/wikipedia/commons/9/97/Movies_Now_logo.png',
+'movies now':'https://upload.wikimedia.org/wikipedia/commons/9/97/Movies_Now_logo.png',
+'hbo hd':'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/HBO_logo.svg/1200px-HBO_logo.svg.png',
+'kix movies':'https://upload.wikimedia.org/wikipedia/en/thumb/3/3e/Kix_%28TV_channel%29_logo.svg/1200px-Kix_%28TV_channel%29_logo.svg.png',
+'espn':'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/1200px-ESPN_wordmark.svg.png',
+'cartoonito':'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Cartoonito_2021_Logo.svg/1200px-Cartoonito_2021_Logo.svg.png',
+'nat geo wild':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png',
+'national geographic':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png',
+'disney jr.':'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Disney_Junior_2011_logo.svg/1200px-Disney_Junior_2011_logo.svg.png',
+'disney channel':'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Disney_Channel_logo_%282014%29.svg/1200px-Disney_Channel_logo_%282014%29.svg.png',
+'baby tv':'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/BabyTV_logo.svg/1200px-BabyTV_logo.svg.png',
+'fix & fox':'https://upload.wikimedia.org/wikipedia/en/thumb/4/4d/Fix_%26_Foxi_logo.svg/1200px-Fix_%26_Foxi_logo.svg.png',
+'fix and fox':'https://upload.wikimedia.org/wikipedia/en/thumb/4/4d/Fix_%26_Foxi_logo.svg/1200px-Fix_%26_Foxi_logo.svg.png',
+'boing':'https://upload.wikimedia.org/wikipedia/commons/e/ef/Boing_-_Logo_2020.svg',
+'mbc action':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-arab-emirates/mbc-action-ae.png',
+'mbc pluspower':'https://upload.wikimedia.org/wikipedia/commons/7/73/MBC_Action_Logo.png',
+'mbc drama':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-arab-emirates/mbc-drama-ae.png',
+'zamaradi tv':'https://graph.facebook.com/ZamaradiTv/picture?type=large',
+'zbc 2':'https://static.wikia.nocookie.net/logopedia/images/1/19/ZBC_logo_2023.png',
+'cartoon classics':'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Cartoon_Network_2010_logo.svg/1200px-Cartoon_Network_2010_logo.svg.png'
 };
                 channels.forEach(ch => { const l = ch.name.toLowerCase().trim(); if (LOGO_FIX[l]) ch.logo = LOGO_FIX[l]; });
                 renderChannels(); renderCategoryFilter(); loadIPTV();
