@@ -2607,7 +2607,8 @@ const REMOVED = {};
                 if (parsed) {
                     const cdnBase = extractCdnHost(parsed);
                     const cdntoken = extractCdntoken(parsed);
-                    if (cdnBase && cdntoken) {
+                    const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
+                    if (cdnBase && cdntoken && xmlExp && xmlExp * 1000 > Date.now() + 300000) {
                         currentCdnBase = cdnBase;
                         currentCdntoken = cdntoken;
                         currentCdnTokenQuery = '';
@@ -2622,6 +2623,7 @@ const REMOVED = {};
                             expiresAt: getTokExpiry(parsed) || null
                         };
                     }
+                    console.log('[AZAM] Stored authXmlToken expired for', channelName, '- will refresh');
                 }
             }
             // Fall back to API (may fail if backend is down)
