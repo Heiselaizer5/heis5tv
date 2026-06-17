@@ -2628,36 +2628,20 @@ const REMOVED = {};
             const bearer = getGlobalBearer();
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return null;
             try {
-                // Call DRM API directly from browser (official site does same)
-                const body = JSON.stringify({ offlineDownload: false, subscriptionDtl: data.subscription_dtl, contentDtl: data.content_dtl });
-                const resp = await fetch('https://api.aztv.videoready.tv/drm-auth-integration/v1/drm/authToken', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + bearer,
-                        'Content-Type': 'application/json',
-                        'tenant_identifier': 'master',
-                        'platform': 'WEB',
-                        'device_id': 'undefined',
-                        'languageCode': 'eng',
-                        'language': 'eng',
-                        'local': 'TZ',
-                        'profileId': '25222709',
-                        'requestCount': '0'
-                    },
-                    body
-                });
-                const json = await resp.json();
-                if (json?.data?.authXmlToken) {
-                    const authXmlToken = json.data.authXmlToken;
-                    const cdnTokenQuery = json.data.cdnToken || '';
-                    const rawTok = json.data.tok_prefix || json.data.cdn_url || null;
+                // Route through /drm-auth Pages function (sets Origin server-side, avoids CORS)
+                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                if (result.status && result.data && result.data.authXmlToken) {
+                    const d = result.data;
+                    const authXmlToken = d.authXmlToken;
+                    const cdnTokenQuery = d.cdnToken || '';
+                    const rawTok = d.tok_prefix || d.cdn_url || null;
                     let cdnBase = null, cdntoken = null;
                     if (rawTok) {
                         const m = rawTok.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
                         if (m) { cdnBase = m[1]; cdntoken = m[2]; }
                     }
-                    if (!cdnBase && json.data.cdns && Array.isArray(json.data.cdns)) {
-                        for (const c of json.data.cdns) {
+                    if (!cdnBase && d.cdns && Array.isArray(d.cdns)) {
+                        for (const c of d.cdns) {
                             const m = c.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
                             if (m) { cdnBase = m[1]; cdntoken = m[2]; break; }
                         }
