@@ -1842,9 +1842,9 @@
                                 logo: c.iconUrl || '📺',
                                  color: '#00d4ff'
                              };
-                          }).filter(ch => {
+                           }).filter(ch => {
 const REMOVED = {};
-                return !REMOVED[ch.name.toLowerCase()] && ch.category !== 'Sports';
+                return !REMOVED[ch.name.toLowerCase()] && ch.category !== 'Sports' && ch.category !== 'Kids' && ch.category !== 'Movies';
                             });
                         // Merge in extra working HLS channels from iptv-org
                          extra = [
