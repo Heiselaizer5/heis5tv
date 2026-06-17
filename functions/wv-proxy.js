@@ -1,13 +1,12 @@
 export async function onRequest(context) {
-  const { request } = context;
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' } });
-  }
-  const url = new URL(request.url).searchParams.get('url') || 'https://azy4sj9b.anycast.nagra.com/AZY4SJ9B/wvls/contentlicenseservice/v1/licenses';
-  const authXmlToken = new URL(request.url).searchParams.get('authXmlToken') || '';
-  const body = await request.arrayBuffer();
-  if (!authXmlToken) console.log('[WV-PROXY] WARNING: No authXmlToken!');
   try {
+    const { request } = context;
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' } });
+    }
+    const url = new URL(request.url).searchParams.get('url') || 'https://azy4sj9b.anycast.nagra.com/AZY4SJ9B/wvls/contentlicenseservice/v1/licenses';
+    const authXmlToken = request.headers.get('nv-authorizations') || '';
+    const body = await request.arrayBuffer();
     const resp = await fetch(decodeURIComponent(url), {
       method: 'POST',
       headers: {
@@ -29,6 +28,6 @@ export async function onRequest(context) {
       }
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'Widevine proxy error: ' + e.message }), { status: 502 });
+    return new Response(JSON.stringify({ error: 'Widevine proxy error: ' + e.message }), { status: 502, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' } });
   }
 }

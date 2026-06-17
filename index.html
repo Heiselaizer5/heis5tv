@@ -2901,8 +2901,9 @@ const REMOVED = {};
                 if (finalXmlToken) {
                     const wvProxy = API_WV_PROXY || '/wv-proxy';
                     drmConfig.drm = {
-                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(finalXmlToken) }
+                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) }
                     };
+                    currentAuthXmlToken = finalXmlToken;
                     if (psshData && psshData.success && psshData.pssh) {
                         const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
                         drmConfig.drm.initData = [{ initDataType: 'cenc', initData, systemId: psshData.systemId || 'com.widevine.alpha' }];
@@ -2919,7 +2920,12 @@ const REMOVED = {};
                 if (lastSlash > 0) azamCdnBaseUrl = mpdUrl.substring(0, lastSlash + 1);
                 netEng.registerRequestFilter((type, request) => {
                     const uri = request.uris[0];
-                    const isMpdReq = uri.includes('.mpd');
+                    if (uri.includes('wv-proxy') || uri.includes('/wv-proxy')) {
+                        if (currentAuthXmlToken) {
+                            request.headers['nv-authorizations'] = currentAuthXmlToken;
+                        }
+                        return;
+                    }
                     if (uri.includes('azamtvltd.co.tz')) {
                         console.log('[CDN] Fetching directly:', uri.substring(0, 120));
                         return;
