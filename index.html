@@ -2669,32 +2669,16 @@ const REMOVED = {};
             proactiveRefreshTimer = setTimeout(async () => {
                 console.log('[AZAM] Proactive refresh for', channelName);
                 try {
-                    const resp = await fetch('/get-azam-url', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bearer: getGlobalBearer(), contentDtl: getAzamChannelData(channelName).content_dtl, subscriptionDtl: getAzamChannelData(channelName).subscription_dtl, channelName })
-                    });
-                    const json = await resp.json();
-                    if (json.success && (json.cdntoken || json.cdnTokenQuery)) {
-                        currentCdntoken = json.cdntoken || '';
-                        currentCdnTokenQuery = json.cdnTokenQuery || '';
-                        currentCdnBase = json.cdnBase || currentCdnBase;
-                        const freshTokPrefix = currentCdnBase + '/tok_' + currentCdntoken;
-                        if (json.authXmlToken) {
-                            currentAuthXmlToken = json.authXmlToken;
-                            setAzamChannelData(channelName, { authXmlToken: json.authXmlToken, tok_prefix: freshTokPrefix });
-                            if (shakaPlayer && shakaPlayer.configure) {
-                                const wvProxy = API_WV_PROXY || '/wv-proxy';
-                                shakaPlayer.configure({
-                                    drm: {
-                                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) + '&authXmlToken=' + encodeURIComponent(json.authXmlToken) }
-                                    }
-                                });
-                                console.log('[AZAM] Updated Shaka DRM config with refreshed authXmlToken');
-                            }
-                        }
+                    const bearer = getGlobalBearer();
+                    const data = getAzamChannelData(channelName);
+                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                    if (result.status && result.data && result.data.authXmlToken) {
+                        const d = result.data;
+                        currentAuthXmlToken = d.authXmlToken;
+                        setAzamChannelData(channelName, { authXmlToken: d.authXmlToken });
+                        const newExp = getExpiryFromAuthXml(d.authXmlToken);
                         console.log('[AZAM] Proactive refresh done for', channelName);
-                        scheduleProactiveRefresh(json.expiresAt || expiresAt, channelName);
+                        scheduleProactiveRefresh(newExp || expiresAt, channelName);
                     }
                 } catch (e) { console.warn('[AZAM] Proactive refresh failed:', e.message); }
             }, refreshIn);
