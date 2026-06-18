@@ -2619,13 +2619,13 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         function buildAzamMpdUrl(tokPrefix, channelName) {
             return tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
         }
-        async function fetchAzamTokensFromApi(channelName, useExpired) {
+        async function fetchAzamTokensFromApi(channelName, forceRefresh) {
             console.time('[TIMER] fetchTokens-' + channelName);
-            console.log('[DBG] fetchAzamTokensFromApi called for', channelName);
+            console.log('[DBG] fetchAzamTokensFromApi called for', channelName + (forceRefresh ? ' (forced)' : ''));
             const data = getAzamChannelData(channelName);
             console.log('[DBG] data keys:', Object.keys(data).join(','));
-            // Use locally stored tokens first — no backend call needed
-            if (data.tok_prefix && data.authXmlToken) {
+            // Use locally stored tokens first — no backend call needed (unless forced)
+            if (!forceRefresh && data.tok_prefix && data.authXmlToken) {
                 const parsed = extractTokPrefix(data.tok_prefix);
                 if (parsed) {
                     const cdnBase = extractCdnHost(parsed);
@@ -2827,8 +2827,16 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 if (!mpdUrl || (!currentCdntoken && !currentCdnTokenQuery)) {
                     throw new Error('No tok_ for ' + channelName + '. Weka tok_prefix kwenye Admin Panel → Azam Channels.');
                 }
-                // Pre-fetch MPD so Shaka finds it in browser cache
-                fetch(mpdUrl, { mode: 'cors' }).catch(() => {});
+                // Pre-check MPD - if 403, refresh token immediately
+                const mpdCheck = await fetch(mpdUrl, { method: 'GET', mode: 'cors' });
+                if (mpdCheck.status === 403) {
+                    console.warn('[AZAM] MPD returned 403 — token rejected, refreshing...');
+                    const apiRetry = await fetchAzamTokensFromApi(channelName, true);
+                    if (apiRetry && currentCdntoken) {
+                        mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                        lastMpdUrl = mpdUrl;
+                    }
+                }
                 openVideoPlayer(name, mpdUrl, '', authXml, null, currentCdntoken);
                 console.timeLog('[TIMER] openAzamChannel-' + channelName, 'openVideoPlayer called');
             } catch (e) {
