@@ -2803,6 +2803,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
+                    currentAuthXmlToken = d.authXmlToken;
                     const toUpdate = { authXmlToken: d.authXmlToken };
                     if (d.tok_prefix || d.cdn_url) {
                         const cdn = d.tok_prefix || d.cdn_url;
@@ -3094,9 +3095,21 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const mpdUrl = url;
                 const lastSlash = mpdUrl.lastIndexOf('/');
                 if (lastSlash > 0) azamCdnBaseUrl = mpdUrl.substring(0, lastSlash + 1);
-                netEng.registerRequestFilter((type, request) => {
+                netEng.registerRequestFilter(async (type, request) => {
                     const uri = request.uris[0];
                     if (uri.includes('wv-proxy') || uri.includes('/wv-proxy')) {
+                        if (type === shakaPlayer.net.NetworkingEngine.RequestType.LICENSE) {
+                            const bearer = getGlobalBearer();
+                            const chanData = lastChannelName ? getAzamChannelData(lastChannelName) : null;
+                            if (bearer && chanData && chanData.content_dtl && chanData.subscription_dtl) {
+                                try {
+                                    const fresh = await fetchDrmAuthToken(bearer, chanData.content_dtl, chanData.subscription_dtl);
+                                    if (fresh.status && fresh.data && fresh.data.authXmlToken) {
+                                        currentAuthXmlToken = fresh.data.authXmlToken;
+                                    }
+                                } catch (_) {}
+                            }
+                        }
                         if (currentAuthXmlToken) {
                             request.headers['nv-authorizations'] = currentAuthXmlToken;
                         }
