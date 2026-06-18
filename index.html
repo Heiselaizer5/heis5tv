@@ -1436,6 +1436,7 @@
         let bufferingTimer = null;
         let currentCdntoken = '';
         let currentCdnBase = '';
+        let channelStartTime = 0;
         let currentAuthXmlToken = '';
         let currentCdnTokenQuery = '';
         let proactiveRefreshTimer = null;
@@ -2802,7 +2803,6 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
-                    currentAuthXmlToken = d.authXmlToken;
                     const toUpdate = { authXmlToken: d.authXmlToken };
                     if (d.tok_prefix || d.cdn_url) {
                         const cdn = d.tok_prefix || d.cdn_url;
@@ -2813,19 +2813,25 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             const newCdntoken = extractCdntoken(parsedT);
                             const newUrl = newCdnBase && newCdntoken ? newCdnBase + '/tok_' + newCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd' : null;
                             if (newUrl && newUrl !== lastMpdUrl && shakaPlayer && lastMpdUrl) {
-                                console.log('[AZAM] CDN token changed, reloading player seamlessly...');
                                 const videoEl = document.getElementById('hls-video');
-                                const wasPlaying = !videoEl.paused;
-                                const prevTime = videoEl.currentTime;
-                                lastMpdUrl = newUrl;
-                                currentCdnBase = newCdnBase;
-                                currentCdntoken = newCdntoken;
-                                try {
-                                    await shakaPlayer.unload();
-                                    await shakaPlayer.load(newUrl);
-                                    if (wasPlaying) { videoEl.currentTime = prevTime; videoEl.play().catch(() => {}); }
-                                    console.log('[AZAM] Player reloaded with new CDN token');
-                                } catch (e2) { console.warn('[AZAM] Reload failed:', e2.message); }
+                                const msSinceStart = channelStartTime ? Date.now() - channelStartTime : 0;
+                                if (msSinceStart < 30000) {
+                                    console.log('[AZAM] Skipping reload (channel just started)');
+                                } else {
+                                    console.log('[AZAM] CDN token changed, reloading player seamlessly...');
+                                    const wasPlaying = !videoEl.paused;
+                                    const prevTime = videoEl.currentTime;
+                                    lastMpdUrl = newUrl;
+                                    currentCdnBase = newCdnBase;
+                                    currentCdntoken = newCdntoken;
+                                    currentAuthXmlToken = d.authXmlToken;
+                                    try {
+                                        await shakaPlayer.unload();
+                                        await shakaPlayer.load(newUrl);
+                                        if (wasPlaying) { videoEl.currentTime = prevTime; videoEl.play().catch(() => {}); }
+                                        console.log('[AZAM] Player reloaded with new CDN token');
+                                    } catch (e2) { console.warn('[AZAM] Reload failed:', e2.message); }
+                                }
                             } else {
                                 currentCdnBase = newCdnBase;
                                 currentCdntoken = newCdntoken;
@@ -2852,6 +2858,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         }
         async function openAzamChannel(name, fakeUrl) {
             const channelName = fakeUrl.startsWith('azam://') ? fakeUrl.replace('azam://', '') : (fakeUrl.match(/\/live\/eds\/([^/]+)\//) || [,''])[1] || azamNameToKey(name);
+            channelStartTime = Date.now();
             console.log('[DBG] openAzamChannel CALLED name=' + name + ' channelName=' + channelName);
             console.time('[TIMER] openAzamChannel-' + channelName);
             document.getElementById('modal-channel-name').textContent = name;
