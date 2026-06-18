@@ -9,6 +9,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://azy4sj9b.anycast.nagra.com">
+    <link rel="preconnect" href="https://wv-proxy.erastokasoga5.workers.dev">
+    <link rel="dns-prefetch" href="https://azy4sj9b.anycast.nagra.com">
+    <link rel="dns-prefetch" href="https://wv-proxy.erastokasoga5.workers.dev">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -2624,8 +2628,6 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         currentCdnTokenQuery = '';
                         currentAuthXmlToken = data.authXmlToken;
                         console.log('[AZAM] Using stored tokens for', channelName);
-                        // Try background refresh once (non-blocking)
-                        backgroundRefreshAzam(channelName);
                         const tokExp = getTokExpiry(parsed);
                         const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
                         const expiresAt = (xmlExp && tokExp) ? Math.min(xmlExp, tokExp) : (xmlExp || tokExp || null);
@@ -2953,7 +2955,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 currentEngine = 'shaka';
                 shakaPlayer = new shaka.Player(videoEl);
                 const drmConfig = {
-                    streaming: { rebufferingGoal: 15, bufferingGoal: 30 },
+                    streaming: { rebufferingGoal: 5, bufferingGoal: 12 },
                     manifest: { dash: { ignoreMinBufferTime: true } },
                 };
                 const finalXmlToken = authXmlToken || currentAuthXmlToken;
