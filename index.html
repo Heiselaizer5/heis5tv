@@ -1383,8 +1383,8 @@
         const API_BASE = IS_NETLIFY ? '/.netlify/functions' : '';
         const API_AZAM_PROXY = API_BASE + '/azam-proxy';
         const API_WV_PROXY = 'https://wv-proxy.erastokasoga5.workers.dev';
-        const API_DRM_AUTH = API_BASE + '/drm-auth';
-        const API_LOAD_TOK = API_BASE + '/load-tok';
+        const API_DRM_AUTH = 'https://wv-proxy.erastokasoga5.workers.dev/drm-auth';
+        const API_LOAD_TOK = 'https://wv-proxy.erastokasoga5.workers.dev/load-tok';
 
         // Init shaka polyfill
         if (typeof shaka !== 'undefined') { shaka.polyfill.installAll(); }
@@ -2631,7 +2631,7 @@ const REMOVED = {};
         function buildAzamMpdUrl(tokPrefix, channelName) {
             return tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
         }
-        async function fetchAzamTokensFromApi(channelName) {
+        async function fetchAzamTokensFromApi(channelName, useExpired) {
             const data = getAzamChannelData(channelName);
             // Use locally stored tokens first — no backend call needed
             if (data.tok_prefix && data.authXmlToken) {
@@ -2639,31 +2639,34 @@ const REMOVED = {};
                 if (parsed) {
                     const cdnBase = extractCdnHost(parsed);
                     const cdntoken = extractCdntoken(parsed);
-                    const tokExp = getTokExpiry(parsed);
-                    const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
-                    if (cdnBase && cdntoken && xmlExp && tokExp && xmlExp * 1000 > Date.now() + 300000 && tokExp * 1000 > Date.now() + 300000) {
+                    if (cdnBase && cdntoken) {
+                        // Allow expired tokens — CDN often accepts them
                         currentCdnBase = cdnBase;
                         currentCdntoken = cdntoken;
                         currentCdnTokenQuery = '';
                         currentAuthXmlToken = data.authXmlToken;
                         console.log('[AZAM] Using stored tokens for', channelName);
+                        // Try background refresh once (non-blocking)
+                        backgroundRefreshAzam(channelName);
+                        const tokExp = getTokExpiry(parsed);
+                        const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
+                        const expiresAt = (xmlExp && tokExp) ? Math.min(xmlExp, tokExp) : (xmlExp || tokExp || null);
+                        const isExpired = expiresAt && expiresAt * 1000 < Date.now();
                         return {
                             success: true,
                             cdnBase,
                             cdntoken,
                             cdnTokenQuery: '',
                             authXmlToken: data.authXmlToken,
-                            expiresAt: tokExp || null
+                            expiresAt: isExpired ? null : expiresAt
                         };
                     }
-                    console.log('[AZAM] Stored tokens expired for', channelName, '- will refresh');
                 }
             }
             // Fall back to API (may fail if backend is down)
             const bearer = getGlobalBearer();
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return null;
             try {
-                // Route through /drm-auth Pages function (sets Origin server-side, avoids CORS)
                 const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
@@ -2697,6 +2700,24 @@ const REMOVED = {};
             } catch (e) { console.warn('[AZAM] Direct DRM call failed:', e.message); }
             console.log('[AZAM] fetchAzamTokensFromApi returning null for', channelName);
             return null;
+        }
+        async function backgroundRefreshAzam(channelName) {
+            const data = getAzamChannelData(channelName);
+            const bearer = getGlobalBearer();
+            if (!bearer || !data.content_dtl || !data.subscription_dtl) return;
+            try {
+                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                if (result.status && result.data && result.data.authXmlToken) {
+                    const d = result.data;
+                    const toUpdate = { authXmlToken: d.authXmlToken };
+                    if (d.tok_prefix || d.cdn_url) {
+                        const cdn = d.tok_prefix || d.cdn_url;
+                        toUpdate.tok_prefix = cdn;
+                    }
+                    setAzamChannelData(channelName, toUpdate);
+                    console.log('[AZAM] Background refresh OK for', channelName);
+                }
+            } catch (e) { /* refresh not critical */ }
         }
         function scheduleProactiveRefresh(expiresAt, channelName) {
             if (proactiveRefreshTimer) { clearTimeout(proactiveRefreshTimer); proactiveRefreshTimer = null; }

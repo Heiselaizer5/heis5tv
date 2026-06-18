@@ -8,7 +8,10 @@ export async function onRequest(context) {
     if (!bearer) return new Response(JSON.stringify({ status: false, message: 'Missing bearer token' }), { status: 400 });
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
     const AZAM_DRM_AUTH_URL = 'https://api.aztv.videoready.tv/drm-auth-integration/v1/drm/authToken';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     const resp = await fetch(AZAM_DRM_AUTH_URL, {
+      signal: controller.signal,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${finalBearer}`,
@@ -31,15 +34,17 @@ export async function onRequest(context) {
         contentDtl
       })
     });
+    clearTimeout(timeout);
     const text = await resp.text();
     let json;
-    try { json = JSON.parse(text); } catch { json = { raw: text, status: false }; }
-    json._debug = { statusCode: resp.status };
+    try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200), status: false }; }
+    json._debug = { statusCode: resp.status, ts: Date.now() };
     return new Response(JSON.stringify(json), {
       status: 200,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }
     });
   } catch (e) {
-    return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502 });
+    const msg = e.name === 'AbortError' ? 'Azam DRM API timed out (10s)' : e.message;
+    return new Response(JSON.stringify({ status: false, message: msg }), { status: 502 });
   }
 }
