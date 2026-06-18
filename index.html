@@ -693,6 +693,19 @@
         .auth-msg.success { color: #00E5FF; }
         .auth-msg.show { display: block; }
         /* Admin dashboard */
+        .admin-watch-btn {
+            display: block; text-align: center; cursor: pointer;
+            background: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(0,229,255,0.08));
+            border: 1px solid var(--accent);
+            border-radius: 12px; padding: 20px; margin-bottom: 16px;
+            font-size: 0.85rem; font-weight: 700; color: var(--accent);
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 0.08em;
+            transition: all 0.3s;
+        }
+        .admin-watch-btn:hover { background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(0,229,255,0.15)); transform: scale(1.02); }
+        .admin-watch-btn i { margin-right: 8px; }
+        .admin-watch-btn span { font-size: 0.55rem; color: var(--muted); font-family: 'Rajdhani', sans-serif; letter-spacing: 0; }
         .admin-dash-section {
             background: rgba(255,215,0,0.03);
             border: 1px solid var(--border);
@@ -1457,8 +1470,8 @@
             if (username === 'Admin' && pass === 'Admin123') {
                 localStorage.setItem('heis5_session', JSON.stringify({ username, name: 'Admin', email: 'erastokasoga5@gmail.com', role: 'admin' }));
                 checkPendingSubscription();
-                syncLocalAzamToSupabase();
                 goToApp();
+                syncLocalAzamToSupabase();
                 return;
             }
             let resp;
@@ -1541,6 +1554,10 @@
                     `<div class="admin-user-item"><div class="admin-user-info"><span class="admin-user-name">${u.name}</span><span class="admin-user-email">${u.email}</span></div><div class="admin-user-meta"><span class="admin-user-role ${u.role}">${u.role}</span><span class="admin-del" onclick="adminDeleteUser('${id}')" title="Delete"><i class="fa-solid fa-trash-can"></i></span></div></div>`
                 ).join('');
                 adminSection = `
+                    <div class="admin-watch-btn" onclick="adminWatchLive()">
+                        <i class="fa-solid fa-play"></i> Watch Live TV
+                        <span>${channels.length} channels available</span>
+                    </div>
                     <div class="admin-dash-section">
                         <h3><i class="fa-solid fa-users"></i> User Management</h3>
                         <div class="admin-user-count">${Object.keys(users).length} registered user(s)</div>
@@ -1688,14 +1705,15 @@
                     const app = document.getElementById('main-app');
                     app.style.display = 'flex';
                     app.style.opacity = '1';
-                    loadAzamConfigFromSupabase();
                     renderHero();
                     loadChannels();
+                    loadAzamConfigFromSupabase();
                     if (session) {
                         showWelcomeToast(session.name || session.username, session.role);
                     }
                     if (session && session.role === 'admin') {
                         document.getElementById('channels-container').style.display = 'none';
+                        document.getElementById('hero-container').style.display = '';
                     }
                 }, 1000);
             }, 1500);
