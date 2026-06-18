@@ -2031,7 +2031,7 @@ const REMOVED = {};
                               if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
                           });
                           channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
-                          channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nick jr.','nickelodeon','cartoonito','disney jr.','disney channel','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','movies now hd','hbo hd','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; } });
+                          channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nick jr.','nickelodeon','cartoonito','disney jr.','disney channel','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','movies now hd','hbo hd','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; }});
                           const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
                             const REMOVED3 = {'tnt sport 1':1,'tnt sport 2':1,'tnt sport 3':1,'tnt sport 4':1,'bein sports 1':1,'bein sports 2':1,'bein sports 3':1,'trace sport stars':1,'willow sports':1,'abc news':1,'cnn':1,'france 24 english':1,'russia today (global)':1,'nhk world japan':1};
                           channels = channels.filter(ch => !REMOVED3[ch.name.toLowerCase().trim()]);
@@ -2754,12 +2754,14 @@ const REMOVED = {};
                 } catch (e) { console.warn('[AZAM] Proactive refresh failed:', e.message); }
             }, refreshIn);
         }
+        function azamNameToKey(name) {
+            const m = name.trim().toLowerCase();
+            const MAP = {'azam one':'AzamOne','azam two':'AzamTwo','azam sport 1':'AzamSport1','azam sport 2':'AzamSport2','azam sport 3':'AzamSport3','azam sport 4':'AzamSport4','sinema zetu':'SinemaZetu','utv':'UTV','wasafi tv':'WasafiTV','cheka plus':'ChekaPlusTV','crowns tv':'CrownTv','zbc':'ZBC','nick jr.':'NickJr','nickelodeon':'Nickelodeon','cartoonito':'Cartoonito','disney jr.':'DisneyJr','disney channel':'DisneyChannel','baby tv':'BabyTV','fix & fox':'FixAndFox','cbeebies':'CBeebies','boing':'Boing','espn':'ESPN','espn 2':'ESPN2','nba tv':'NBATV','nat geo wild':'NatGeoWild','national geographic':'NatGeo','mbc 2':'MBC2','mbc max':'MBCMax','mbc action':'MBCAction','mbc pluspower':'MBCPlusPower','mbc drama':'MBCDrama','movies now hd':'MoviesNow','hbo hd':'HBO','kix movies':'KIXMovies','zamaradi tv':'ZamaradiTV','zbc 2':'ZBC2'};
+            return MAP[m] || name.replace(/[\s.'"]/g, '');
+        }
         async function openAzamChannel(name, fakeUrl) {
-            console.log('[DBG] openAzamChannel CALLED name=' + name + ' fakeUrl=' + fakeUrl);
-            const channelName = fakeUrl.replace('azam://', '');
-            console.log('[DBG] channelName=' + channelName);
-            const _dbgData = getAzamChannelData(channelName);
-            console.log('[DBG] tok_prefix=' + (_dbgData.tok_prefix ? 'PRESENT' : 'MISSING') + ' authXml=' + (_dbgData.authXmlToken ? 'PRESENT' : 'MISSING'));
+            const channelName = fakeUrl.startsWith('azam://') ? fakeUrl.replace('azam://', '') : (fakeUrl.match(/\/live\/eds\/([^/]+)\//) || [,''])[1] || azamNameToKey(name);
+            console.log('[DBG] openAzamChannel CALLED name=' + name + ' channelName=' + channelName);
             document.getElementById('modal-channel-name').textContent = name;
             document.getElementById('now-playing-name').textContent = name;
             document.getElementById('video-modal').classList.add('show');
