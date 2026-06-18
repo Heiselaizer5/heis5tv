@@ -2639,8 +2639,9 @@ const REMOVED = {};
                 if (parsed) {
                     const cdnBase = extractCdnHost(parsed);
                     const cdntoken = extractCdntoken(parsed);
+                    const tokExp = getTokExpiry(parsed);
                     const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
-                    if (cdnBase && cdntoken && xmlExp && xmlExp * 1000 > Date.now() + 300000) {
+                    if (cdnBase && cdntoken && xmlExp && tokExp && xmlExp * 1000 > Date.now() + 300000 && tokExp * 1000 > Date.now() + 300000) {
                         currentCdnBase = cdnBase;
                         currentCdntoken = cdntoken;
                         currentCdnTokenQuery = '';
@@ -2652,10 +2653,10 @@ const REMOVED = {};
                             cdntoken,
                             cdnTokenQuery: '',
                             authXmlToken: data.authXmlToken,
-                            expiresAt: getTokExpiry(parsed) || null
+                            expiresAt: tokExp || null
                         };
                     }
-                    console.log('[AZAM] Stored authXmlToken expired for', channelName, '- will refresh');
+                    console.log('[AZAM] Stored tokens expired for', channelName, '- will refresh');
                 }
             }
             // Fall back to API (may fail if backend is down)
@@ -2690,8 +2691,11 @@ const REMOVED = {};
                         console.log('[AZAM] Got fresh tokens from direct DRM call for', channelName);
                         return { success: true, cdnBase, cdntoken, cdnTokenQuery, authXmlToken, expiresAt: null };
                     }
+                } else {
+                    console.warn('[AZAM] DRM API response incomplete:', JSON.stringify(result).slice(0, 300));
                 }
             } catch (e) { console.warn('[AZAM] Direct DRM call failed:', e.message); }
+            console.log('[AZAM] fetchAzamTokensFromApi returning null for', channelName);
             return null;
         }
         function scheduleProactiveRefresh(expiresAt, channelName) {
@@ -2709,7 +2713,17 @@ const REMOVED = {};
                     if (result.status && result.data && result.data.authXmlToken) {
                         const d = result.data;
                         currentAuthXmlToken = d.authXmlToken;
-                        setAzamChannelData(channelName, { authXmlToken: d.authXmlToken });
+                        const toUpdate = { authXmlToken: d.authXmlToken };
+                        if (d.tok_prefix || d.cdn_url) {
+                            const cdn = d.tok_prefix || d.cdn_url;
+                            toUpdate.tok_prefix = cdn;
+                            const parsedT = extractTokPrefix(cdn);
+                            if (parsedT) {
+                                currentCdnBase = extractCdnHost(parsedT);
+                                currentCdntoken = extractCdntoken(parsedT);
+                            }
+                        }
+                        setAzamChannelData(channelName, toUpdate);
                         const newExp = getExpiryFromAuthXml(d.authXmlToken);
                         console.log('[AZAM] Proactive refresh done for', channelName);
                         scheduleProactiveRefresh(newExp || expiresAt, channelName);
@@ -2744,8 +2758,16 @@ const REMOVED = {};
                 authXml = currentAuthXmlToken;
                 scheduleProactiveRefresh(apiTokens.expiresAt, channelName);
             } else {
-                const tokPrefix = await ensureValidTokPrefix(channelName);
+                let tokPrefix = await ensureValidTokPrefix(channelName);
                 authXml = await ensureValidAuthXml(channelName);
+                if (!tokPrefix) {
+                    const freshData = getAzamChannelData(channelName);
+                    if (freshData.tok_prefix) {
+                        const parsed = extractTokPrefix(freshData.tok_prefix) || freshData.tok_prefix;
+                        const exp = getTokExpiry(parsed);
+                        if (exp && exp * 1000 > Date.now()) tokPrefix = parsed;
+                    }
+                }
                 if (tokPrefix) {
                     currentCdnBase = extractCdnHost(tokPrefix);
                     currentCdntoken = extractCdntoken(tokPrefix);
