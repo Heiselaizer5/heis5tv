@@ -35,16 +35,6 @@ export async function onRequest(context) {
   const action = url.searchParams.get('action');
 
   try {
-    async function getAllUsers() {
-      const data = await sbFetch('/rest/v1/azam_config?name=like.user:*&select=name,value');
-      if (!Array.isArray(data)) return {};
-      const users = {};
-      data.forEach(row => {
-        const username = row.name.replace('user:', '');
-        try { users[username] = JSON.parse(row.value); } catch {}
-      });
-      return users;
-    }
 
     if (request.method === 'POST') {
       const body = await request.json();
@@ -61,8 +51,11 @@ export async function onRequest(context) {
         if (Array.isArray(existing) && existing.length > 0) {
           return new Response(JSON.stringify({ success: false, error: 'Username already taken' }), { status: 409, headers: CORS });
         }
-        const all = await getAllUsers();
-        if (Object.values(all).some(u => u.email === email)) {
+        const checkData = await sbFetch('/rest/v1/azam_config?name=like.user:*&select=name,value');
+        const emailTaken = Array.isArray(checkData) && checkData.some(row => {
+          try { return JSON.parse(row.value).email === email; } catch { return false; }
+        });
+        if (emailTaken) {
           return new Response(JSON.stringify({ success: false, error: 'Email already used' }), { status: 409, headers: CORS });
         }
         const userData = { name, email, password, role: 'user', createdAt: new Date().toISOString() };

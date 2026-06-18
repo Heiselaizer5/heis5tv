@@ -1455,7 +1455,11 @@
                 showAuthMsg('login-msg', 'Network error — could not reach server. Please try again.', 'error');
                 return;
             }
-            const json = await resp.json();
+            let json;
+            try { json = await resp.json(); } catch (e) {
+                showAuthMsg('login-msg', 'Server error — invalid response. Check that API is deployed.', 'error');
+                return;
+            }
             if (json.success && json.user) {
                 localStorage.setItem('heis5_session', JSON.stringify({ username: json.user.username, name: json.user.name, email: json.user.email, role: json.user.role }));
                 checkPendingSubscription();
@@ -1489,7 +1493,11 @@
                 showAuthMsg('signup-msg', 'Network error — could not reach server. Please try again.', 'error');
                 return;
             }
-            const json = await resp.json();
+            let json;
+            try { json = await resp.json(); } catch (e) {
+                showAuthMsg('signup-msg', 'Server error — invalid response. Check that API is deployed.', 'error');
+                return;
+            }
             if (json.success) {
                 localStorage.setItem('heis5_session', JSON.stringify({ username, name, email, role: 'user' }));
                 showAuthMsg('signup-msg', 'Account created! Welcome to HEIS5 TV.', 'success');
@@ -2759,7 +2767,6 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             lastChannelName = channelName;
             const mpdUrl = buildAzamMpdUrlFromGlobals(channelName);
             if (mpdUrl) lastMpdUrl = mpdUrl;
-            doAzamRefresh(channelName);
             azamRefreshTimer = setInterval(() => doAzamRefresh(channelName), 1800000);
         }
         function azamNameToKey(name) {
