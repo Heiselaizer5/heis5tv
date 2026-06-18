@@ -2612,6 +2612,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             return tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
         }
         async function fetchAzamTokensFromApi(channelName, useExpired) {
+            console.time('[TIMER] fetchTokens-' + channelName);
             console.log('[DBG] fetchAzamTokensFromApi called for', channelName);
             const data = getAzamChannelData(channelName);
             console.log('[DBG] data keys:', Object.keys(data).join(','));
@@ -2632,6 +2633,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
                         const expiresAt = (xmlExp && tokExp) ? Math.min(xmlExp, tokExp) : (xmlExp || tokExp || null);
                         const isExpired = expiresAt && expiresAt * 1000 < Date.now();
+                        console.timeEnd('[TIMER] fetchTokens-' + channelName);
                         return {
                             success: true,
                             cdnBase,
@@ -2672,6 +2674,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         const freshTokPrefix = cdnBase + '/tok_' + cdntoken;
                         setAzamChannelData(channelName, { authXmlToken, tok_prefix: freshTokPrefix });
                         console.log('[AZAM] Got fresh tokens from direct DRM call for', channelName);
+                        console.timeEnd('[TIMER] fetchTokens-' + channelName);
                         return { success: true, cdnBase, cdntoken, cdnTokenQuery, authXmlToken, expiresAt: null };
                     }
                 } else {
@@ -2679,6 +2682,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 }
             } catch (e) { console.warn('[AZAM] Direct DRM call failed:', e.message); }
             console.log('[AZAM] fetchAzamTokensFromApi returning null for', channelName);
+            console.timeEnd('[TIMER] fetchTokens-' + channelName);
             return null;
         }
         async function backgroundRefreshAzam(channelName) {
@@ -2766,6 +2770,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         async function openAzamChannel(name, fakeUrl) {
             const channelName = fakeUrl.startsWith('azam://') ? fakeUrl.replace('azam://', '') : (fakeUrl.match(/\/live\/eds\/([^/]+)\//) || [,''])[1] || azamNameToKey(name);
             console.log('[DBG] openAzamChannel CALLED name=' + name + ' channelName=' + channelName);
+            console.time('[TIMER] openAzamChannel-' + channelName);
             document.getElementById('modal-channel-name').textContent = name;
             document.getElementById('now-playing-name').textContent = name;
             document.getElementById('video-modal').classList.add('show');
@@ -2792,6 +2797,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 lastChannelName = channelName;
                 authXml = currentAuthXmlToken;
                 scheduleProactiveRefresh(apiTokens.expiresAt, channelName);
+                console.timeLog('[TIMER] openAzamChannel-' + channelName, 'got tokens + mpdUrl');
             } else {
                 let tokPrefix = await ensureValidTokPrefix(channelName);
                 authXml = await ensureValidAuthXml(channelName);
@@ -2814,7 +2820,10 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 if (!mpdUrl || (!currentCdntoken && !currentCdnTokenQuery)) {
                     throw new Error('No tok_ for ' + channelName + '. Weka tok_prefix kwenye Admin Panel → Azam Channels.');
                 }
+                // Pre-fetch MPD so Shaka finds it in browser cache
+                fetch(mpdUrl, { mode: 'cors' }).catch(() => {});
                 openVideoPlayer(name, mpdUrl, '', authXml, null, currentCdntoken);
+                console.timeLog('[TIMER] openAzamChannel-' + channelName, 'openVideoPlayer called');
             } catch (e) {
                 console.warn('[AZAM] First attempt failed, retrying with fresh tok...');
                 try {
@@ -2918,6 +2927,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
 
         function openVideoPlayer(name, url, drmStr, authXmlToken, psshData, cdntoken) {
             const drm = drmStr ? JSON.parse(decodeURIComponent(drmStr)) : null;
+            console.time('[TIMER] openVideoPlayer-' + name);
             if (!hasActiveSubscription()) {
                 showPlans();
                 return;
@@ -2955,8 +2965,9 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 currentEngine = 'shaka';
                 shakaPlayer = new shaka.Player(videoEl);
                 const drmConfig = {
-                    streaming: { rebufferingGoal: 5, bufferingGoal: 12 },
+                    streaming: { rebufferingGoal: 5, bufferingGoal: 12, startAtSegmentBoundary: false },
                     manifest: { dash: { ignoreMinBufferTime: true } },
+                    abr: { enabled: true, defaultBandwidthEstimate: 800000 },
                 };
                 const finalXmlToken = authXmlToken || currentAuthXmlToken;
                 if (finalXmlToken) {
@@ -3001,6 +3012,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 shakaPlayer.load(url).then(() => {
                     clearTimeout(bufferingTimer);
                     document.getElementById('buffering-spinner').style.display = 'none';
+                    console.timeLog('[TIMER] openVideoPlayer-' + name, 'shaka.load resolved');
                     videoEl.play().catch(() => {
                         videoEl.muted = true;
                         videoEl.play().catch(() => {});
@@ -3022,10 +3034,13 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 videoEl.addEventListener('playing', () => {
                     document.getElementById('buffering-spinner').style.display = 'none';
                     document.title = '▶ ' + name;
+                    console.timeLog('[TIMER] openVideoPlayer-' + name, 'playing event');
+                    console.timeEnd('[TIMER] openVideoPlayer-' + name);
                     setTimeout(() => { videoEl.muted = false; }, 100);
                 }, {once: true});
                 videoEl.addEventListener('waiting', () => {
                     document.getElementById('buffering-spinner').style.display = 'flex';
+                    console.timeLog('[TIMER] openVideoPlayer-' + name, 'waiting (buffering)');
                 });
                 videoEl.addEventListener('timeupdate', () => {
                     const dur = videoEl.duration;
