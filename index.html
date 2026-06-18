@@ -2368,10 +2368,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         function hasActiveSubscription() {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
             if (!session) return false;
-            if (session.role === 'admin') return true;
-            const subs = JSON.parse(localStorage.getItem('heis5_subscriptions') || '{}');
-            const sub = subs[session.username];
-            return sub && new Date(sub.end) > new Date();
+            return true; // All logged-in users can watch channels
         }
         function getSubscriptionInfo() {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
@@ -2767,6 +2764,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             lastChannelName = channelName;
             const mpdUrl = buildAzamMpdUrlFromGlobals(channelName);
             if (mpdUrl) lastMpdUrl = mpdUrl;
+            doAzamRefresh(channelName);
             azamRefreshTimer = setInterval(() => doAzamRefresh(channelName), 1800000);
         }
         function azamNameToKey(name) {
