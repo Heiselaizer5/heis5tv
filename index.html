@@ -706,13 +706,29 @@
         }
         .admin-user-item {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 6px 8px; border-radius: 6px;
+            padding: 10px 12px; border-radius: 8px;
             font-size: 0.65rem; color: var(--text-dim);
-            border-bottom: 1px solid rgba(255,255,255,0.03);
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            margin-bottom: 6px;
+            transition: background 0.2s;
         }
+        .admin-user-item:hover { background: rgba(255,255,255,0.05); }
+        .admin-user-info { display: flex; flex-direction: column; gap: 2px; }
+        .admin-user-name { color: var(--text); font-weight: 600; font-size: 0.7rem; }
+        .admin-user-email { color: var(--muted); font-size: 0.55rem; }
+        .admin-user-meta { display: flex; align-items: center; gap: 10px; }
+        .admin-user-role {
+            font-size: 0.5rem; padding: 2px 8px; border-radius: 10px;
+            font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .admin-user-role.admin { background: rgba(255,215,0,0.15); color: var(--accent); }
+        .admin-user-role.user { background: rgba(0,229,255,0.1); color: var(--accent3); }
         .admin-user-item .admin-del {
             color: var(--accent2); cursor: pointer;
-            font-size: 0.6rem; opacity: 0.6;
+            font-size: 0.6rem; opacity: 0.5;
+            transition: opacity 0.2s;
         }
         .admin-user-item .admin-del:hover { opacity: 1; }
         .admin-empty { text-align: center; font-size: 0.6rem; color: var(--muted); padding: 12px; }
@@ -1521,7 +1537,7 @@
                     if (json.success && json.users) users = json.users;
                 } catch (e) { console.warn('[ADMIN] Failed to fetch users:', e.message); }
                 const userList = Object.entries(users).map(([id, u]) =>
-                    `<div class="admin-user-item"><span>${u.username} (${u.name})</span><span style="font-size:0.5rem;color:var(--muted);">${u.email} · ${u.role}</span><span class="admin-del" onclick="adminDeleteUser('${id}')"><i class="fa-solid fa-trash-can"></i></span></div>`
+                    `<div class="admin-user-item"><div class="admin-user-info"><span class="admin-user-name">${u.name}</span><span class="admin-user-email">${u.email}</span></div><div class="admin-user-meta"><span class="admin-user-role ${u.role}">${u.role}</span><span class="admin-del" onclick="adminDeleteUser('${id}')" title="Delete"><i class="fa-solid fa-trash-can"></i></span></div></div>`
                 ).join('');
                 adminSection = `
                     <div class="admin-dash-section">
@@ -1572,12 +1588,6 @@
                                 <span class="live-dot"></span>
                                 <span>${channels.length} Live Channels</span>
                             </div>
-                        </div>
-                    </div>
-                    <div class="hero-banner" style="margin-top:12px;background:linear-gradient(135deg,rgba(255,45,149,0.08),rgba(255,215,0,0.05));border:1px solid rgba(255,45,149,0.15);cursor:pointer;" onclick="showPlans()">
-                        <div class="hero-content" style="text-align:center;padding:20px;">
-                            <h2 style="font-size:0.85rem;margin-bottom:4px;">Subscribe to Unlock All Channels</h2>
-                            <p style="font-size:0.6rem;color:var(--muted);">Azam Sports, HBO, ESPN, Movies & more — from TSh 3,000/week</p>
                         </div>
                     </div>
                     ${adminSection}
