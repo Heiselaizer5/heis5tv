@@ -1705,25 +1705,23 @@
         function startTokenRefresh() {
             async function refreshLoop() {
                 const bearer = getGlobalBearer();
+                if (!bearer || !lastChannelName) return;
                 const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
-                for (const name of Object.keys(all)) {
-                    const data = all[name];
-                    if (data.content_dtl && data.subscription_dtl && bearer) {
-                        try {
-                            const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
-                            if (result.status && result.data?.authXmlToken) {
-                                data.authXmlToken = result.data.authXmlToken;
-                                if (name === lastChannelName) currentAuthXmlToken = result.data.authXmlToken;
-                                console.log('[TOKEN] Background refresh OK:', name);
-                                continue;
-                            }
-                        } catch (e) { console.warn('[TOKEN] Background refresh failed for', name, e.message); }
-                    }
+                const data = all[lastChannelName];
+                if (data && data.content_dtl && data.subscription_dtl) {
+                    try {
+                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                        if (result.status && result.data?.authXmlToken) {
+                            data.authXmlToken = result.data.authXmlToken;
+                            currentAuthXmlToken = result.data.authXmlToken;
+                            localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
+                            console.log('[TOKEN] Background refresh OK:', lastChannelName);
+                        }
+                    } catch (e) { console.warn('[TOKEN] Background refresh failed for', lastChannelName, e.message); }
                 }
-                localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
             }
             refreshLoop();
-            setInterval(refreshLoop, 300000);
+            setInterval(refreshLoop, 900000);
         }
 
         // Catch unhandled promise rejections (e.g., CDN errors)
