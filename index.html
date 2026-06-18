@@ -2632,7 +2632,9 @@ const REMOVED = {};
             return tokPrefix.replace(/\/+$/, '') + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
         }
         async function fetchAzamTokensFromApi(channelName, useExpired) {
+            console.log('[DBG] fetchAzamTokensFromApi called for', channelName);
             const data = getAzamChannelData(channelName);
+            console.log('[DBG] data keys:', Object.keys(data).join(','));
             // Use locally stored tokens first — no backend call needed
             if (data.tok_prefix && data.authXmlToken) {
                 const parsed = extractTokPrefix(data.tok_prefix);
@@ -2753,7 +2755,11 @@ const REMOVED = {};
             }, refreshIn);
         }
         async function openAzamChannel(name, fakeUrl) {
+            console.log('[DBG] openAzamChannel CALLED name=' + name + ' fakeUrl=' + fakeUrl);
             const channelName = fakeUrl.replace('azam://', '');
+            console.log('[DBG] channelName=' + channelName);
+            const _dbgData = getAzamChannelData(channelName);
+            console.log('[DBG] tok_prefix=' + (_dbgData.tok_prefix ? 'PRESENT' : 'MISSING') + ' authXml=' + (_dbgData.authXmlToken ? 'PRESENT' : 'MISSING'));
             document.getElementById('modal-channel-name').textContent = name;
             document.getElementById('now-playing-name').textContent = name;
             document.getElementById('video-modal').classList.add('show');
