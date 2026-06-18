@@ -1440,29 +1440,25 @@
                 goToApp();
                 return;
             }
+            let resp;
             try {
-                const resp = await fetch('/api-users?action=login', {
+                resp = await fetch('/api-users?action=login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password: pass })
                 });
-                const json = await resp.json();
-                if (json.success && json.user) {
-                    localStorage.setItem('heis5_session', JSON.stringify({ username: json.user.username, name: json.user.name, email: json.user.email, role: json.user.role }));
-                    checkPendingSubscription();
-                    goToApp();
-                    return;
-                }
-            } catch (e) { console.warn('[AUTH] API login failed, falling back to localStorage:', e.message); }
-            const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
-            const found = Object.values(users).find(u => u.username === username);
-            if (!found || found.password !== pass) {
-                showAuthMsg('login-msg', 'Invalid username or password.', 'error');
+            } catch (e) {
+                showAuthMsg('login-msg', 'Network error — could not reach server. Please try again.', 'error');
                 return;
             }
-            localStorage.setItem('heis5_session', JSON.stringify({ username, name: found.name, email: found.email, role: 'user' }));
-            checkPendingSubscription();
-            goToApp();
+            const json = await resp.json();
+            if (json.success && json.user) {
+                localStorage.setItem('heis5_session', JSON.stringify({ username: json.user.username, name: json.user.name, email: json.user.email, role: json.user.role }));
+                checkPendingSubscription();
+                goToApp();
+                return;
+            }
+            showAuthMsg('login-msg', json.error || 'Invalid username or password.', 'error');
         }
 
         async function handleSignup() {
@@ -1478,50 +1474,27 @@
                 showAuthMsg('signup-msg', 'Password must be at least 6 characters.', 'error');
                 return;
             }
+            let resp;
             try {
-                const resp = await fetch('/api-users?action=signup', {
+                resp = await fetch('/api-users?action=signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, username, email, password: pass })
                 });
-                const json = await resp.json();
-                if (json.success) {
-                    localStorage.setItem('heis5_session', JSON.stringify({ username, name, email, role: 'user' }));
-                    showAuthMsg('signup-msg', 'Account created! Welcome to HEIS5 TV.', 'success');
-                    setTimeout(() => { checkPendingSubscription(); goToApp(); }, 800);
-                    return;
-                }
-                if (json.error) {
-                    showAuthMsg('signup-msg', json.error, 'error');
-                    return;
-                }
-            } catch (e) { console.warn('[AUTH] API signup failed, falling back to localStorage:', e.message); }
-            const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
-            if (Object.values(users).some(u => u.username === username)) {
-                showAuthMsg('signup-msg', 'Username already taken.', 'error');
+            } catch (e) {
+                showAuthMsg('signup-msg', 'Network error — could not reach server. Please try again.', 'error');
                 return;
             }
-            if (Object.values(users).some(u => u.email === email)) {
-                showAuthMsg('signup-msg', 'An account with this email already exists.', 'error');
+            const json = await resp.json();
+            if (json.success) {
+                localStorage.setItem('heis5_session', JSON.stringify({ username, name, email, role: 'user' }));
+                showAuthMsg('signup-msg', 'Account created! Welcome to HEIS5 TV.', 'success');
+                setTimeout(() => { checkPendingSubscription(); goToApp(); }, 800);
                 return;
             }
-            const id = Date.now().toString();
-            users[id] = { name, username, email, password: pass, role: 'user' };
-            localStorage.setItem('heis5_users', JSON.stringify(users));
-            localStorage.setItem('heis5_session', JSON.stringify({ username, name, email, role: 'user' }));
-            showAuthMsg('signup-msg', 'Account created! Welcome to HEIS5 TV.', 'success');
-            setTimeout(() => { checkPendingSubscription(); goToApp(); }, 800);
+            showAuthMsg('signup-msg', json.error || 'Signup failed. Please try again.', 'error');
         }
 
-        function deleteUser(id) {
-            const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
-            if (!users[id]) return;
-            if (users[id].username === 'Admin') { alert('Cannot delete the system admin.'); return; }
-            if (!confirm('Delete user ' + users[id].username + '?')) return;
-            delete users[id];
-            localStorage.setItem('heis5_users', JSON.stringify(users));
-            renderHero();
-        }
         async function renderHero() {
             const container = document.getElementById('hero-container');
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
@@ -1529,9 +1502,14 @@
 
             let adminSection = '';
             if (isAdmin) {
-                const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
+                let users = {};
+                try {
+                    const resp = await fetch('/api-users?action=list');
+                    const json = await resp.json();
+                    if (json.success && json.users) users = json.users;
+                } catch (e) { console.warn('[ADMIN] Failed to fetch users:', e.message); }
                 const userList = Object.entries(users).map(([id, u]) =>
-                    `<div class="admin-user-item"><span>${u.username} (${u.name})</span><span style="font-size:0.5rem;color:var(--muted);">${u.email} · ${u.role}</span><span class="admin-del" onclick="deleteUser('${id}')"><i class="fa-solid fa-trash-can"></i></span></div>`
+                    `<div class="admin-user-item"><span>${u.username} (${u.name})</span><span style="font-size:0.5rem;color:var(--muted);">${u.email} · ${u.role}</span><span class="admin-del" onclick="adminDeleteUser('${id}')"><i class="fa-solid fa-trash-can"></i></span></div>`
                 ).join('');
                 adminSection = `
                     <div class="admin-dash-section">
@@ -1633,6 +1611,7 @@
         async function adminDeleteUser(id) {
             const session = JSON.parse(localStorage.getItem('heis5_session') || 'null');
             if (!session || session.role !== 'admin') return;
+            if (!confirm('Delete this user?')) return;
             try {
                 const resp = await fetch('/api-users?action=delete', {
                     method: 'POST',
@@ -1641,17 +1620,11 @@
                 });
                 const json = await resp.json();
                 if (json.success) { renderHero(); return; }
-            } catch (e) { console.warn('[AUTH] API delete failed:', e.message); }
-            const users = JSON.parse(localStorage.getItem('heis5_users') || '{}');
-            if (!users[id]) return;
-            if (users[id].username === 'Admin') {
-                alert('Cannot delete the system admin.');
-                return;
+                alert(json.error || 'Delete failed');
+            } catch (e) {
+                alert('Network error — could not delete user.');
+                console.warn('[AUTH] API delete failed:', e.message);
             }
-            if (!confirm('Delete user ' + users[id].username + '?')) return;
-            delete users[id];
-            localStorage.setItem('heis5_users', JSON.stringify(users));
-            renderHero();
         }
 
         function handleLogout() {
@@ -1960,8 +1933,8 @@ const REMOVED = {};
                                'trace urban': 'https://i.imgur.com/DLIbUMx.png',
                                'wasafi tv': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EWasafi%20TV%3C/text%3E%3C/svg%3E',
                                'crowns tv': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECrowns%20TV%3C/text%3E%3C/svg%3E',
-                               'cheka plus': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ECheka%20Plus%3C/text%3E%3C/svg%3E',
-                               'zbc': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EZBC%3C/text%3E%3C/svg%3E',
+                                'cheka plus': 'https://static.wikia.nocookie.net/logopedia/images/2/21/Cheka_Plus_Logo.png',
+                                'zbc': 'https://static.wikia.nocookie.net/logopedia/images/1/19/ZBC_logo_2023.png',
                                 'hbo': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hbo-us.png',
                               'bbc news': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-news-uk.png',
 
@@ -1993,10 +1966,15 @@ const REMOVED = {};
 
                               'sportitalia': 'https://upload.wikimedia.org/wikipedia/commons/9/90/Sportitalia_2019_Logo.png',
                               'toonami': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/toonami-us.png',
-                               'nickelodeon': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nickelodeon-us.png',
-                               'nick jr.': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3ENick%20Jr.%3C/text%3E%3C/svg%3E',
-                               'disney jr.': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EDisney%20Jr.%3C/text%3E%3C/svg%3E',
-                               'disney channel': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EDisney%20Channel%3C/text%3E%3C/svg%3E',
+                                'nickelodeon': 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nickelodeon-us.png',
+                                'cartoonito': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Cartoonito_2021_Logo.svg/1200px-Cartoonito_2021_Logo.svg.png',
+                                'cbeebies': 'https://upload.wikimedia.org/wikipedia/en/thumb/d/d6/CBeebies_Logo_2023.svg/1200px-CBeebies_Logo_2023.svg.png',
+                                'espn': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/1200px-ESPN_wordmark.svg.png',
+                                'espn 2': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/ESPN2_logo.svg/1200px-ESPN2_logo.svg.png',
+                                'baby tv': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/BabyTV_logo.svg/1200px-BabyTV_logo.svg.png',
+                                'nick jr.': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Nick_Jr._logo_2009.svg/1200px-Nick_Jr._logo_2009.svg.png',
+                                'disney jr.': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Disney_Junior_2011_logo.svg/1200px-Disney_Junior_2011_logo.svg.png',
+                                'disney channel': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Disney_Channel_logo_%282014%29.svg/1200px-Disney_Channel_logo_%282014%29.svg.png',
                               // ─── HEIS5-branded logos (no real logo found) ───
                               'bleav football': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3EBleav%20Football%3C/text%3E%3C/svg%3E',
                               '24 hour free movies': 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 80%27%3E%3Crect width=%27200%27 height=%2780%27 fill=%27%23110d24%27 rx=%2710%27/%3E%3Ctext x=%27100%27 y=%2748%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2728%27 font-weight=%27bold%27 fill=%27%23FFD700%27%3EHEIS5%3C/text%3E%3Ctext x=%27100%27 y=%2768%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-size=%2712%27 fill=%27%23b0a5c8%27%3E24%20Hour%20Free%20Movies%3C/text%3E%3C/svg%3E',
@@ -2031,13 +2009,13 @@ const REMOVED = {};
                               if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
                           });
                           channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
-                          channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nick jr.','nickelodeon','cartoonito','disney jr.','disney channel','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','movies now hd','hbo hd','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; }});
-                          const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
-                            const REMOVED3 = {'tnt sport 1':1,'tnt sport 2':1,'tnt sport 3':1,'tnt sport 4':1,'bein sports 1':1,'bein sports 2':1,'bein sports 3':1,'trace sport stars':1,'willow sports':1,'abc news':1,'cnn':1,'france 24 english':1,'russia today (global)':1,'nhk world japan':1};
-                          channels = channels.filter(ch => !REMOVED3[ch.name.toLowerCase().trim()]);
-                             renderChannels(); renderCategoryFilter(); loadIPTV();
-                }
-            } catch (e) {
+channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nickelodeon','cartoonito','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; }});
+                           const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
+                           const REMOVED3 = {'tnt sport 1':1,'tnt sport 2':1,'tnt sport 3':1,'tnt sport 4':1,'bein sports 1':1,'bein sports 2':1,'bein sports 3':1,'trace sport stars':1,'willow sports':1,'abc news':1,'cnn':1,'france 24 english':1,'russia today (global)':1,'nhk world japan':1};
+                           channels = channels.filter(ch => !REMOVED3[ch.name.toLowerCase().trim()]);
+                              renderChannels(); renderCategoryFilter(); loadIPTV();
+                 }
+             } catch (e) {
                 console.warn('RTDB failed, falling back to Supabase:', e.message);
             }
 
@@ -2062,9 +2040,9 @@ const REMOVED = {};
                     {name:'UTV',category:'Azam',stream_url:'azam://UTV',logo:'https://static.wikia.nocookie.net/logopedia/images/1/18/Azam_UTV_Logo_%28Better%29.png',_azam:true}
                 ];
                 channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
-                channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nick jr.','nickelodeon','cartoonito','disney jr.','disney channel','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','movies now hd','hbo hd','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; } });
-                const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
-                const LOGO_FIX = {
+channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nickelodeon','cartoonito','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; } });
+                 const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
+                 const LOGO_FIX = {
 'cnn':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png',
 'abc news':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-news-us.png',
 'cartoon network':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cartoon-network-int.png',
