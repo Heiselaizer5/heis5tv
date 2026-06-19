@@ -1417,6 +1417,8 @@
         const API_AZAM_PROXY = API_BASE + '/azam-proxy';
         const API_WV_PROXY = 'https://wv-proxy.erastokasoga5.workers.dev';
         const API_DRM_AUTH = 'https://wv-proxy.erastokasoga5.workers.dev/drm-auth';
+        const API_AZAM_LOGIN = API_WV_PROXY ? API_WV_PROXY.replace(/\/wv-proxy.*$/, '/azam-login') : 'https://wv-proxy.erastokasoga5.workers.dev/azam-login';
+        const API_AZAM_REFRESH = API_WV_PROXY ? API_WV_PROXY.replace(/\/wv-proxy.*$/, '/azam-refresh') : 'https://wv-proxy.erastokasoga5.workers.dev/azam-refresh';
         const API_LOAD_TOK = 'https://wv-proxy.erastokasoga5.workers.dev/load-tok';
 
         // Init shaka polyfill
@@ -1570,8 +1572,19 @@
                         <div style="display:flex;gap:4px;margin-bottom:6px;">
                             <select id="azam-channel-select" onchange="loadAzamChannelUi()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">${Object.keys(AZAM_CHANNEL_MAP).map(n => '<option value="' + n + '">' + n + '</option>').join('')}</select>
                         </div>
+                        <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+                            <div style="font-size:0.5rem;color:var(--accent);margin-bottom:4px;">Azam TV Auto-Login</div>
+                            <div style="display:flex;gap:4px;margin-bottom:4px;">
+                                <textarea id="azam-google-token-input" placeholder="Paste Google OAuth token (ya29.xxx) here" rows="2" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;resize:none;"></textarea>
+                            </div>
+                            <div style="display:flex;gap:4px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamLoginWithGoogle()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-brands fa-google"></i> Login & Get Tokens</button>
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamRefreshBearer()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-rotate"></i> Refresh Bearer</button>
+                            </div>
+                            <div id="azam-login-status" style="font-size:0.45rem;color:var(--muted);margin-top:3px;"></div>
+                        </div>
                         <div style="display:flex;gap:4px;margin-bottom:4px;">
-                            <input id="azam-bearer-input" type="text" placeholder="GLOBAL_BEARER token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                            <input id="azam-bearer-input" type="text" placeholder="GLOBAL_BEARER token (auto-filled)" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
                             <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveGlobalBearer()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
                         </div>
                         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
@@ -2797,7 +2810,35 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 : null;
         }
         async function doAzamRefresh(channelName) {
-            const bearer = getGlobalBearer();
+            let bearer = getGlobalBearer();
+            // Try to refresh bearer if stored refresh_token exists and bearer looks expired
+            if (bearer) {
+                try {
+                    const parts = bearer.split('.');
+                    if (parts.length >= 2) {
+                        let p = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                        while (p.length % 4) p += '=';
+                        const payload = JSON.parse(atob(p));
+                        if (payload.exp && payload.exp * 1000 < Date.now() + 86400000) {
+                            const rt = localStorage.getItem('heis5_azam_refresh_token');
+                            if (rt) {
+                                const rr = await fetch(API_AZAM_REFRESH, {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ refreshToken: rt })
+                                }).catch(() => null);
+                                if (rr && rr.ok) {
+                                    const rj = await rr.json();
+                                    const nb = rj.data?.jwt_token || rj.data?.access_token || '';
+                                    if (nb) {
+                                        localStorage.setItem('heis5_azam_global_bearer', nb);
+                                        bearer = nb;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
             const data = getAzamChannelData(channelName);
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return;
             try {
@@ -2988,6 +3029,84 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(val) }) }).catch(() => {});
             document.getElementById('azam-ui-status').textContent = 'Bearer saved & synced';
         }
+        async function azamLoginWithGoogle() {
+            const el = document.getElementById('azam-google-token-input');
+            const statusEl = document.getElementById('azam-login-status');
+            const token = el.value.trim();
+            if (!token) { statusEl.textContent = 'Paste Google OAuth token first'; return; }
+            statusEl.textContent = 'Logging in...';
+            try {
+                const resp = await fetch(API_AZAM_LOGIN, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ socialLoginAccessToken: token, socialLoginType: 'GOOGLE' })
+                });
+                const json = await resp.json();
+                if (json.status && json.jwt_token) {
+                    const bearer = json.jwt_token;
+                    const refreshToken = json.refresh_token || '';
+                    localStorage.setItem('heis5_azam_global_bearer', bearer);
+                    localStorage.setItem('heis5_azam_refresh_token', refreshToken);
+                    document.getElementById('azam-bearer-input').value = bearer;
+                    // Sync bearer to Supabase
+                    fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(bearer) }) }).catch(() => {});
+                    // Try to auto-fetch tokens for all channels
+                    statusEl.textContent = 'Login OK! Bearer saved. Auto-fetching channel tokens...';
+                    try {
+                        const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
+                        let fetched = 0;
+                        for (const name of Object.keys(AZAM_CHANNEL_MAP)) {
+                            const data = all[name];
+                            if (data && data.content_dtl && data.subscription_dtl) {
+                                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                                if (result.status && result.data && result.data.authXmlToken) {
+                                    const update = { authXmlToken: result.data.authXmlToken };
+                                    if (result.data.tok_prefix || result.data.cdn_url) {
+                                        update.tok_prefix = result.data.tok_prefix || result.data.cdn_url;
+                                    }
+                                    setAzamChannelData(name, update);
+                                    fetched++;
+                                }
+                            }
+                        }
+                        statusEl.textContent = 'Login OK! Updated ' + fetched + ' channels with fresh tokens.';
+                    } catch (e) {
+                        statusEl.textContent = 'Login OK but token fetch: ' + e.message;
+                    }
+                } else {
+                    statusEl.textContent = 'Login failed: ' + (json.message || JSON.stringify(json).slice(0, 200));
+                }
+            } catch (e) {
+                statusEl.textContent = 'Login error: ' + e.message;
+            }
+        }
+        async function azamRefreshBearer() {
+            const statusEl = document.getElementById('azam-login-status');
+            const refreshToken = localStorage.getItem('heis5_azam_refresh_token');
+            if (!refreshToken) { statusEl.textContent = 'No refresh_token stored. Login with Google first.'; return; }
+            statusEl.textContent = 'Refreshing bearer...';
+            try {
+                const resp = await fetch(API_AZAM_REFRESH, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken })
+                });
+                const json = await resp.json();
+                if (json.status && json.data) {
+                    const newBearer = json.data.jwt_token || json.data.access_token || '';
+                    if (newBearer) {
+                        localStorage.setItem('heis5_azam_global_bearer', newBearer);
+                        document.getElementById('azam-bearer-input').value = newBearer;
+                        fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(newBearer) }) }).catch(() => {});
+                        statusEl.textContent = 'Bearer refreshed via ' + json.endpoint;
+                        return;
+                    }
+                }
+                statusEl.textContent = 'Refresh failed: no matching endpoint. Use "Login & Get Tokens" instead.';
+            } catch (e) {
+                statusEl.textContent = 'Refresh error: ' + e.message;
+            }
+        }
 
         function fmtExpiry(expTs) {
             if (!expTs) return 'N/A';
@@ -3138,20 +3257,13 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     const code = detail?.code || 0;
                     if (code === 6007 && lastChannelName && azamRetryCount < 2) {
                         azamRetryCount++;
-                        console.log('[AZAM] Retry #' + azamRetryCount + ' with fresh token for', lastChannelName);
-                        try {
-                            const bearer = getGlobalBearer();
-                            const chanData = getAzamChannelData(lastChannelName);
-                            if (bearer && chanData.content_dtl && chanData.subscription_dtl) {
-                                await fetchAzamTokensFromApi(lastChannelName, true);
-                                const oldPlayer = shakaPlayer;
-                                shakaPlayer = null;
-                                if (oldPlayer) oldPlayer.destroy();
-                                setTimeout(() => {
-                                    openAzamChannel(document.getElementById('modal-channel-name').textContent, 'azam://' + lastChannelName);
-                                }, 500);
-                            }
-                        } catch (_) {}
+                        console.log('[AZAM] Retry #' + azamRetryCount + ' for', lastChannelName);
+                        const oldPlayer = shakaPlayer;
+                        shakaPlayer = null;
+                        if (oldPlayer) oldPlayer.destroy();
+                        setTimeout(() => {
+                            openAzamChannel(document.getElementById('modal-channel-name').textContent, 'azam://' + lastChannelName);
+                        }, 500);
                         return;
                     }
                     azamRetryCount = 0;

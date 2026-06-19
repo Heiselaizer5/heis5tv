@@ -17,6 +17,22 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
 
+    // Route: POST /azam-login — login to Azam TV with Google OAuth token
+    if (url.pathname === '/azam-login' && request.method === 'POST') {
+      return handleAzamLogin(request);
+    }
+    if (url.pathname === '/azam-login' && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS });
+    }
+
+    // Route: POST /azam-refresh — refresh bearer token using refresh_token
+    if (url.pathname === '/azam-refresh' && request.method === 'POST') {
+      return handleAzamRefresh(request);
+    }
+    if (url.pathname === '/azam-refresh' && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS });
+    }
+
     // Route: GET /load-tok — proxies Supabase for saved tokens
     if (url.pathname === '/load-tok') {
       return handleLoadTok(request);
@@ -79,6 +95,81 @@ async function handleLoadTok(request) {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...CORS }
     });
+  }
+}
+
+async function handleAzamLogin(request) {
+  try {
+    const { socialLoginAccessToken, socialLoginType } = await request.json();
+    if (!socialLoginAccessToken || !socialLoginType) {
+      return new Response(JSON.stringify({ status: false, message: 'Missing socialLoginAccessToken or socialLoginType' }), { status: 400, headers: CORS });
+    }
+    const deviceId = crypto.randomUUID();
+    const deviceDetails = {
+      platform: 'WEB', operating_system: 'Windows', locale: 'en-US',
+      app_version: '1.0.0', device_name: 'Windows PC', browser_version: 150,
+      browser_name: 'Firefox', device_id: deviceId, device_type: 'open',
+      device_platform: 'WEB', device_category: 'large',
+      manufacturer: 'PC_Other', model: 'PC', sname: 'Windows PC',
+      last_usage: Date.now()
+    };
+    const resp = await fetch('https://api.aztv.videoready.tv/login/pub/v1/social/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'device_details': JSON.stringify(deviceDetails),
+        'platform': 'WEB', 'tenant_identifier': 'master',
+        'language': 'eng', 'languageCode': 'eng', 'local': 'TZ',
+        'profileId': '0', 'requestCount': '0',
+        'Origin': 'https://web.azamtvmax.com',
+        'Referer': 'https://web.azamtvmax.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: JSON.stringify({ socialLoginAccessToken, socialLoginType })
+    });
+    const text = await resp.text();
+    const json = JSON.parse(text);
+    return new Response(JSON.stringify(json), {
+      status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
+  }
+}
+
+async function handleAzamRefresh(request) {
+  try {
+    const { refreshToken } = await request.json();
+    if (!refreshToken) {
+      return new Response(JSON.stringify({ status: false, message: 'Missing refreshToken' }), { status: 400, headers: CORS });
+    }
+    // Try common refresh endpoint patterns
+    const endpoints = [
+      { url: 'https://api.aztv.videoready.tv/login/pub/v1/token/refresh', body: { refreshToken } },
+      { url: 'https://api.aztv.videoready.tv/login/pub/v1/refresh-token', body: { refreshToken } },
+      { url: 'https://api.aztv.videoready.tv/login/pub/v1/refresh', body: { refreshToken } },
+    ];
+    for (const ep of endpoints) {
+      const resp = await fetch(ep.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://web.azamtvmax.com',
+          'Referer': 'https://web.azamtvmax.com/'
+        },
+        body: JSON.stringify(ep.body)
+      }).catch(() => null);
+      if (resp && resp.ok) {
+        const text = await resp.text();
+        const json = JSON.parse(text);
+        return new Response(JSON.stringify({ status: true, data: json, endpoint: ep.url }), {
+          status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
+        });
+      }
+    }
+    return new Response(JSON.stringify({ status: false, message: 'No refresh endpoint matched' }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+  } catch (e) {
+    return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
   }
 }
 
