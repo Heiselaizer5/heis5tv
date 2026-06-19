@@ -2891,6 +2891,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             } catch (e) { /* refresh not critical */ }
         }
         async function refreshAzamContentDtl(bearer, channelName, oldContentDtl, oldSubscriptionDtl) {
+            // Try session/initialize first
             try {
                 const deviceId = '8b303c13-d7a3-4b39-9579-a89ac703765c';
                 const resp = await fetch('https://wv-proxy.erastokasoga5.workers.dev/azam-content', {
@@ -2898,13 +2899,31 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ bearer, contentDtl: oldContentDtl, subscriptionDtl: oldSubscriptionDtl, deviceId })
                 });
-                if (!resp.ok) { console.warn('[AZAM] refreshAzamContentDtl HTTP', resp.status); return null; }
-                const json = await resp.json();
-                console.log('[AZAM] refreshAzamContentDtl response:', JSON.stringify(json).slice(0, 300));
-                if (json.status && json.data && json.data.contentDtl && json.data.subscriptionDtl) {
-                    return { contentDtl: json.data.contentDtl, subscriptionDtl: json.data.subscriptionDtl };
+                if (!resp.ok) { console.warn('[AZAM] refreshAzamContentDtl HTTP', resp.status); }
+                else {
+                    const json = await resp.json();
+                    console.log('[AZAM] refreshAzamContentDtl session/init response:', JSON.stringify(json).slice(0, 300));
+                    if (json.status && json.data && json.data.contentDtl && json.data.subscriptionDtl) {
+                        return { contentDtl: json.data.contentDtl, subscriptionDtl: json.data.subscriptionDtl };
+                    }
                 }
-            } catch (_) { console.warn('[AZAM] refreshAzamContentDtl error'); }
+            } catch (_) { console.warn('[AZAM] refreshAzamContentDtl session/init error'); }
+            // Fallback: try content-detail-service for fresh contentDtl
+            try {
+                console.log('[AZAM] Trying content-detail-service for', channelName);
+                const resp = await fetch('https://wv-proxy.erastokasoga5.workers.dev/azam-channel-content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bearer, channelName })
+                });
+                if (!resp.ok) { console.warn('[AZAM] content-detail-service HTTP', resp.status); return null; }
+                const json = await resp.json();
+                console.log('[AZAM] content-detail-service response:', JSON.stringify(json).slice(0, 300));
+                if (json.status && json.data && json.data.contentDtl) {
+                    // Got fresh contentDtl — keep old subscriptionDtl
+                    return { contentDtl: json.data.contentDtl, subscriptionDtl: oldSubscriptionDtl };
+                }
+            } catch (_) { console.warn('[AZAM] content-detail-service error'); }
             return null;
         }
         let azamPreFetchCoolDown = 0;
@@ -2921,6 +2940,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     currentAuthXmlTokenFetchedAt = Date.now();
                 } else if (result._debug?.statusCode === 403 && /invalid subscription/i.test(result.message || '')) {
                     console.warn('[AZAM] subscriptionDtl expired, trying to refresh...');
+                    console.log('[DBG] pre-fetch 403 full result:', JSON.stringify(result).slice(0, 1500));
                     // Check if Azam DRM API returned fresh contentDtl/subscriptionDtl in error response
                     const freshContentDtl = result.data?.contentDtl || null;
                     const freshSubDtl = result.data?.subscriptionDtl || result.data?.subscriberDtl || null;
