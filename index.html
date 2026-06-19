@@ -1441,6 +1441,9 @@
         let channelStartTime = 0;
         let currentAuthXmlToken = '';
         let currentCdnTokenQuery = '';
+        let currentContentDtl = '';
+        let currentSubscriptionDtl = '';
+        let currentAuthXmlTokenFetchedAt = 0;
         let proactiveRefreshTimer = null;
 
         // ═══ AUTH ═══
@@ -1776,6 +1779,7 @@
                         if (result.status && result.data?.authXmlToken) {
                             data.authXmlToken = result.data.authXmlToken;
                             currentAuthXmlToken = result.data.authXmlToken;
+                            currentAuthXmlTokenFetchedAt = Date.now();
                             localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
                             console.log('[TOKEN] Background refresh OK:', lastChannelName);
                         }
@@ -2730,6 +2734,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         currentCdntoken = cdntoken;
                         currentCdnTokenQuery = '';
                         currentAuthXmlToken = data.authXmlToken;
+                        currentAuthXmlTokenFetchedAt = Date.now();
                         console.log('[AZAM] Using stored tokens for', channelName);
                         const tokExp = getTokExpiry(parsed);
                         const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
@@ -2773,6 +2778,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         currentCdntoken = cdntoken;
                         currentCdnTokenQuery = cdnTokenQuery;
                         currentAuthXmlToken = authXmlToken;
+                        currentAuthXmlTokenFetchedAt = Date.now();
                         const freshTokPrefix = cdnBase + '/tok_' + cdntoken;
                         setAzamChannelData(channelName, { authXmlToken, tok_prefix: freshTokPrefix });
                         console.log('[AZAM] Got fresh tokens from direct DRM call for', channelName);
@@ -2852,6 +2858,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
                     currentAuthXmlToken = d.authXmlToken;
+                    currentAuthXmlTokenFetchedAt = Date.now();
                     const toUpdate = { authXmlToken: d.authXmlToken };
                     if (d.tok_prefix || d.cdn_url) {
                         const cdn = d.tok_prefix || d.cdn_url;
@@ -2874,6 +2881,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                                     currentCdnBase = newCdnBase;
                                     currentCdntoken = newCdntoken;
                                     currentAuthXmlToken = d.authXmlToken;
+                                    currentAuthXmlTokenFetchedAt = Date.now();
                                     try {
                                         await shakaPlayer.unload();
                                         await shakaPlayer.load(newUrl);
@@ -2925,6 +2933,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 currentCdntoken = apiTokens.cdntoken || '';
                 currentCdnTokenQuery = apiTokens.cdnTokenQuery || '';
                 currentAuthXmlToken = apiTokens.authXmlToken;
+                currentAuthXmlTokenFetchedAt = Date.now();
                 // Path injection with PATH JWT (has sip: "", no IP restriction) — works from any browser
                 // Official site flow confirms: cdnedgch2/tok_<path_JWT>/live/eds/... returns 200
                 if (currentCdntoken) {
@@ -2934,6 +2943,9 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 }
                 lastMpdUrl = mpdUrl;
                 lastChannelName = channelName;
+                const chanData = getAzamChannelData(channelName);
+                currentContentDtl = chanData.content_dtl || data.content_dtl || '';
+                currentSubscriptionDtl = chanData.subscription_dtl || data.subscription_dtl || '';
                 authXml = currentAuthXmlToken;
                 scheduleProactiveRefresh(apiTokens.expiresAt, channelName);
                 console.timeLog('[TIMER] openAzamChannel-' + channelName, 'got tokens + mpdUrl');
@@ -2954,6 +2966,9 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                     lastMpdUrl = mpdUrl;
                 }
+                const fallbackData = getAzamChannelData(channelName);
+                if (!currentContentDtl) currentContentDtl = fallbackData.content_dtl || '';
+                if (!currentSubscriptionDtl) currentSubscriptionDtl = fallbackData.subscription_dtl || '';
             }
             try {
                 if (!mpdUrl || (!currentCdntoken && !currentCdnTokenQuery)) {
@@ -2978,6 +2993,9 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     if (apiRetry && (currentCdntoken || currentCdnTokenQuery)) {
                         const retryUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                         lastMpdUrl = retryUrl;
+                        const retryData = getAzamChannelData(channelName);
+                        if (!currentContentDtl) currentContentDtl = retryData.content_dtl || '';
+                        if (!currentSubscriptionDtl) currentSubscriptionDtl = retryData.subscription_dtl || '';
                         openVideoPlayer(name, retryUrl, '', currentAuthXmlToken, null, currentCdntoken);
                         return;
                     }
@@ -3201,6 +3219,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) }
                     };
                     currentAuthXmlToken = finalXmlToken;
+                    currentAuthXmlTokenFetchedAt = Date.now();
                     if (psshData && psshData.success && psshData.pssh) {
                         const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
                         drmConfig.drm.initData = [{ initDataType: 'cenc', initData, systemId: psshData.systemId || 'com.widevine.alpha' }];
@@ -3215,9 +3234,24 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const mpdUrl = url;
                 const lastSlash = mpdUrl.lastIndexOf('/');
                 if (lastSlash > 0) azamCdnBaseUrl = mpdUrl.substring(0, lastSlash + 1);
-                netEng.registerRequestFilter((type, request) => {
+                netEng.registerRequestFilter(async (type, request) => {
                     const uri = request.uris[0];
                     if (uri.includes('wv-proxy') || uri.includes('/wv-proxy')) {
+                        const now = Date.now();
+                        if (currentContentDtl && currentSubscriptionDtl && (now - currentAuthXmlTokenFetchedAt > 5000)) {
+                            const bearer = getGlobalBearer();
+                            if (bearer) {
+                                try {
+                                    const result = await fetchDrmAuthToken(bearer, currentContentDtl, currentSubscriptionDtl);
+                                    if (result.status && result.data && result.data.authXmlToken) {
+                                        currentAuthXmlToken = result.data.authXmlToken;
+                                        currentAuthXmlTokenFetchedAt = now;
+                                    }
+                                } catch (e) {
+                                    console.warn('[AZAM] Failed to fetch fresh authXmlToken:', e.message);
+                                }
+                            }
+                        }
                         if (currentAuthXmlToken) {
                             request.headers['nv-authorizations'] = currentAuthXmlToken;
                         }
