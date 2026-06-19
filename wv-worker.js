@@ -33,6 +33,14 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
 
+    // Route: POST /azam-content — refresh content_dtl/subscription_dtl from Azam API
+    if (url.pathname === '/azam-content' && request.method === 'POST') {
+      return handleAzamContent(request);
+    }
+    if (url.pathname === '/azam-content' && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS });
+    }
+
     // Route: GET /load-tok — proxies Supabase for saved tokens
     if (url.pathname === '/load-tok') {
       return handleLoadTok(request);
@@ -174,6 +182,58 @@ async function handleAzamRefresh(request) {
     return new Response(JSON.stringify(json), {
       status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
     });
+  } catch (e) {
+    return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
+  }
+}
+
+async function handleAzamContent(request) {
+  try {
+    const { bearer, contentDtl, subscriptionDtl, deviceId } = await request.json();
+    if (!bearer || !contentDtl || !subscriptionDtl) {
+      return new Response(JSON.stringify({ status: false, message: 'Missing bearer, contentDtl, or subscriptionDtl' }), { status: 400, headers: CORS });
+    }
+    const finalBearer = bearer.replace(/^Bearer\s+/i, '');
+    const finalDeviceId = deviceId || '8b303c13-d7a3-4b39-9579-a89ac703765c';
+    // Call session/initialize to refresh contentDtl + subscriberDtl
+    const sessUrl = 'https://api.aztv.videoready.tv/stream-concurrency/v1/session/initialize';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const resp = await fetch(sessUrl, {
+      signal: controller.signal,
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + finalBearer,
+        'Content-Type': 'application/json',
+        'tenant_identifier': 'master',
+        'platform': 'WEB',
+        'device_id': finalDeviceId,
+        'languageCode': 'eng',
+        'language': 'eng',
+        'local': 'TZ',
+        'profileId': '25222709',
+        'requestCount': '0',
+        'Origin': 'https://web.azamtvmax.com',
+        'Referer': 'https://web.azamtvmax.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: JSON.stringify({
+        contentDtl,
+        subscriberDtl: subscriptionDtl,
+        deviceId: finalDeviceId
+      })
+    });
+    clearTimeout(timeout);
+    const text = await resp.text();
+    let json;
+    try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200) }; }
+    const data = json.data || json;
+    const newContentDtl = data.contentDtl || null;
+    const newSubscriptionDtl = data.subscriberDtl || data.subscriptionDtl || null;
+    if (newContentDtl && newSubscriptionDtl) {
+      return new Response(JSON.stringify({ status: true, data: { contentDtl: newContentDtl, subscriptionDtl: newSubscriptionDtl } }), { status: 200, headers: CORS });
+    }
+    return new Response(JSON.stringify({ status: false, message: 'Could not extract contentDtl/subscriberDtl from session/initialize', raw: text.slice(0, 500) }), { status: 200, headers: CORS });
   } catch (e) {
     return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
   }

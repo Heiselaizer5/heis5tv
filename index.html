@@ -2790,6 +2790,35 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         console.timeEnd('[TIMER] fetchTokens-' + channelName);
                         return { success: true, cdnBase, cdntoken, cdnTokenQuery, authXmlToken, expiresAt: null };
                     }
+                } else if (result._debug?.statusCode === 403 && /invalid subscription/i.test(result.message || '')) {
+                    console.warn('[AZAM] subscriptionDtl expired in fetchAzamTokensFromApi, trying to refresh...');
+                    const fresh = await refreshAzamContentDtl(bearer, channelName, data.content_dtl, data.subscription_dtl);
+                    if (fresh) {
+                        setAzamChannelData(channelName, fresh);
+                        currentContentDtl = fresh.contentDtl;
+                        currentSubscriptionDtl = fresh.subscriptionDtl;
+                        const retry = await fetchDrmAuthToken(bearer, fresh.contentDtl, fresh.subscriptionDtl);
+                        if (retry.status && retry.data && retry.data.authXmlToken) {
+                            const d = retry.data;
+                            const rawTok = d.tok_prefix || d.cdn_url || null;
+                            let cdnBase = null, cdntoken = null;
+                            if (rawTok) {
+                                const m = rawTok.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
+                                if (m) { cdnBase = m[1]; cdntoken = m[2]; }
+                            }
+                            if (cdnBase && cdntoken && d.authXmlToken) {
+                                currentCdnBase = cdnBase;
+                                currentCdntoken = cdntoken;
+                                currentCdnTokenQuery = d.cdnToken || '';
+                                currentAuthXmlToken = d.authXmlToken;
+                                currentAuthXmlTokenFetchedAt = Date.now();
+                                setAzamChannelData(channelName, { authXmlToken: d.authXmlToken, tok_prefix: cdnBase + '/tok_' + cdntoken });
+                                console.log('[AZAM] Retry succeeded after subscriptionDtl refresh');
+                                console.timeEnd('[TIMER] fetchTokens-' + channelName);
+                                return { success: true, cdnBase, cdntoken, cdnTokenQuery: d.cdnToken || '', authXmlToken: d.authXmlToken, expiresAt: null };
+                            }
+                        }
+                    }
                 } else {
                     console.warn('[AZAM] DRM API response incomplete:', JSON.stringify(result).slice(0, 300));
                 }
@@ -2816,44 +2845,78 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 }
             } catch (e) { /* refresh not critical */ }
         }
-        function startAzamTokenPreFetch() {
-            stopAzamTokenPreFetch();
-            const bearer = getGlobalBearer();
-            if (!bearer || !currentContentDtl || !currentSubscriptionDtl) return Promise.resolve();
-            async function doFetch() {
-                try {
-                    const result = await fetchDrmAuthToken(bearer, currentContentDtl, currentSubscriptionDtl);
-                    if (result.status && result.data && result.data.authXmlToken) {
-                        currentAuthXmlToken = result.data.authXmlToken;
-                        currentAuthXmlTokenFetchedAt = Date.now();
+        async function refreshAzamContentDtl(bearer, channelName, oldContentDtl, oldSubscriptionDtl) {
+            try {
+                const deviceId = '8b303c13-d7a3-4b39-9579-a89ac703765c';
+                const resp = await fetch('https://wv-proxy.erastokasoga5.workers.dev/azam-content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bearer, contentDtl: oldContentDtl, subscriptionDtl: oldSubscriptionDtl, deviceId })
+                });
+                if (!resp.ok) return null;
+                const json = await resp.json();
+                if (json.status && json.data && json.data.contentDtl && json.data.subscriptionDtl) {
+                    return { contentDtl: json.data.contentDtl, subscriptionDtl: json.data.subscriptionDtl };
+                }
+            } catch (_) {}
+            return null;
+        }
+        let azamPreFetchCoolDown = 0;
+        async function azamDoPreFetch() {
+            const now = Date.now();
+            if (now - azamPreFetchCoolDown < 2000) return;
+            azamPreFetchCoolDown = now;
+            try {
+                const bearer = getGlobalBearer();
+                if (!bearer || !currentContentDtl || !currentSubscriptionDtl) return;
+                const result = await fetchDrmAuthToken(bearer, currentContentDtl, currentSubscriptionDtl);
+                if (result.status && result.data && result.data.authXmlToken) {
+                    currentAuthXmlToken = result.data.authXmlToken;
+                    currentAuthXmlTokenFetchedAt = Date.now();
+                } else if (result._debug?.statusCode === 403 && /invalid subscription/i.test(result.message || '')) {
+                    console.warn('[AZAM] subscriptionDtl expired, trying to refresh...');
+                    const fresh = await refreshAzamContentDtl(bearer, lastChannelName, currentContentDtl, currentSubscriptionDtl);
+                    if (fresh) {
+                        currentContentDtl = fresh.contentDtl;
+                        currentSubscriptionDtl = fresh.subscriptionDtl;
+                        setAzamChannelData(lastChannelName, fresh);
+                        const retry = await fetchDrmAuthToken(bearer, fresh.contentDtl, fresh.subscriptionDtl);
+                        if (retry.status && retry.data && retry.data.authXmlToken) {
+                            currentAuthXmlToken = retry.data.authXmlToken;
+                            currentAuthXmlTokenFetchedAt = Date.now();
+                        }
                     }
-                    if (result.status && result.data && lastChannelName) {
-                        const rawTok = result.data.tok_prefix || result.data.cdn_url || null;
-                        if (rawTok && currentCdntoken) {
-                            const curExp = getTokExpiry(currentCdnBase + '/tok_' + currentCdntoken);
-                            if (curExp && curExp * 1000 < Date.now() + 300000) {
-                                const m = rawTok.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
-                                if (m && m[2] !== currentCdntoken) {
-                                    const newUrl = m[1] + '/tok_' + m[2] + '/live/eds/' + lastChannelName + '/DASH/' + lastChannelName + '.mpd';
-                                    console.log('[AZAM] CDN token expiring, reloading player');
-                                    setAzamChannelData(lastChannelName, { tok_prefix: m[1] + '/tok_' + m[2] });
-                                    currentCdnBase = m[1];
-                                    currentCdntoken = m[2];
-                                    lastMpdUrl = newUrl;
-                                    if (shakaPlayer && !shakaPlayer.isDestroyed()) {
-                                        const videoEl = document.getElementById('hls-video');
-                                        const prevTime = videoEl.currentTime;
-                                        const wasPlaying = !videoEl.paused;
-                                        try { await shakaPlayer.load(newUrl); if (wasPlaying) { videoEl.currentTime = prevTime; videoEl.play().catch(() => {}); } } catch (_) {}
-                                    }
+                }
+                if (result.status && result.data && lastChannelName) {
+                    const rawTok = result.data.tok_prefix || result.data.cdn_url || null;
+                    if (rawTok && currentCdntoken) {
+                        const curExp = getTokExpiry(currentCdnBase + '/tok_' + currentCdntoken);
+                        if (curExp && curExp * 1000 < Date.now() + 300000) {
+                            const m = rawTok.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
+                            if (m && m[2] !== currentCdntoken) {
+                                const newUrl = m[1] + '/tok_' + m[2] + '/live/eds/' + lastChannelName + '/DASH/' + lastChannelName + '.mpd';
+                                console.log('[AZAM] CDN token expiring, reloading player');
+                                setAzamChannelData(lastChannelName, { tok_prefix: m[1] + '/tok_' + m[2] });
+                                currentCdnBase = m[1];
+                                currentCdntoken = m[2];
+                                lastMpdUrl = newUrl;
+                                if (shakaPlayer && !shakaPlayer.isDestroyed()) {
+                                    const videoEl = document.getElementById('hls-video');
+                                    const prevTime = videoEl.currentTime;
+                                    const wasPlaying = !videoEl.paused;
+                                    try { await shakaPlayer.load(newUrl); if (wasPlaying) { videoEl.currentTime = prevTime; videoEl.play().catch(() => {}); } } catch (_) {}
                                 }
                             }
                         }
                     }
-                } catch (_) {}
-            }
-            const firstFetch = doFetch();
-            azamTokenPreFetchTimer = setInterval(doFetch, 8000);
+                }
+            } catch (_) {}
+        }
+        function startAzamTokenPreFetch() {
+            stopAzamTokenPreFetch();
+            azamPreFetchCoolDown = 0;
+            const firstFetch = azamDoPreFetch();
+            azamTokenPreFetchTimer = setInterval(azamDoPreFetch, 4000);
             return firstFetch;
         }
         function stopAzamTokenPreFetch() {
@@ -3303,6 +3366,11 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                     if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
+                    }
+                });
+                netEng.registerResponseFilter((type, response) => {
+                    if (type === shaka.net.NetworkingEngine.RequestType.LICENSE && response.status === 200) {
+                        azamDoPreFetch();
                     }
                 });
 
