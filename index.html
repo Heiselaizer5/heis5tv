@@ -1573,16 +1573,18 @@
                             <select id="azam-channel-select" onchange="loadAzamChannelUi()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">${Object.keys(AZAM_CHANNEL_MAP).map(n => '<option value="' + n + '">' + n + '</option>').join('')}</select>
                         </div>
                         <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
-                            <div style="font-size:0.5rem;color:var(--accent);margin-bottom:4px;">Azam TV Auto-Login</div>
+                            <div style="font-size:0.5rem;color:var(--accent);margin-bottom:4px;">Azam TV Tokens (copy from web.azamtvmax.com → F12 → Application → Local Storage)</div>
                             <div style="display:flex;gap:4px;margin-bottom:4px;">
-                                <textarea id="azam-google-token-input" placeholder="Paste Google OAuth token (ya29.xxx) here" rows="2" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;resize:none;"></textarea>
+                                <input id="azam-access-token-input" type="text" placeholder="accessToken or jwt_token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamSaveAccessToken()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
                             </div>
                             <div style="display:flex;gap:4px;margin-bottom:4px;">
-                                <input id="azam-device-id-input" type="text" placeholder="device_id (copy from azamtvmax localStorage)" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <input id="azam-refresh-token-input" type="text" placeholder="refreshToken" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamSaveRefreshToken()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
                             </div>
                             <div style="display:flex;gap:4px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamLoginWithGoogle()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-brands fa-google"></i> Login & Get Tokens</button>
                                 <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamRefreshBearer()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-rotate"></i> Refresh Bearer</button>
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamAutoFetchAll()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-cloud-arrow-down"></i> Fetch All Channel Tokens</button>
                             </div>
                             <div id="azam-login-status" style="font-size:0.45rem;color:var(--muted);margin-top:3px;"></div>
                         </div>
@@ -3033,65 +3035,44 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(val) }) }).catch(() => {});
             document.getElementById('azam-ui-status').textContent = 'Bearer saved & synced';
         }
-        async function azamLoginWithGoogle() {
-            const el = document.getElementById('azam-google-token-input');
+        function azamSaveAccessToken() {
+            const val = document.getElementById('azam-access-token-input').value.trim();
+            if (!val) return;
+            localStorage.setItem('heis5_azam_global_bearer', val);
+            document.getElementById('azam-bearer-input').value = val;
+            fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(val) }) }).catch(() => {});
+            document.getElementById('azam-login-status').textContent = 'Access token saved!';
+        }
+        function azamSaveRefreshToken() {
+            const val = document.getElementById('azam-refresh-token-input').value.trim();
+            if (!val) return;
+            localStorage.setItem('heis5_azam_refresh_token', val);
+            document.getElementById('azam-login-status').textContent = 'Refresh token saved!';
+        }
+        async function azamAutoFetchAll() {
             const statusEl = document.getElementById('azam-login-status');
-            const token = el.value.trim();
-            if (!token) { statusEl.textContent = 'Paste Google OAuth token first'; return; }
-            statusEl.textContent = 'Logging in...';
-            const didInput = document.getElementById('azam-device-id-input');
-            if (!didInput.value.trim()) didInput.value = localStorage.getItem('heis5_azam_device_id') || '';
-            const deviceId = didInput.value.trim();
-            try {
-                const resp = await fetch(API_AZAM_LOGIN, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ socialLoginAccessToken: token, socialLoginType: 'GOOGLE', deviceId })
-                });
-                const json = await resp.json();
-                if (json.status && json.jwt_token) {
-                    const bearer = json.jwt_token;
-                    if (deviceId) localStorage.setItem('heis5_azam_device_id', deviceId);
-                    const refreshToken = json.refresh_token || '';
-                    localStorage.setItem('heis5_azam_global_bearer', bearer);
-                    localStorage.setItem('heis5_azam_refresh_token', refreshToken);
-                    document.getElementById('azam-bearer-input').value = bearer;
-                    // Sync bearer to Supabase
-                    fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(bearer) }) }).catch(() => {});
-                    // Try to auto-fetch tokens for all channels
-                    statusEl.textContent = 'Login OK! Bearer saved. Auto-fetching channel tokens...';
-                    try {
-                        const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
-                        let fetched = 0;
-                        for (const name of Object.keys(AZAM_CHANNEL_MAP)) {
-                            const data = all[name];
-                            if (data && data.content_dtl && data.subscription_dtl) {
-                                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
-                                if (result.status && result.data && result.data.authXmlToken) {
-                                    const update = { authXmlToken: result.data.authXmlToken };
-                                    if (result.data.tok_prefix || result.data.cdn_url) {
-                                        update.tok_prefix = result.data.tok_prefix || result.data.cdn_url;
-                                    }
-                                    setAzamChannelData(name, update);
-                                    fetched++;
-                                }
-                            }
+            const bearer = getGlobalBearer();
+            if (!bearer) { statusEl.textContent = 'Save accessToken first!'; return; }
+            statusEl.textContent = 'Fetching tokens for all channels...';
+            const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
+            let fetched = 0, errors = 0;
+            for (const name of Object.keys(AZAM_CHANNEL_MAP)) {
+                const data = all[name];
+                if (data && data.content_dtl && data.subscription_dtl) {
+                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                    if (result.status && result.data && result.data.authXmlToken) {
+                        const update = { authXmlToken: result.data.authXmlToken };
+                        if (result.data.tok_prefix || result.data.cdn_url) {
+                            update.tok_prefix = result.data.tok_prefix || result.data.cdn_url;
                         }
-                        statusEl.textContent = 'Login OK! Updated ' + fetched + ' channels with fresh tokens.';
-                    } catch (e) {
-                        statusEl.textContent = 'Login OK but token fetch: ' + e.message;
-                    }
-                } else {
-                    const errMsg = json.message || JSON.stringify(json).slice(0, 200);
-                    if (errMsg.includes('Invalid Credentials') || errMsg.includes('invalid_request') || errMsg.includes('401')) {
-                        statusEl.textContent = 'Google token expired! Get a fresh one: F12 → Network → copy socialLoginAccessToken → paste & retry.';
+                        setAzamChannelData(name, update);
+                        fetched++;
                     } else {
-                        statusEl.textContent = 'Login failed: ' + errMsg;
+                        errors++;
                     }
                 }
-            } catch (e) {
-                statusEl.textContent = 'Login error: ' + e.message;
             }
+            statusEl.textContent = 'Fetched: ' + fetched + ' channels, errors: ' + errors;
         }
         async function azamRefreshBearer() {
             const statusEl = document.getElementById('azam-login-status');
