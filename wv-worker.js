@@ -145,6 +145,8 @@ async function handleAzamRefresh(request) {
     }
     // Try common refresh endpoint patterns
     const endpoints = [
+      // Try same login endpoint but with refresh_token as socialLoginAccessToken
+      { url: 'https://api.aztv.videoready.tv/login/pub/v1/social/login', body: { socialLoginAccessToken: refreshToken, socialLoginType: 'REFRESH_TOKEN' } },
       { url: 'https://api.aztv.videoready.tv/login/pub/v1/token/refresh', body: { refreshToken } },
       { url: 'https://api.aztv.videoready.tv/login/pub/v1/refresh-token', body: { refreshToken } },
       { url: 'https://api.aztv.videoready.tv/login/pub/v1/refresh', body: { refreshToken } },

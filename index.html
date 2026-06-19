@@ -3074,7 +3074,12 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         statusEl.textContent = 'Login OK but token fetch: ' + e.message;
                     }
                 } else {
-                    statusEl.textContent = 'Login failed: ' + (json.message || JSON.stringify(json).slice(0, 200));
+                    const errMsg = json.message || JSON.stringify(json).slice(0, 200);
+                    if (errMsg.includes('Invalid Credentials') || errMsg.includes('invalid_request') || errMsg.includes('401')) {
+                        statusEl.textContent = 'Google token expired! Get a fresh one: F12 → Network → copy socialLoginAccessToken → paste & retry.';
+                    } else {
+                        statusEl.textContent = 'Login failed: ' + errMsg;
+                    }
                 }
             } catch (e) {
                 statusEl.textContent = 'Login error: ' + e.message;
