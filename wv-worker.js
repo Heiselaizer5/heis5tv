@@ -226,19 +226,19 @@ async function handleAzamContent(request) {
     clearTimeout(timeout);
     const text = await resp.text();
     // Azam session/initialize returns TWO JSON objects separated by newline
-    let contentDtl = null, subscriberDtl = null;
+    let freshContentDtl = null, freshSubscriberDtl = null;
     for (const part of text.split('\n')) {
       const trimmed = part.trim();
       if (!trimmed) continue;
       try {
         const obj = JSON.parse(trimmed);
         const data = obj.data || obj;
-        if (data.contentDtl) contentDtl = data.contentDtl;
-        if (data.subscriberDtl) subscriberDtl = data.subscriberDtl;
+        if (data.contentDtl) freshContentDtl = data.contentDtl;
+        if (data.subscriberDtl) freshSubscriberDtl = data.subscriberDtl;
       } catch (_) {}
     }
-    if (contentDtl && subscriberDtl) {
-      return new Response(JSON.stringify({ status: true, data: { contentDtl, subscriptionDtl: subscriberDtl } }), { status: 200, headers: CORS });
+    if (freshContentDtl && freshSubscriberDtl) {
+      return new Response(JSON.stringify({ status: true, data: { contentDtl: freshContentDtl, subscriptionDtl: freshSubscriberDtl } }), { status: 200, headers: CORS });
     }
     return new Response(JSON.stringify({ status: false, message: 'Could not extract contentDtl/subscriberDtl', raw: text.slice(0, 500) }), { status: 200, headers: CORS });
   } catch (e) {
