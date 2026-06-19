@@ -2730,17 +2730,21 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     const cdnBase = extractCdnHost(parsed);
                     const cdntoken = extractCdntoken(parsed);
                     if (cdnBase && cdntoken) {
-                        // Allow expired tokens — CDN often accepts them
+                        // Check if stored token is actually expired — if so, go to API
+                        const tokExp = getTokExpiry(parsed);
+                        const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
+                        const expiresAt = (xmlExp && tokExp) ? Math.min(xmlExp, tokExp) : (xmlExp || tokExp || null);
+                        const isExpired = expiresAt && expiresAt * 1000 < Date.now();
+                        if (isExpired) {
+                            console.log('[AZAM] Stored tokens expired, forcing API refresh');
+                            return await fetchAzamTokensFromApi(channelName, true);
+                        }
                         currentCdnBase = cdnBase;
                         currentCdntoken = cdntoken;
                         currentCdnTokenQuery = '';
                         currentAuthXmlToken = data.authXmlToken;
                         currentAuthXmlTokenFetchedAt = 0;
                         console.log('[AZAM] Using stored tokens for', channelName);
-                        const tokExp = getTokExpiry(parsed);
-                        const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
-                        const expiresAt = (xmlExp && tokExp) ? Math.min(xmlExp, tokExp) : (xmlExp || tokExp || null);
-                        const isExpired = expiresAt && expiresAt * 1000 < Date.now();
                         console.timeEnd('[TIMER] fetchTokens-' + channelName);
                         return {
                             success: true,
@@ -2748,7 +2752,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             cdntoken,
                             cdnTokenQuery: '',
                             authXmlToken: data.authXmlToken,
-                            expiresAt: isExpired ? null : expiresAt
+                            expiresAt
                         };
                     }
                 }
@@ -2815,7 +2819,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         function startAzamTokenPreFetch() {
             stopAzamTokenPreFetch();
             const bearer = getGlobalBearer();
-            if (!bearer || !currentContentDtl || !currentSubscriptionDtl) return;
+            if (!bearer || !currentContentDtl || !currentSubscriptionDtl) return Promise.resolve();
             async function doFetch() {
                 try {
                     const result = await fetchDrmAuthToken(bearer, currentContentDtl, currentSubscriptionDtl);
@@ -2848,8 +2852,9 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                 } catch (_) {}
             }
-            doFetch();
+            const firstFetch = doFetch();
             azamTokenPreFetchTimer = setInterval(doFetch, 8000);
+            return firstFetch;
         }
         function stopAzamTokenPreFetch() {
             if (azamTokenPreFetchTimer) {
@@ -3031,7 +3036,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                 }
                 openVideoPlayer(name, mpdUrl, '', authXml, null, currentCdntoken);
-                startAzamTokenPreFetch();
+                await startAzamTokenPreFetch();
                 console.timeLog('[TIMER] openAzamChannel-' + channelName, 'openVideoPlayer called');
             } catch (e) {
                 console.warn('[AZAM] First attempt failed, retrying with fresh tok...');
@@ -3044,7 +3049,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         if (!currentContentDtl) currentContentDtl = retryData.content_dtl || '';
                         if (!currentSubscriptionDtl) currentSubscriptionDtl = retryData.subscription_dtl || '';
                         openVideoPlayer(name, retryUrl, '', currentAuthXmlToken, null, currentCdntoken);
-                        startAzamTokenPreFetch();
+                        await startAzamTokenPreFetch();
                         return;
                     }
                 } catch (e2) { console.warn('[AZAM] Retry also failed:', e2.message); }
