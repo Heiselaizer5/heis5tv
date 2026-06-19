@@ -139,37 +139,41 @@ async function handleAzamLogin(request) {
 
 async function handleAzamRefresh(request) {
   try {
-    const { refreshToken } = await request.json();
+    const { refreshToken, currentBearer } = await request.json();
     if (!refreshToken) {
       return new Response(JSON.stringify({ status: false, message: 'Missing refreshToken' }), { status: 400, headers: CORS });
     }
-    // Try common refresh endpoint patterns
-    const endpoints = [
-      // Try same login endpoint but with refresh_token as socialLoginAccessToken
-      { url: 'https://api.aztv.videoready.tv/login/pub/v1/social/login', body: { socialLoginAccessToken: refreshToken, socialLoginType: 'REFRESH_TOKEN' } },
-      { url: 'https://api.aztv.videoready.tv/login/pub/v1/token/refresh', body: { refreshToken } },
-      { url: 'https://api.aztv.videoready.tv/login/pub/v1/refresh-token', body: { refreshToken } },
-      { url: 'https://api.aztv.videoready.tv/login/pub/v1/refresh', body: { refreshToken } },
-    ];
-    for (const ep of endpoints) {
-      const resp = await fetch(ep.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Origin': 'https://web.azamtvmax.com',
-          'Referer': 'https://web.azamtvmax.com/'
-        },
-        body: JSON.stringify(ep.body)
-      }).catch(() => null);
-      if (resp && resp.ok) {
-        const text = await resp.text();
-        const json = JSON.parse(text);
-        return new Response(JSON.stringify({ status: true, data: json, endpoint: ep.url }), {
-          status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
-        });
-      }
-    }
-    return new Response(JSON.stringify({ status: false, message: 'No refresh endpoint matched' }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+    const deviceId = crypto.randomUUID();
+    const deviceDetails = {
+      platform: 'WEB', operating_system: 'Windows', locale: 'en-US',
+      app_version: '1.0.0', device_name: 'Windows PC', browser_version: 150,
+      browser_name: 'Firefox', device_id: deviceId, device_type: 'open',
+      device_platform: 'WEB', device_category: 'large',
+      manufacturer: 'PC_Other', model: 'PC', sname: 'Windows PC',
+      last_usage: Date.now()
+    };
+    const finalBearer = (currentBearer || '').replace(/^Bearer\s+/i, '');
+    const resp = await fetch('https://api.aztv.videoready.tv/login/auth/v1/pub/refresh-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + finalBearer,
+        'device_details': JSON.stringify(deviceDetails),
+        'platform': 'WEB', 'tenant_identifier': 'master',
+        'language': 'eng', 'languageCode': 'eng', 'local': 'TZ',
+        'profileId': '0', 'requestCount': '0',
+        'Origin': 'https://web.azamtvmax.com',
+        'Referer': 'https://web.azamtvmax.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: JSON.stringify({ refreshToken })
+    });
+    const text = await resp.text();
+    let json;
+    try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200) }; }
+    return new Response(JSON.stringify(json), {
+      status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
+    });
   } catch (e) {
     return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
   }

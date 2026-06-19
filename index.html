@@ -2824,13 +2824,14 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             if (rt) {
                                 const rr = await fetch(API_AZAM_REFRESH, {
                                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ refreshToken: rt })
+                                    body: JSON.stringify({ refreshToken: rt, currentBearer: bearer })
                                 }).catch(() => null);
                                 if (rr && rr.ok) {
                                     const rj = await rr.json();
-                                    const nb = rj.data?.jwt_token || rj.data?.access_token || '';
+                                    const nb = rj.data?.accessToken || rj.data?.jwt_token || rj.data?.access_token || '';
                                     if (nb) {
                                         localStorage.setItem('heis5_azam_global_bearer', nb);
+                                        if (rj.data?.refreshToken) localStorage.setItem('heis5_azam_refresh_token', rj.data.refreshToken);
                                         bearer = nb;
                                     }
                                 }
@@ -3088,26 +3089,32 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         async function azamRefreshBearer() {
             const statusEl = document.getElementById('azam-login-status');
             const refreshToken = localStorage.getItem('heis5_azam_refresh_token');
+            const currentBearer = getGlobalBearer();
             if (!refreshToken) { statusEl.textContent = 'No refresh_token stored. Login with Google first.'; return; }
             statusEl.textContent = 'Refreshing bearer...';
             try {
                 const resp = await fetch(API_AZAM_REFRESH, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refreshToken })
+                    body: JSON.stringify({ refreshToken, currentBearer })
                 });
                 const json = await resp.json();
                 if (json.status && json.data) {
-                    const newBearer = json.data.jwt_token || json.data.access_token || '';
+                    const newBearer = json.data.accessToken || json.data.jwt_token || '';
                     if (newBearer) {
                         localStorage.setItem('heis5_azam_global_bearer', newBearer);
+                        localStorage.setItem('heis5_azam_refresh_token', json.data.refreshToken || refreshToken);
                         document.getElementById('azam-bearer-input').value = newBearer;
                         fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(newBearer) }) }).catch(() => {});
-                        statusEl.textContent = 'Bearer refreshed via ' + json.endpoint;
+                        statusEl.textContent = 'Bearer refreshed! Token fetched: "' + (json.data.message || '') + '"';
                         return;
                     }
                 }
-                statusEl.textContent = 'Refresh failed: no matching endpoint. Use "Login & Get Tokens" instead.';
+                if (json.message) {
+                    statusEl.textContent = 'Refresh failed: ' + json.message;
+                } else {
+                    statusEl.textContent = 'Refresh failed. Try "Login & Get Tokens" instead.';
+                }
             } catch (e) {
                 statusEl.textContent = 'Refresh error: ' + e.message;
             }
