@@ -306,6 +306,8 @@ async function handleDrmAuth(request) {
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
+    // Use fresh random device_id per call to avoid session binding issues
+    const deviceId = crypto.randomUUID();
     const resp = await fetch(AZAM_DRM_AUTH_URL, {
       signal: controller.signal,
       method: 'POST',
@@ -314,7 +316,7 @@ async function handleDrmAuth(request) {
         'Content-Type': 'application/json',
         'tenant_identifier': 'master',
         'platform': 'WEB',
-        'device_id': 'undefined',
+        'device_id': deviceId,
         'languageCode': 'eng',
         'language': 'eng',
         'local': 'TZ',

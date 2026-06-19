@@ -157,8 +157,9 @@ app.post('/drm-auth', express.json(), async (req, res) => {
     console.log('  URL:', AZAM_DRM_AUTH_URL);
     console.log('  Bearer (first 50):', finalBearer.substring(0, 50) + '...');
     console.log('  Body:', bodyStr.substring(0, 200) + '...');
-    console.log('  Headers profileId:', finalProfileId, 'device_id: undefined');
+    console.log('  Headers profileId:', finalProfileId, 'device_id: random');
 
+    const deviceId = require('crypto').randomUUID();
     const azamResp = await fetch(AZAM_DRM_AUTH_URL, {
       method: 'POST',
       headers: {
@@ -166,7 +167,7 @@ app.post('/drm-auth', express.json(), async (req, res) => {
         'Content-Type': 'application/json',
         'tenant_identifier': 'master',
         'platform': 'WEB',
-        'device_id': 'undefined',
+        'device_id': deviceId,
         'languageCode': 'eng',
         'language': 'eng',
         'local': 'TZ',
