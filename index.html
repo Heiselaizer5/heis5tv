@@ -2789,6 +2789,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         }
         let azamRefreshTimer = null;
         let lastChannelName = '';
+        let azamRetryCount = 0;
         let lastMpdUrl = '';
         function buildAzamMpdUrlFromGlobals(channelName) {
             return currentCdnBase && currentCdntoken
@@ -2871,7 +2872,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             document.getElementById('buffering-spinner').style.display = 'flex';
             let mpdUrl = null;
             let authXml = null;
-            const apiTokens = await fetchAzamTokensFromApi(channelName, true);
+            const apiTokens = await fetchAzamTokensFromApi(channelName);
             if (apiTokens) {
                 currentCdnBase = apiTokens.cdnBase;
                 currentCdntoken = apiTokens.cdntoken || '';
@@ -3130,10 +3131,30 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                     showPlayerError('shaka-error: ' + (e?.message || ''));
                 });
-                shakaPlayer.addEventListener('error', (e) => {
+                shakaPlayer.addEventListener('error', async (e) => {
                     clearTimeout(bufferingTimer);
                     const detail = e?.detail;
                     console.error('[SHAKA] Player error event:', detail);
+                    const code = detail?.code || 0;
+                    if (code === 6007 && lastChannelName && azamRetryCount < 2) {
+                        azamRetryCount++;
+                        console.log('[AZAM] Retry #' + azamRetryCount + ' with fresh token for', lastChannelName);
+                        try {
+                            const bearer = getGlobalBearer();
+                            const chanData = getAzamChannelData(lastChannelName);
+                            if (bearer && chanData.content_dtl && chanData.subscription_dtl) {
+                                await fetchAzamTokensFromApi(lastChannelName, true);
+                                const oldPlayer = shakaPlayer;
+                                shakaPlayer = null;
+                                if (oldPlayer) oldPlayer.destroy();
+                                setTimeout(() => {
+                                    openAzamChannel(document.getElementById('modal-channel-name').textContent, 'azam://' + lastChannelName);
+                                }, 500);
+                            }
+                        } catch (_) {}
+                        return;
+                    }
+                    azamRetryCount = 0;
                     showPlayerError('shaka-error: ' + (detail?.message || ''));
                 });
                 videoEl.addEventListener('playing', () => {
