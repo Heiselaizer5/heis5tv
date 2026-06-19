@@ -100,15 +100,15 @@ async function handleLoadTok(request) {
 
 async function handleAzamLogin(request) {
   try {
-    const { socialLoginAccessToken, socialLoginType } = await request.json();
+    const { socialLoginAccessToken, socialLoginType, deviceId } = await request.json();
     if (!socialLoginAccessToken || !socialLoginType) {
       return new Response(JSON.stringify({ status: false, message: 'Missing socialLoginAccessToken or socialLoginType' }), { status: 400, headers: CORS });
     }
-    const deviceId = crypto.randomUUID();
+    const finalDeviceId = deviceId || crypto.randomUUID();
     const deviceDetails = {
       platform: 'WEB', operating_system: 'Windows', locale: 'en-US',
       app_version: '1.0.0', device_name: 'Windows PC', browser_version: 150,
-      browser_name: 'Firefox', device_id: deviceId, device_type: 'open',
+      browser_name: 'Firefox', device_id: finalDeviceId, device_type: 'open',
       device_platform: 'WEB', device_category: 'large',
       manufacturer: 'PC_Other', model: 'PC', sname: 'Windows PC',
       last_usage: Date.now()

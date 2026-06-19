@@ -1577,6 +1577,9 @@
                             <div style="display:flex;gap:4px;margin-bottom:4px;">
                                 <textarea id="azam-google-token-input" placeholder="Paste Google OAuth token (ya29.xxx) here" rows="2" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;resize:none;"></textarea>
                             </div>
+                            <div style="display:flex;gap:4px;margin-bottom:4px;">
+                                <input id="azam-device-id-input" type="text" placeholder="device_id (copy from azamtvmax localStorage)" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                            </div>
                             <div style="display:flex;gap:4px;">
                                 <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamLoginWithGoogle()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-brands fa-google"></i> Login & Get Tokens</button>
                                 <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamRefreshBearer()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-rotate"></i> Refresh Bearer</button>
@@ -3036,15 +3039,19 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             const token = el.value.trim();
             if (!token) { statusEl.textContent = 'Paste Google OAuth token first'; return; }
             statusEl.textContent = 'Logging in...';
+            const didInput = document.getElementById('azam-device-id-input');
+            if (!didInput.value.trim()) didInput.value = localStorage.getItem('heis5_azam_device_id') || '';
+            const deviceId = didInput.value.trim();
             try {
                 const resp = await fetch(API_AZAM_LOGIN, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ socialLoginAccessToken: token, socialLoginType: 'GOOGLE' })
+                    body: JSON.stringify({ socialLoginAccessToken: token, socialLoginType: 'GOOGLE', deviceId })
                 });
                 const json = await resp.json();
                 if (json.status && json.jwt_token) {
                     const bearer = json.jwt_token;
+                    if (deviceId) localStorage.setItem('heis5_azam_device_id', deviceId);
                     const refreshToken = json.refresh_token || '';
                     localStorage.setItem('heis5_azam_global_bearer', bearer);
                     localStorage.setItem('heis5_azam_refresh_token', refreshToken);
