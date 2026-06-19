@@ -41,6 +41,14 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
 
+    // Route: POST /azam-channel-content — get fresh contentDtl for a channel via content-detail-service
+    if (url.pathname === '/azam-channel-content' && request.method === 'POST') {
+      return handleAzamChannelContent(request);
+    }
+    if (url.pathname === '/azam-channel-content' && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS });
+    }
+
     // Route: GET /load-tok — proxies Supabase for saved tokens
     if (url.pathname === '/load-tok') {
       return handleLoadTok(request);
@@ -182,6 +190,49 @@ async function handleAzamRefresh(request) {
     return new Response(JSON.stringify(json), {
       status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
     });
+  } catch (e) {
+    return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
+  }
+}
+
+async function handleAzamChannelContent(request) {
+  try {
+    const { bearer, channelName } = await request.json();
+    if (!bearer || !channelName) {
+      return new Response(JSON.stringify({ status: false, message: 'Missing bearer or channelName' }), { status: 400, headers: CORS });
+    }
+    const finalBearer = bearer.replace(/^Bearer\s+/i, '');
+    // Try content-detail-service API to get encryptedData (= fresh contentDtl)
+    const cdsUrl = 'https://api.aztv.videoready.tv/content-detail-service/pub/v2/channel/' + encodeURIComponent(channelName);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const resp = await fetch(cdsUrl, {
+      signal: controller.signal,
+      headers: {
+        'Authorization': 'Bearer ' + finalBearer,
+        'tenant_identifier': 'master',
+        'platform': 'WEB',
+        'languageCode': 'eng',
+        'language': 'eng',
+        'local': 'TZ',
+        'profileId': '25222709',
+        'requestCount': '0',
+        'Origin': 'https://web.azamtvmax.com',
+        'Referer': 'https://web.azamtvmax.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    clearTimeout(timeout);
+    const text = await resp.text();
+    let json;
+    try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 300) }; }
+    // Try to extract encryptedData from various response formats
+    const data = json.data || json;
+    const encryptedData = data.encryptedData || data.encrypted_data || data.contentDtl || null;
+    if (encryptedData) {
+      return new Response(JSON.stringify({ status: true, data: { contentDtl: encryptedData } }), { status: 200, headers: CORS });
+    }
+    return new Response(JSON.stringify({ status: false, message: 'No encryptedData found', raw: text.slice(0, 500) }), { status: 200, headers: CORS });
   } catch (e) {
     return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
   }
