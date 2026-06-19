@@ -2734,7 +2734,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         currentCdntoken = cdntoken;
                         currentCdnTokenQuery = '';
                         currentAuthXmlToken = data.authXmlToken;
-                        currentAuthXmlTokenFetchedAt = Date.now();
+                        currentAuthXmlTokenFetchedAt = 0;
                         console.log('[AZAM] Using stored tokens for', channelName);
                         const tokExp = getTokExpiry(parsed);
                         const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
