@@ -225,15 +225,22 @@ async function handleAzamContent(request) {
     });
     clearTimeout(timeout);
     const text = await resp.text();
-    let json;
-    try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200) }; }
-    const data = json.data || json;
-    const newContentDtl = data.contentDtl || null;
-    const newSubscriptionDtl = data.subscriberDtl || data.subscriptionDtl || null;
-    if (newContentDtl && newSubscriptionDtl) {
-      return new Response(JSON.stringify({ status: true, data: { contentDtl: newContentDtl, subscriptionDtl: newSubscriptionDtl } }), { status: 200, headers: CORS });
+    // Azam session/initialize returns TWO JSON objects separated by newline
+    let contentDtl = null, subscriberDtl = null;
+    for (const part of text.split('\n')) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      try {
+        const obj = JSON.parse(trimmed);
+        const data = obj.data || obj;
+        if (data.contentDtl) contentDtl = data.contentDtl;
+        if (data.subscriberDtl) subscriberDtl = data.subscriberDtl;
+      } catch (_) {}
     }
-    return new Response(JSON.stringify({ status: false, message: 'Could not extract contentDtl/subscriberDtl from session/initialize', raw: text.slice(0, 500) }), { status: 200, headers: CORS });
+    if (contentDtl && subscriberDtl) {
+      return new Response(JSON.stringify({ status: true, data: { contentDtl, subscriptionDtl: subscriberDtl } }), { status: 200, headers: CORS });
+    }
+    return new Response(JSON.stringify({ status: false, message: 'Could not extract contentDtl/subscriberDtl', raw: text.slice(0, 500) }), { status: 200, headers: CORS });
   } catch (e) {
     return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
   }

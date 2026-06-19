@@ -3368,9 +3368,9 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
                     }
                 });
-                netEng.registerResponseFilter((type, response) => {
+                netEng.registerResponseFilter(async (type, response) => {
                     if (type === shaka.net.NetworkingEngine.RequestType.LICENSE && response.status === 200) {
-                        azamDoPreFetch();
+                        await azamDoPreFetch();
                     }
                 });
 
