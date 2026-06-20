@@ -312,29 +312,19 @@ async function handleAzamContent(request) {
 
 async function handleDrmAuth(request) {
   try {
-    const { bearer, contentDtl, subscriptionDtl, profileId, deviceId: reqDeviceId } = await request.json();
+    const { bearer, contentDtl, subscriptionDtl, profileId } = await request.json();
     if (!bearer) {
       return new Response(JSON.stringify({ status: false, message: 'Missing bearer token' }), { status: 400, headers: CORS });
     }
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    // Extract deviceId from JWT iss field (format: "userId_deviceId"), or use request, or random
-    let deviceId = reqDeviceId;
-    if (!deviceId) {
-      try {
-        const parts = finalBearer.split('.');
-        const payload = JSON.parse(atob(parts[1]));
-        if (payload.iss && payload.iss.includes('_')) deviceId = payload.iss.split('_')[1];
-      } catch {}
-    }
-    if (!deviceId) deviceId = crypto.randomUUID();
     const headers = {
       'Authorization': `Bearer ${finalBearer}`,
       'Content-Type': 'application/json',
       'tenant_identifier': 'master',
       'platform': 'WEB',
-      'device_id': deviceId,
+      'device_id': 'undefined',
       'languageCode': 'eng',
       'language': 'eng',
       'local': 'TZ',
@@ -347,9 +337,7 @@ async function handleDrmAuth(request) {
     let body = JSON.stringify({
       offlineDownload: false,
       subscriptionDtl,
-      subscriberDtl: subscriptionDtl,
-      contentDtl,
-      deviceId
+      contentDtl
     });
     let resp = await fetch(AZAM_DRM_AUTH_URL, {
       signal: controller.signal,
@@ -372,8 +360,7 @@ async function handleDrmAuth(request) {
               body: JSON.stringify({
                 offlineDownload: false,
                 contentDtl,
-                subscriptionDtl: contentDtl,
-                subscriberDtl: contentDtl
+                subscriptionDtl: contentDtl
               })
             });
             if (sessionResp.status === 200) {
@@ -398,8 +385,7 @@ async function handleDrmAuth(request) {
               body: JSON.stringify({
                 offlineDownload: false,
                 contentDtl,
-                subscriptionDtl: finalBearer,
-                subscriberDtl: finalBearer
+                subscriptionDtl: finalBearer
               })
             });
             if (jwtSubResp.status === 200) {
@@ -423,8 +409,7 @@ async function handleDrmAuth(request) {
             body: JSON.stringify({
               offlineDownload: false,
               contentDtl,
-              subscriptionDtl: '',
-              subscriberDtl: ''
+              subscriptionDtl: ''
             })
           });
         }
