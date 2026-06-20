@@ -2792,7 +2792,17 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         currentAuthXmlToken = authXmlToken;
                         currentAuthXmlTokenFetchedAt = Date.now();
                         const freshTokPrefix = cdnBase + '/tok_' + cdntoken;
-                        setAzamChannelData(channelName, { authXmlToken, tok_prefix: freshTokPrefix });
+                        // Check if DRM auth also returned fresh contentDtl/subscriptionDtl
+                        const freshCtl = d.contentDtl || d.encryptedData || null;
+                        const freshSub = d.subscriptionDtl || d.subscriberDtl || null;
+                        if (freshCtl && freshSub) {
+                            currentContentDtl = freshCtl;
+                            currentSubscriptionDtl = freshSub;
+                            setAzamChannelData(channelName, { content_dtl: freshCtl, subscription_dtl: freshSub, authXmlToken, tok_prefix: freshTokPrefix });
+                            console.log('[AZAM] DRM auth returned fresh contentDtl+subscriptionDtl');
+                        } else {
+                            setAzamChannelData(channelName, { authXmlToken, tok_prefix: freshTokPrefix });
+                        }
                         console.log('[AZAM] Got fresh tokens from direct DRM call for', channelName);
                         console.timeEnd('[TIMER] fetchTokens-' + channelName);
                         return { success: true, cdnBase, cdntoken, cdnTokenQuery, authXmlToken, expiresAt: null };
@@ -2936,11 +2946,19 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const bearer = getGlobalBearer();
                 if (!bearer || !currentContentDtl || !currentSubscriptionDtl) return;
                 // Resolve channelName if lastChannelName is empty
-                const preFetchChannelName = lastChannelName || document.getElementById('modal-channel-name')?.textContent || '';
+                const preFetchChannelName = lastChannelName || azamNameToKey(document.getElementById('modal-channel-name')?.textContent || '');
                 const result = await fetchDrmAuthToken(bearer, currentContentDtl, currentSubscriptionDtl);
                 if (result.status && result.data && result.data.authXmlToken) {
                     currentAuthXmlToken = result.data.authXmlToken;
                     currentAuthXmlTokenFetchedAt = Date.now();
+                    // Check if DRM auth also returned fresh contentDtl/subscriptionDtl
+                    const freshCtl = result.data.contentDtl || result.data.encryptedData || null;
+                    const freshSub = result.data.subscriptionDtl || result.data.subscriberDtl || null;
+                    if (freshCtl && freshSub) {
+                        currentContentDtl = freshCtl;
+                        currentSubscriptionDtl = freshSub;
+                        if (preFetchChannelName) setAzamChannelData(preFetchChannelName, { content_dtl: freshCtl, subscription_dtl: freshSub });
+                    }
                 } else if (result._debug?.statusCode === 403 && /invalid subscription/i.test(result.message || '')) {
                     console.warn('[AZAM] subscriptionDtl expired, trying to refresh...');
                     console.log('[DBG] pre-fetch 403 full result:', JSON.stringify(result).slice(0, 1500));
@@ -3064,6 +3082,15 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                                         localStorage.setItem('heis5_azam_global_bearer', nb);
                                         if (rj.data?.refreshToken) localStorage.setItem('heis5_azam_refresh_token', rj.data.refreshToken);
                                         bearer = nb;
+                                    }
+                                    // Store fresh contentDtl/subscriptionDtl if returned by refresh API
+                                    const freshCtl = rj.data?.contentDtl || null;
+                                    const freshSub = rj.data?.subscriptionDtl || null;
+                                    if (freshCtl && freshSub && channelName) {
+                                        currentContentDtl = freshCtl;
+                                        currentSubscriptionDtl = freshSub;
+                                        setAzamChannelData(channelName, { content_dtl: freshCtl, subscription_dtl: freshSub });
+                                        console.log('[AZAM] Updated contentDtl/subscriptionDtl from refresh-token API');
                                     }
                                 }
                             }

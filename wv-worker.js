@@ -187,7 +187,20 @@ async function handleAzamRefresh(request) {
     const text = await resp.text();
     let json;
     try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200) }; }
-    return new Response(JSON.stringify(json), {
+    // Extract contentDtl/subscriberDtl if present in refresh response
+    const data = json.data || json;
+    const freshContentDtl = data.contentDtl || data.encryptedData || null;
+    const freshSubDtl = data.subscriberDtl || data.subscriptionDtl || null;
+    const payload = {
+      status: json.status !== false,
+      data: {
+        accessToken: data.accessToken || data.jwt_token || data.access_token || null,
+        refreshToken: data.refreshToken || data.refresh_token || null,
+        ...(freshContentDtl ? { contentDtl: freshContentDtl } : {}),
+        ...(freshSubDtl ? { subscriptionDtl: freshSubDtl } : {})
+      }
+    };
+    return new Response(JSON.stringify(payload), {
       status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
     });
   } catch (e) {
@@ -308,30 +321,53 @@ async function handleDrmAuth(request) {
     const timeout = setTimeout(() => controller.abort(), 10000);
     // Use fresh random device_id per call to avoid session binding issues
     const deviceId = crypto.randomUUID();
-    const resp = await fetch(AZAM_DRM_AUTH_URL, {
+    const headers = {
+      'Authorization': `Bearer ${finalBearer}`,
+      'Content-Type': 'application/json',
+      'tenant_identifier': 'master',
+      'platform': 'WEB',
+      'device_id': deviceId,
+      'languageCode': 'eng',
+      'language': 'eng',
+      'local': 'TZ',
+      'profileId': profileId || '25222709',
+      'requestCount': '0',
+      'Origin': 'https://web.azamtvmax.com',
+      'Referer': 'https://web.azamtvmax.com/',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    };
+    let body = JSON.stringify({
+      offlineDownload: false,
+      subscriptionDtl,
+      contentDtl
+    });
+    let resp = await fetch(AZAM_DRM_AUTH_URL, {
       signal: controller.signal,
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${finalBearer}`,
-        'Content-Type': 'application/json',
-        'tenant_identifier': 'master',
-        'platform': 'WEB',
-        'device_id': deviceId,
-        'languageCode': 'eng',
-        'language': 'eng',
-        'local': 'TZ',
-        'profileId': profileId || '25222709',
-        'requestCount': '0',
-        'Origin': 'https://web.azamtvmax.com',
-        'Referer': 'https://web.azamtvmax.com/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      body: JSON.stringify({
-        offlineDownload: false,
-        subscriptionDtl,
-        contentDtl
-      })
+      headers,
+      body
     });
+    // If 403 with Invalid subscriptionDtl, retry without subscriptionDtl (use bearer account info)
+    if (resp.status === 403 && subscriptionDtl) {
+      const retryText = await resp.text();
+      try {
+        const retryJson = JSON.parse(retryText);
+        if (retryJson.errorCode === 106 && /invalid subscription/i.test(retryJson.message || '')) {
+          console.log('[WORKER] subscriptionDtl rejected, retrying without it...');
+          body = JSON.stringify({
+            offlineDownload: false,
+            contentDtl
+            // subscriptionDtl omitted — Azam may use bearer's account subscription
+          });
+          resp = await fetch(AZAM_DRM_AUTH_URL, {
+            signal: controller.signal,
+            method: 'POST',
+            headers,
+            body
+          });
+        }
+      } catch (_) {}
+    }
     clearTimeout(timeout);
     const text = await resp.text();
     let json;
