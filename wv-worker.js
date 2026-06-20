@@ -345,11 +345,12 @@ async function handleDrmAuth(request) {
       headers,
       body
     });
+    let text = '';
     // If 400/403 with Invalid subscriptionDtl, retry with alternatives
     if ((resp.status === 403 || resp.status === 400) && subscriptionDtl) {
-      const retryText = await resp.text();
+      text = await resp.text();
       try {
-        const retryJson = JSON.parse(retryText);
+        const retryJson = JSON.parse(text);
         if (retryJson.errorCode === 106 && /invalid subscription/i.test(retryJson.message || '')) {
           // Try retry with session token as subscriptionDtl
           try {
@@ -402,7 +403,7 @@ async function handleDrmAuth(request) {
             }
           } catch (_) {}
           // Final fallback: send subscriptionDtl as empty string
-          resp = await fetch(AZAM_DRM_AUTH_URL, {
+          const fallbackResp = await fetch(AZAM_DRM_AUTH_URL, {
             signal: controller.signal,
             method: 'POST',
             headers,
@@ -412,11 +413,23 @@ async function handleDrmAuth(request) {
               subscriptionDtl: ''
             })
           });
+          text = await fallbackResp.text();
+          clearTimeout(timeout);
+          let json;
+          try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200), status: false }; }
+          json._debug = { statusCode: fallbackResp.status, ts: Date.now() };
+          return new Response(JSON.stringify(json), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...CORS }
+          });
         }
       } catch (_) {}
+    } else if (resp.status === 200) {
+      text = await resp.text();
+    } else {
+      text = await resp.text();
     }
     clearTimeout(timeout);
-    const text = await resp.text();
     let json;
     try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200), status: false }; }
     json._debug = { statusCode: resp.status, ts: Date.now() };
