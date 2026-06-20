@@ -312,15 +312,15 @@ async function handleAzamContent(request) {
 
 async function handleDrmAuth(request) {
   try {
-    const { bearer, contentDtl, subscriptionDtl, profileId } = await request.json();
+    const { bearer, contentDtl, subscriptionDtl, profileId, deviceId: reqDeviceId } = await request.json();
     if (!bearer) {
       return new Response(JSON.stringify({ status: false, message: 'Missing bearer token' }), { status: 400, headers: CORS });
     }
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    // Use fresh random device_id per call to avoid session binding issues
-    const deviceId = crypto.randomUUID();
+    // Use consistent deviceId from request, or derive one from bearer token
+    const deviceId = reqDeviceId || finalBearer.slice(0, 36).replace(/[^a-f0-9-]/gi, '0') || crypto.randomUUID();
     const headers = {
       'Authorization': `Bearer ${finalBearer}`,
       'Content-Type': 'application/json',
@@ -339,7 +339,9 @@ async function handleDrmAuth(request) {
     let body = JSON.stringify({
       offlineDownload: false,
       subscriptionDtl,
-      contentDtl
+      subscriberDtl: subscriptionDtl,
+      contentDtl,
+      deviceId
     });
     let resp = await fetch(AZAM_DRM_AUTH_URL, {
       signal: controller.signal,
@@ -347,8 +349,8 @@ async function handleDrmAuth(request) {
       headers,
       body
     });
-    // If 403 with Invalid subscriptionDtl, retry without subscriptionDtl (use bearer account info)
-    if (resp.status === 403 && subscriptionDtl) {
+    // If 400/403 with Invalid subscriptionDtl, retry with alternatives
+    if ((resp.status === 403 || resp.status === 400) && subscriptionDtl) {
       const retryText = await resp.text();
       try {
         const retryJson = JSON.parse(retryText);
@@ -362,7 +364,8 @@ async function handleDrmAuth(request) {
               body: JSON.stringify({
                 offlineDownload: false,
                 contentDtl,
-                subscriptionDtl: contentDtl  // use contentDtl as subscriptionDtl (some APIs accept this)
+                subscriptionDtl: contentDtl,
+                subscriberDtl: contentDtl
               })
             });
             if (sessionResp.status === 200) {
@@ -387,7 +390,8 @@ async function handleDrmAuth(request) {
               body: JSON.stringify({
                 offlineDownload: false,
                 contentDtl,
-                subscriptionDtl: finalBearer
+                subscriptionDtl: finalBearer,
+                subscriberDtl: finalBearer
               })
             });
             if (jwtSubResp.status === 200) {
@@ -411,7 +415,8 @@ async function handleDrmAuth(request) {
             body: JSON.stringify({
               offlineDownload: false,
               contentDtl,
-              subscriptionDtl: ''
+              subscriptionDtl: '',
+              subscriberDtl: ''
             })
           });
         }
