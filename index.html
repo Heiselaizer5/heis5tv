@@ -2920,6 +2920,32 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             } catch (_) { console.warn('[AZAM] refreshAzamContentDtl session/init error'); }
             // Fallback: try content-detail-service for fresh contentDtl
             if (!channelName) { console.log('[AZAM] skip content-detail-service: no channelName'); return null; }
+            // Also try session/initialize token as subscriptionDtl
+            try {
+                const sessResp = await fetch('https://wv-proxy.erastokasoga5.workers.dev/azam-content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bearer, contentDtl: oldContentDtl, subscriptionDtl: oldSubscriptionDtl, deviceId: '8b303c13-d7a3-4b39-9579-a89ac703765c' })
+                });
+                if (sessResp.ok) {
+                    const sessJson = await sessResp.json();
+                    // session/initialize returned token — try using it as subscriptionDtl
+                    const raw = sessJson.raw || '';
+                    for (const part of raw.split('\n')) {
+                        try {
+                            const obj = JSON.parse(part.trim());
+                            const sessionToken = obj?.data?.token;
+                            if (sessionToken) {
+                                const drmResult = await fetchDrmAuthToken(bearer, oldContentDtl, sessionToken);
+                                if (drmResult.status && drmResult.data && drmResult.data.authXmlToken) {
+                                    console.log('[AZAM] Session token worked as subscriptionDtl!');
+                                    return { contentDtl: oldContentDtl, subscriptionDtl: sessionToken };
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                }
+            } catch (_) {}
             try {
                 console.log('[AZAM] Trying content-detail-service for', channelName);
                 const resp = await fetch('https://wv-proxy.erastokasoga5.workers.dev/azam-channel-content', {
@@ -3199,13 +3225,12 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             } else {
                 let tokPrefix = await ensureValidTokPrefix(channelName);
                 authXml = await ensureValidAuthXml(channelName);
-                if (!tokPrefix) {
-                    const freshData = getAzamChannelData(channelName);
-                    if (freshData.tok_prefix) {
-                        const parsed = extractTokPrefix(freshData.tok_prefix) || freshData.tok_prefix;
-                        const exp = getTokExpiry(parsed);
-                        if (exp && exp * 1000 > Date.now()) tokPrefix = parsed;
-                    }
+                // Always check if authXml refresh stored a fresh tok_prefix
+                const freshData = getAzamChannelData(channelName);
+                if (freshData.tok_prefix) {
+                    const parsed = extractTokPrefix(freshData.tok_prefix) || freshData.tok_prefix;
+                    const exp = getTokExpiry(parsed);
+                    if (exp && exp * 1000 > Date.now()) tokPrefix = parsed;
                 }
                 if (tokPrefix) {
                     currentCdnBase = extractCdnHost(tokPrefix);

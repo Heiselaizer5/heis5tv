@@ -353,17 +353,41 @@ async function handleDrmAuth(request) {
       try {
         const retryJson = JSON.parse(retryText);
         if (retryJson.errorCode === 106 && /invalid subscription/i.test(retryJson.message || '')) {
-          console.log('[WORKER] subscriptionDtl rejected, retrying without it...');
-          body = JSON.stringify({
-            offlineDownload: false,
-            contentDtl
-            // subscriptionDtl omitted — Azam may use bearer's account subscription
-          });
+          // Try retry with session token as subscriptionDtl
+          try {
+            const sessionResp = await fetch(AZAM_DRM_AUTH_URL, {
+              signal: controller.signal,
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                offlineDownload: false,
+                contentDtl,
+                subscriptionDtl: contentDtl  // use contentDtl as subscriptionDtl (some APIs accept this)
+              })
+            });
+            if (sessionResp.status === 200) {
+              const sessionText = await sessionResp.text();
+              let sessionJson;
+              try { sessionJson = JSON.parse(sessionText); } catch { sessionJson = null; }
+              if (sessionJson && sessionJson.data?.authXmlToken) {
+                sessionJson._debug = { statusCode: sessionResp.status, ts: Date.now(), retry: 'contentDtl-as-sub' };
+                clearTimeout(timeout);
+                return new Response(JSON.stringify(sessionJson), {
+                  status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
+                });
+              }
+            }
+          } catch (_) {}
+          // Final fallback: send subscriptionDtl as empty string
           resp = await fetch(AZAM_DRM_AUTH_URL, {
             signal: controller.signal,
             method: 'POST',
             headers,
-            body
+            body: JSON.stringify({
+              offlineDownload: false,
+              contentDtl,
+              subscriptionDtl: ''
+            })
           });
         }
       } catch (_) {}
