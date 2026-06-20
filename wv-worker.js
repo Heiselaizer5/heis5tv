@@ -377,6 +377,31 @@ async function handleDrmAuth(request) {
                 });
               }
             }
+            } catch (_) {}
+          // Try retry with bearer token (JWT) as subscriptionDtl
+          try {
+            const jwtSubResp = await fetch(AZAM_DRM_AUTH_URL, {
+              signal: controller.signal,
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                offlineDownload: false,
+                contentDtl,
+                subscriptionDtl: finalBearer
+              })
+            });
+            if (jwtSubResp.status === 200) {
+              const jwtSubText = await jwtSubResp.text();
+              let jwtSubJson;
+              try { jwtSubJson = JSON.parse(jwtSubText); } catch { jwtSubJson = null; }
+              if (jwtSubJson && jwtSubJson.data?.authXmlToken) {
+                jwtSubJson._debug = { statusCode: jwtSubResp.status, ts: Date.now(), retry: 'bearer-as-sub' };
+                clearTimeout(timeout);
+                return new Response(JSON.stringify(jwtSubJson), {
+                  status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
+                });
+              }
+            }
           } catch (_) {}
           // Final fallback: send subscriptionDtl as empty string
           resp = await fetch(AZAM_DRM_AUTH_URL, {
