@@ -319,8 +319,16 @@ async function handleDrmAuth(request) {
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    // Use consistent deviceId from request, or derive one from bearer token
-    const deviceId = reqDeviceId || finalBearer.slice(0, 36).replace(/[^a-f0-9-]/gi, '0') || crypto.randomUUID();
+    // Extract deviceId from JWT iss field (format: "userId_deviceId"), or use request, or random
+    let deviceId = reqDeviceId;
+    if (!deviceId) {
+      try {
+        const parts = finalBearer.split('.');
+        const payload = JSON.parse(atob(parts[1]));
+        if (payload.iss && payload.iss.includes('_')) deviceId = payload.iss.split('_')[1];
+      } catch {}
+    }
+    if (!deviceId) deviceId = crypto.randomUUID();
     const headers = {
       'Authorization': `Bearer ${finalBearer}`,
       'Content-Type': 'application/json',
