@@ -3541,8 +3541,15 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                 });
                 netEng.registerResponseFilter(async (type, response) => {
-                    if (type === shaka.net.NetworkingEngine.RequestType.LICENSE && response.status === 200) {
-                        await azamDoPreFetch();
+                    if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
+                        const nagraStatus = response.headers?.['X-Nagra-Status'];
+                        const nagraBody = response.headers?.['X-Nagra-Body'];
+                        if (nagraStatus || response.status !== 200) {
+                            console.log('[NAGRA RESPONSE] status=' + response.status + ' nagraStatus=' + nagraStatus + ' nagraBody=' + nagraBody + ' dataSize=' + (response.data?.byteLength || 0));
+                        }
+                        if (response.status === 200) {
+                            await azamDoPreFetch();
+                        }
                     }
                 });
 

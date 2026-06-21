@@ -72,12 +72,16 @@ export default {
         body
       });
       const buf = await resp.arrayBuffer();
-      return new Response(buf, {
-        status: resp.status,
-        headers: { ...CORS, 'Content-Type': resp.headers.get('content-type') || 'application/octet-stream' }
-      });
+      // Debug: add Nagra response info headers for non-200
+      const respHeaders = { ...CORS, 'Content-Type': resp.headers.get('content-type') || 'application/octet-stream' };
+      if (resp.status !== 200) {
+        const bodyPreview = new TextDecoder().decode(buf.slice(0, 300));
+        respHeaders['X-Nagra-Status'] = String(resp.status);
+        respHeaders['X-Nagra-Body'] = bodyPreview.replace(/["\n\r]/g, ' ').slice(0, 250);
+      }
+      return new Response(buf, { status: resp.status, headers: respHeaders });
     } catch (e) {
-      return new Response(e.message, { status: 502, headers: CORS });
+      return new Response(JSON.stringify({ error: e.message }), { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
   }
 };
