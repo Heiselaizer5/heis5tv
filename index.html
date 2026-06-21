@@ -2981,7 +2981,11 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         let azamReloadLock = false;
         let lastMpdUrl = '';
         let azamAuthRefreshTimer = null;
+        let lastDrmAuthCall = 0;
         async function doAzamRefresh(channelName) {
+            const now = Date.now();
+            if (now - lastDrmAuthCall < 30000) return;
+            lastDrmAuthCall = now;
             const bearer = getGlobalBearer();
             const data = getAzamChannelData(channelName);
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return;
@@ -3354,9 +3358,6 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         const nagraBody = response.headers?.['X-Nagra-Body'];
                         if (nagraStatus || response.status !== 200) {
                             console.log('[NAGRA RESPONSE] status=' + response.status + ' nagraStatus=' + nagraStatus + ' nagraBody=' + nagraBody + ' dataSize=' + (response.data?.byteLength || 0));
-                        }
-                        if (response.status === 200 && lastChannelName) {
-                            doAzamRefresh(lastChannelName);
                         }
                     }
                 });
