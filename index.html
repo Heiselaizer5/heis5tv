@@ -3043,7 +3043,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         let lastDrmAuthCall = 0;
         async function doAzamRefresh(channelName) {
             const now = Date.now();
-            if (now - lastDrmAuthCall < 30000) return;
+            if (now - lastDrmAuthCall < 15000) return;
             lastDrmAuthCall = now;
             const bearer = getGlobalBearer();
             const data = getAzamChannelData(channelName);
@@ -3395,9 +3395,28 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const mpdUrl = url;
                 const lastSlash = mpdUrl.lastIndexOf('/');
                 if (lastSlash > 0) azamCdnBaseUrl = mpdUrl.substring(0, lastSlash + 1);
-                netEng.registerRequestFilter((type, request) => {
+                netEng.registerRequestFilter(async (type, request) => {
                     const uri = request.uris[0];
                     if (uri.includes('wv-proxy') || uri.includes('/wv-proxy')) {
+                        // Ensure fresh authXmlToken before each license request
+                        if (!currentAuthXmlToken || Date.now() - currentAuthXmlTokenFetchedAt > 20000) {
+                            const bearer = getGlobalBearer();
+                            const data = getAzamChannelData(lastChannelName);
+                            if (bearer && data?.content_dtl && data?.subscription_dtl) {
+                                const now = Date.now();
+                                if (now - lastDrmAuthCall >= 15000) {
+                                    lastDrmAuthCall = now;
+                                    try {
+                                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                                        if (result.status && result.data?.authXmlToken) {
+                                            currentAuthXmlToken = result.data.authXmlToken;
+                                            currentAuthXmlTokenFetchedAt = Date.now();
+                                            console.log('[AZAM] Pre-license refresh OK');
+                                        }
+                                    } catch (_) {}
+                                }
+                            }
+                        }
                         if (currentAuthXmlToken) {
                             request.headers['nv-authorizations'] = currentAuthXmlToken;
                         }
