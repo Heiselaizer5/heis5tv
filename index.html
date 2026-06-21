@@ -2693,15 +2693,6 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         const cdn = result.data.tok_prefix || result.data.cdn_url;
                         setAzamChannelData(channelName, { tok_prefix: cdn });
                         console.log('[AZAM] Also updated tok_prefix from DRM auth response');
-                    } else if (result.data.cdnToken) {
-                        const cdnTokJwt = result.data.cdnToken.replace(/^\?cdntoken=/, '');
-                        const existingTok = getAzamChannelData(channelName).tok_prefix;
-                        const baseM = existingTok ? existingTok.match(/^(https?:\/\/[^/]+)/) : null;
-                        const base = baseM ? baseM[1] : (currentCdnBase || 'https://cdnblncr.azamtvltd.co.tz');
-                        if (cdnTokJwt) {
-                            setAzamChannelData(channelName, { tok_prefix: base + '/tok_' + cdnTokJwt });
-                            console.log('[AZAM] Updated tok_prefix from cdnToken in ensureValidAuthXml');
-                        }
                     }
                     console.log('[AZAM] Refreshed authXmlToken for', channelName);
                     return result.data.authXmlToken;
@@ -2794,18 +2785,17 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             if (m) { cdnBase = m[1]; cdntoken = m[2]; break; }
                         }
                     }
-                    // Fallback: extract cdntoken from cdnToken response field
+
+                    // Fallback: extract cdntoken from cdnToken response field (same as ?cdntoken= on MPD URL)
                     if (!cdnBase && d.cdnToken) {
                         const cdnTokJwt = d.cdnToken.replace(/^\?cdntoken=/, '');
                         if (cdnTokJwt) {
                             cdntoken = cdnTokJwt;
-                            // Reuse currentCdnBase if set, otherwise extract from stored channel tok_prefix, fallback to default
                             cdnBase = currentCdnBase || (() => {
                                 const existingTok = getAzamChannelData(channelName).tok_prefix;
                                 const m = existingTok ? existingTok.match(/^(https?:\/\/[^/]+)/) : null;
                                 return m ? m[1] : 'https://cdnblncr.azamtvltd.co.tz';
                             })();
-                            console.log('[AZAM] Extracted cdntoken from cdnToken response, cdnBase:', cdnBase);
                         }
                     }
                     if (cdnBase && cdntoken && authXmlToken) {
@@ -3026,13 +3016,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             const d = retry.data;
                             const rawTok = d.tok_prefix || d.cdn_url || null;
                             if (rawTok) setAzamChannelData(lastChannelName, { tok_prefix: rawTok });
-                            else if (d.cdnToken) {
-                                const cdnTokJwt = d.cdnToken.replace(/^\?cdntoken=/, '');
-                                if (cdnTokJwt) {
-                                    const base = currentCdnBase || 'https://cdnblncr.azamtvltd.co.tz';
-                                    setAzamChannelData(lastChannelName, { tok_prefix: base + '/tok_' + cdnTokJwt });
-                                }
-                            }
+
                             return;
                         }
                     }
