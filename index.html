@@ -2677,27 +2677,30 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         async function ensureValidAuthXml(channelName) {
             const data = getAzamChannelData(channelName);
             if (!data.authXmlToken) return null;
-            const exp = getExpiryFromAuthXml(data.authXmlToken);
-            if (exp && exp * 1000 > Date.now() + 300000) return data.authXmlToken;
-            console.log('[AZAM] authXmlToken expired/expiring for', channelName, '- refreshing...');
             const bearer = getGlobalBearer();
-            if (!bearer || !data.content_dtl || !data.subscription_dtl) {
-                console.warn('[AZAM] Cannot refresh authXmlToken: missing bearer/content_dtl/subscription_dtl');
-                return data.authXmlToken || null;
-            }
-            try {
-                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
-                if (result.status && result.data && result.data.authXmlToken) {
-                    setAzamChannelData(channelName, { authXmlToken: result.data.authXmlToken });
-                    if (result.data.tok_prefix || result.data.cdn_url) {
-                        const cdn = result.data.tok_prefix || result.data.cdn_url;
-                        setAzamChannelData(channelName, { tok_prefix: cdn });
-                        console.log('[AZAM] Also updated tok_prefix from DRM auth response');
-                    }
-                    console.log('[AZAM] Refreshed authXmlToken for', channelName);
-                    return result.data.authXmlToken;
+            if (bearer && data.content_dtl && data.subscription_dtl) {
+                const now = Date.now();
+                if (now - lastDrmAuthCall >= 30000) {
+                    lastDrmAuthCall = now;
+                    try {
+                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                        if (result.status && result.data && result.data.authXmlToken) {
+                            setAzamChannelData(channelName, { authXmlToken: result.data.authXmlToken });
+                            if (result.data.tok_prefix || result.data.cdn_url) {
+                                const cdn = result.data.tok_prefix || result.data.cdn_url;
+                                setAzamChannelData(channelName, { tok_prefix: cdn });
+                                console.log('[AZAM] Also updated tok_prefix from DRM auth response');
+                            }
+                            console.log('[AZAM] Refreshed authXmlToken for', channelName);
+                            return result.data.authXmlToken;
+                        }
+                    } catch (e) { console.warn('[AZAM] Refresh failed:', e.message); }
+                } else {
+                    console.log('[AZAM] Skipping authXml refresh for', channelName, '(within 30s cooldown)');
                 }
-            } catch (e) { console.warn('[AZAM] Refresh failed:', e.message); }
+            } else {
+                console.warn('[AZAM] Cannot refresh authXmlToken: missing bearer/content_dtl/subscription_dtl');
+            }
             return data.authXmlToken || null;
         }
         async function ensureValidTokPrefix(channelName) {
@@ -2730,44 +2733,97 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             console.log('[DBG] fetchAzamTokensFromApi called for', channelName + (forceRefresh ? ' (forced)' : ''));
             const data = getAzamChannelData(channelName);
             console.log('[DBG] data keys:', Object.keys(data).join(','));
-            // Use locally stored tokens first — no backend call needed (unless forced)
-            if (!forceRefresh && data.tok_prefix && data.authXmlToken) {
+            // Try API first to get fresh authXmlToken (server TTL ~1 min, JWT exp is 45 min — can't trust JWT)
+            if (data.content_dtl && data.subscription_dtl) {
+                const bearer = getGlobalBearer();
+                if (bearer) {
+                    const now = Date.now();
+                    if (now - lastDrmAuthCall >= 30000) {
+                        lastDrmAuthCall = now;
+                        try {
+                            const apiResult = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                            if (apiResult.status && apiResult.data && apiResult.data.authXmlToken) {
+                                console.log('[AZAM] Fresh authXmlToken from API for', channelName);
+                                const d = apiResult.data;
+                                const authXmlToken = d.authXmlToken;
+                                const cdnTokenQuery = d.cdnToken || '';
+                                const rawTok = d.tok_prefix || d.cdn_url || null;
+                                let cdnBase = null, cdntoken = null;
+                                if (rawTok) {
+                                    const m = rawTok.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
+                                    if (m) { cdnBase = m[1]; cdntoken = m[2]; }
+                                }
+                                if (!cdnBase && d.cdns && Array.isArray(d.cdns)) {
+                                    for (const c of d.cdns) {
+                                        const m = c.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
+                                        if (m) { cdnBase = m[1]; cdntoken = m[2]; break; }
+                                    }
+                                }
+                                // Fallback: use stored tok_prefix for CDN (manual, long-lived)
+                                if (!cdnBase || !cdntoken) {
+                                    if (data.tok_prefix) {
+                                        const parsed = extractTokPrefix(data.tok_prefix);
+                                        if (parsed) {
+                                            cdnBase = extractCdnHost(parsed);
+                                            cdntoken = extractCdntoken(parsed);
+                                        }
+                                    }
+                                }
+                                const toSave = { authXmlToken };
+                                const freshCtl = d.contentDtl || d.encryptedData || null;
+                                const freshSub = d.subscriptionDtl || d.subscriberDtl || null;
+                                if (freshCtl && freshSub) {
+                                    toSave.content_dtl = freshCtl;
+                                    toSave.subscription_dtl = freshSub;
+                                }
+                                setAzamChannelData(channelName, toSave);
+                                if (cdnBase && cdntoken) {
+                                    currentCdnBase = cdnBase;
+                                    currentCdntoken = cdntoken;
+                                    currentCdnTokenQuery = cdnTokenQuery;
+                                    currentAuthXmlToken = authXmlToken;
+                                    currentAuthXmlTokenFetchedAt = Date.now();
+                                    console.log('[AZAM] Got fresh tokens + stored CDN for', channelName);
+                                    return { success: true, cdnBase, cdntoken, cdnTokenQuery, authXmlToken, expiresAt: null };
+                                }
+                            }
+                        } catch (e) { console.warn('[AZAM] API refresh failed:', e.message); }
+                    } else {
+                        console.log('[AZAM] Skipping API refresh for', channelName, '(within 30s cooldown)');
+                    }
+                }
+            }
+            // Fallback to stored tokens if API failed
+            if (data.tok_prefix) {
                 const parsed = extractTokPrefix(data.tok_prefix);
                 if (parsed) {
                     const cdnBase = extractCdnHost(parsed);
                     const cdntoken = extractCdntoken(parsed);
                     if (cdnBase && cdntoken) {
-                        // Check if stored token is actually expired — if so, go to API
-                        const tokExp = getTokExpiry(parsed);
-                        const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
-                        const expiresAt = (xmlExp && tokExp) ? Math.min(xmlExp, tokExp) : (xmlExp || tokExp || null);
-                        const isExpired = expiresAt && expiresAt * 1000 < Date.now();
-                        if (isExpired) {
-                            console.log('[AZAM] Stored tokens expired, forcing API refresh');
-                            return await fetchAzamTokensFromApi(channelName, true);
-                        }
                         currentCdnBase = cdnBase;
                         currentCdntoken = cdntoken;
                         currentCdnTokenQuery = '';
-                        currentAuthXmlToken = data.authXmlToken;
+                        currentAuthXmlToken = data.authXmlToken || '';
                         currentAuthXmlTokenFetchedAt = 0;
-                        console.log('[AZAM] Using stored tokens for', channelName);
-                        console.timeEnd('[TIMER] fetchTokens-' + channelName);
-                        return {
-                            success: true,
-                            cdnBase,
-                            cdntoken,
-                            cdnTokenQuery: '',
-                            authXmlToken: data.authXmlToken,
-                            expiresAt
-                        };
+                        console.log('[AZAM] Using stored tokens fallback for', channelName);
+                        const tokExp = getTokExpiry(parsed);
+                        const xmlExp = getExpiryFromAuthXml(data.authXmlToken);
+                        const expiresAt = (xmlExp && tokExp) ? Math.min(xmlExp, tokExp) : (xmlExp || tokExp || null);
+                        return { success: true, cdnBase, cdntoken, cdnTokenQuery: '', authXmlToken: data.authXmlToken || '', expiresAt };
                     }
                 }
             }
-            // Fall back to API (may fail if backend is down)
+            // Only try API fallback if cooldown has elapsed (avoid rate limit from duplicate call)
             const bearer = getGlobalBearer();
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return null;
             try {
+                const now = Date.now();
+                if (now - lastDrmAuthCall < 30000) {
+                    console.log('[AZAM] Skipping API fallback for', channelName, '(within 30s cooldown)');
+                    console.timeEnd('[TIMER] fetchTokens-' + channelName);
+                    return null;
+                }
+                lastDrmAuthCall = now;
                 const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
@@ -2804,18 +2860,21 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         currentCdnTokenQuery = cdnTokenQuery;
                         currentAuthXmlToken = authXmlToken;
                         currentAuthXmlTokenFetchedAt = Date.now();
-                        const freshTokPrefix = cdnBase + '/tok_' + cdntoken;
-                        // Check if DRM auth also returned fresh contentDtl/subscriptionDtl
+                        // Save to Supabase: always save authXmlToken, only save tok_prefix if API returned it (not cdnToken fallback)
+                        const toSave = { authXmlToken };
+                        if (rawTok) {
+                            toSave.tok_prefix = cdnBase + '/tok_' + cdntoken;
+                        }
                         const freshCtl = d.contentDtl || d.encryptedData || null;
                         const freshSub = d.subscriptionDtl || d.subscriberDtl || null;
                         if (freshCtl && freshSub) {
                             currentContentDtl = freshCtl;
                             currentSubscriptionDtl = freshSub;
-                            setAzamChannelData(channelName, { content_dtl: freshCtl, subscription_dtl: freshSub, authXmlToken, tok_prefix: freshTokPrefix });
+                            toSave.content_dtl = freshCtl;
+                            toSave.subscription_dtl = freshSub;
                             console.log('[AZAM] DRM auth returned fresh contentDtl+subscriptionDtl');
-                        } else {
-                            setAzamChannelData(channelName, { authXmlToken, tok_prefix: freshTokPrefix });
                         }
+                        setAzamChannelData(channelName, toSave);
                         console.log('[AZAM] Got fresh tokens from direct DRM call for', channelName);
                         console.timeEnd('[TIMER] fetchTokens-' + channelName);
                         return { success: true, cdnBase, cdntoken, cdnTokenQuery, authXmlToken, expiresAt: null };
@@ -3043,8 +3102,8 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 lastMpdUrl = mpdUrl;
                 lastChannelName = channelName;
                 const chanData = getAzamChannelData(channelName);
-                currentContentDtl = chanData.content_dtl || data.content_dtl || '';
-                currentSubscriptionDtl = chanData.subscription_dtl || data.subscription_dtl || '';
+                currentContentDtl = chanData.content_dtl || '';
+                currentSubscriptionDtl = chanData.subscription_dtl || '';
                 authXml = currentAuthXmlToken;
                 startAuthXmlRefresh(channelName);
                 console.timeLog('[TIMER] openAzamChannel-' + channelName, 'got tokens + mpdUrl');
