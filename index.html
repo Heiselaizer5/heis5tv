@@ -3407,16 +3407,15 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         if (channel) {
                             const bearer = getGlobalBearer();
                             const data = getAzamChannelData(channel);
-                            const timeSinceFetch = Date.now() - (currentAuthXmlTokenFetchedAt || 0);
-                            if (timeSinceFetch > 10000 && bearer && data.content_dtl && data.subscription_dtl) {
-                                try {
-                                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
-                                    console.log('[FILTER] License token refresh result:', result.status, !!result.data?.authXmlToken);
-                                    if (result.data && result.data.authXmlToken) {
-                                        currentAuthXmlToken = result.data.authXmlToken;
-                                        currentAuthXmlTokenFetchedAt = Date.now();
-                                    }
-                                } catch (_) {}
+                            // Send tokens to worker so it can refresh authXmlToken internally
+                            if (bearer) {
+                                request.headers['x-bearer'] = bearer;
+                            }
+                            if (data.content_dtl) {
+                                request.headers['x-content-dtl'] = data.content_dtl;
+                            }
+                            if (data.subscription_dtl) {
+                                request.headers['x-subscription-dtl'] = data.subscription_dtl;
                             }
                         }
                         if (currentAuthXmlToken) {
