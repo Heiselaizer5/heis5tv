@@ -60,10 +60,12 @@ export default {
       const targetUrl = decodeURIComponent(url.searchParams.get('url'));
       const authXml = request.headers.get('nv-authorizations') || '';
       const body = await request.arrayBuffer();
+      const contentType = request.headers.get('Content-Type') || 'application/octet-stream';
       const resp = await fetch(targetUrl, {
         method: 'POST',
         headers: {
           'nv-authorizations': authXml,
+          'Content-Type': contentType,
           'Origin': 'https://web.azamtvmax.com',
           'Referer': 'https://web.azamtvmax.com/'
         },
