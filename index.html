@@ -2654,12 +2654,14 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 return JSON.parse(atob(p));
             } catch (e) { return null; }
         }
-        async function fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl) {
+        async function fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl, refreshToken) {
             const endpoint = API_DRM_AUTH || '/drm-auth';
+            const body = { bearer, contentDtl, subscriptionDtl };
+            if (refreshToken) body.refreshToken = refreshToken;
             const resp = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bearer, contentDtl, subscriptionDtl })
+                body: JSON.stringify(body)
             });
             return await resp.json();
         }
@@ -3048,9 +3050,10 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         let azamAuthRefreshTimer = null;
         let lastDrmAuthCall = 0;
         async function doAzamRefresh(channelName) {
-            const bearer = getGlobalBearer();
             const data = getAzamChannelData(channelName);
-            if (!bearer || !data.content_dtl || !data.subscription_dtl) return;
+            if (!data.content_dtl || !data.subscription_dtl) return;
+            let bearer = getGlobalBearer();
+            if (!bearer) return;
             try {
                 const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
                 console.log('[AZAM] doAzamRefresh result:', JSON.stringify(result).slice(0, 300));
@@ -3058,7 +3061,6 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     currentAuthXmlToken = result.data.authXmlToken;
                     currentAuthXmlTokenFetchedAt = Date.now();
                     const toSave = { authXmlToken: currentAuthXmlToken };
-                    // Also save fresh contentDtl/subscriptionDtl if returned
                     if (result.data.contentDtl || result.data.encryptedData) {
                         const freshCtl = result.data.contentDtl || result.data.encryptedData;
                         const freshSub = result.data.subscriptionDtl || result.data.subscriberDtl;
@@ -3069,32 +3071,40 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                     setAzamChannelData(channelName, toSave);
                     console.log('[AZAM] Refreshed authXmlToken for', channelName);
-                } else if (result._debug?.statusCode === 400 && /invalid subscription/i.test(result.message || '')) {
-                    console.warn('[AZAM] subscriptionDtl expired, trying to refresh contentDtl...');
-                    const fresh = await refreshAzamContentDtl(bearer, channelName, data.content_dtl, data.subscription_dtl);
-                    if (fresh) {
-                        console.log('[AZAM] contentDtl refreshed OK, retrying DRM auth...');
-                        setAzamChannelData(channelName, fresh);
-                        const retry = await fetchDrmAuthToken(bearer, fresh.contentDtl, fresh.subscriptionDtl);
-                        console.log('[AZAM] Retry DRM auth result:', JSON.stringify(retry).slice(0, 300));
-                        if (retry.data && retry.data.authXmlToken) {
-                            currentAuthXmlToken = retry.data.authXmlToken;
-                            currentAuthXmlTokenFetchedAt = Date.now();
-                            const toSave = { authXmlToken: currentAuthXmlToken };
-                            if (retry.data.contentDtl || retry.data.encryptedData) {
-                                const freshCtl = retry.data.contentDtl || retry.data.encryptedData;
-                                const freshSub = retry.data.subscriptionDtl || retry.data.subscriberDtl;
-                                if (freshCtl && freshSub) {
-                                    toSave.content_dtl = freshCtl;
-                                    toSave.subscription_dtl = freshSub;
+                } else if (result._debug?.statusCode === 400 || /invalid subscription/i.test(result.message || '')) {
+                    console.warn('[AZAM] subscriptionDtl expired, trying to refresh bearer first...');
+                    // Try refresh bearer first in case it expired
+                    const refreshToken = localStorage.getItem('heis5_azam_refresh_token');
+                    if (refreshToken) {
+                        try {
+                            const refResp = await fetch(API_AZAM_REFRESH, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ refreshToken, currentBearer: bearer })
+                            });
+                            const refJson = await refResp.json();
+                            if (refJson.status && refJson.data) {
+                                const newBearer = refJson.data.accessToken || refJson.data.jwt_token || '';
+                                if (newBearer) {
+                                    localStorage.setItem('heis5_azam_global_bearer', newBearer);
+                                    bearer = newBearer;
+                                    const freshCtl = refJson.data.contentDtl || null;
+                                    const freshSub = refJson.data.subscriptionDtl || null;
+                                    if (freshCtl && freshSub) {
+                                        setAzamChannelData(channelName, { content_dtl: freshCtl, subscription_dtl: freshSub });
+                                        const retry = await fetchDrmAuthToken(bearer, freshCtl, freshSub);
+                                        if (retry.data?.authXmlToken) {
+                                            currentAuthXmlToken = retry.data.authXmlToken;
+                                            currentAuthXmlTokenFetchedAt = Date.now();
+                                            setAzamChannelData(channelName, { authXmlToken: currentAuthXmlToken });
+                                            console.log('[AZAM] Bearer refresh + DRM auth succeeded');
+                                            return;
+                                        }
+                                    }
                                 }
                             }
-                            setAzamChannelData(channelName, toSave);
-                            console.log('[AZAM] Retry refreshed authXmlToken for', channelName);
-                        }
-                    } else {
-                        console.warn('[AZAM] Could not refresh contentDtl');
+                        } catch (_) {}
                     }
+                    console.warn('[AZAM] Could not refresh tokens for', channelName);
                 }
             } catch (_) {}
         }
@@ -3483,6 +3493,10 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             }
                             if (data.subscription_dtl) {
                                 request.headers['x-subscription-dtl'] = data.subscription_dtl;
+                            }
+                            const rft = localStorage.getItem('heis5_azam_refresh_token');
+                            if (rft) {
+                                request.headers['x-refresh-token'] = rft;
                             }
                         }
                         if (currentAuthXmlToken) {

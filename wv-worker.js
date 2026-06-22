@@ -4,6 +4,112 @@ const CORS = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 const AZAM_DRM_AUTH_URL = 'https://api.aztv.videoready.tv/drm-auth-integration/v1/drm/authToken';
+const AZAM_SESSION_URL = 'https://api.aztv.videoready.tv/stream-concurrency/v1/session/initialize';
+const PERSISTENT_DEVICE_ID = '8b303c13-d7a3-4b39-9579-a89ac703765c';
+function azamHeaders(bearer) {
+  return {
+    'Authorization': `Bearer ${bearer.replace(/^Bearer\s+/i, '')}`,
+    'Content-Type': 'application/json',
+    'tenant_identifier': 'master', 'platform': 'WEB',
+    'device_id': PERSISTENT_DEVICE_ID,
+    'languageCode': 'eng', 'language': 'eng', 'local': 'TZ',
+    'profileId': '25222709', 'requestCount': '0',
+    'Origin': 'https://web.azamtvmax.com',
+    'Referer': 'https://web.azamtvmax.com/',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+  };
+}
+async function callAzamRefresh(refreshToken, currentBearer) {
+  try {
+    const deviceDetails = {
+      platform: 'WEB', operating_system: 'Windows', locale: 'en-US',
+      app_version: '1.0.0', device_name: 'Windows PC', browser_version: 150,
+      browser_name: 'Firefox', device_id: PERSISTENT_DEVICE_ID, device_type: 'open',
+      device_platform: 'WEB', device_category: 'large',
+      manufacturer: 'PC_Other', model: 'PC', sname: 'Windows PC',
+      last_usage: Date.now()
+    };
+    const finalBearer = (currentBearer || '').replace(/^Bearer\s+/i, '');
+    const resp = await fetch('https://api.aztv.videoready.tv/login/auth/v1/pub/refresh-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + finalBearer,
+        'device_details': JSON.stringify(deviceDetails),
+        'platform': 'WEB', 'tenant_identifier': 'master',
+        'language': 'eng', 'languageCode': 'eng', 'local': 'TZ',
+        'profileId': '0', 'requestCount': '0',
+        'Origin': 'https://web.azamtvmax.com',
+        'Referer': 'https://web.azamtvmax.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: JSON.stringify({ refreshToken })
+    });
+    if (!resp.ok) return null;
+    const text = await resp.text();
+    let json;
+    try { json = JSON.parse(text); } catch { return null; }
+    const data = json.data || json;
+    const newBearer = data.accessToken || data.jwt_token || data.access_token || null;
+    if (!newBearer) return null;
+    return {
+      bearer: newBearer,
+      refreshToken: data.refreshToken || data.refresh_token || null,
+      contentDtl: data.contentDtl || data.encryptedData || null,
+      subscriptionDtl: data.subscriberDtl || data.subscriptionDtl || null
+    };
+  } catch (_) { return null; }
+}
+async function tryAllFallbacks(finalBearer, contentDtl) {
+  const fallbackBodies = [
+    // Strategy 1: session/initialize → session token → use as both
+    async () => {
+      const sessResp = await fetch(AZAM_SESSION_URL, {
+        method: 'POST', headers: azamHeaders(finalBearer),
+        body: JSON.stringify({ contentDtl: '', subscriberDtl: '', deviceId: PERSISTENT_DEVICE_ID })
+      });
+      const sessText = await sessResp.text();
+      for (const part of sessText.split('\n')) {
+        try {
+          const obj = JSON.parse(part.trim());
+          if (obj?.data?.token) return obj.data.token;
+        } catch (_) {}
+      }
+      return null;
+    },
+    // Strategy 2: contentDtl as subscriptionDtl
+    async () => {
+      if (!contentDtl) return null;
+      return { contentDtl, subscriptionDtl: contentDtl };
+    },
+    // Strategy 3: bearer JWT as both
+    async () => {
+      return { contentDtl: finalBearer, subscriptionDtl: finalBearer };
+    }
+  ];
+  for (const strat of fallbackBodies) {
+    try {
+      const result = await strat();
+      if (!result) continue;
+      let sub, ctl;
+      if (typeof result === 'string') {
+        sub = ctl = result;
+      } else {
+        ctl = result.contentDtl;
+        sub = result.subscriptionDtl;
+      }
+      const drmResp = await fetch(AZAM_DRM_AUTH_URL, {
+        method: 'POST', headers: azamHeaders(finalBearer),
+        body: JSON.stringify({ offlineDownload: false, subscriptionDtl: sub, contentDtl: ctl })
+      });
+      if (drmResp.status === 200) {
+        const drmJson = await drmResp.json();
+        if (drmJson?.data?.authXmlToken) return drmJson.data.authXmlToken;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
 
 export default {
   async fetch(request) {
@@ -58,7 +164,62 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     try {
       const targetUrl = decodeURIComponent(url.searchParams.get('url'));
-      const authXml = request.headers.get('nv-authorizations') || '';
+      let authXml = request.headers.get('nv-authorizations') || '';
+      // Internal token refresh: worker gets fresh authXmlToken from DRM API
+      let bearer = request.headers.get('x-bearer');
+      let contentDtl = request.headers.get('x-content-dtl');
+      let subscriptionDtl = request.headers.get('x-subscription-dtl');
+      const refreshToken = request.headers.get('x-refresh-token');
+      if (bearer) {
+        try {
+          // Phase 0: If refreshToken provided, refresh bearer + contentDtl/subscriptionDtl first
+          if (refreshToken) {
+            try {
+              const refResult = await callAzamRefresh(refreshToken, bearer);
+              if (refResult) {
+                bearer = refResult.bearer;
+                if (refResult.contentDtl) contentDtl = refResult.contentDtl;
+                if (refResult.subscriptionDtl) subscriptionDtl = refResult.subscriptionDtl;
+              }
+            } catch (_) {}
+          }
+          const finalBearer = bearer.replace(/^Bearer\s+/i, '');
+          // Phase 1: Try session/initialize first → gets fresh contentDtl + subscriberDtl from session
+          const sessResp = await fetch(AZAM_SESSION_URL, {
+            method: 'POST',
+            headers: azamHeaders(finalBearer),
+            body: JSON.stringify({ contentDtl: contentDtl || '', subscriberDtl: subscriptionDtl || '', deviceId: PERSISTENT_DEVICE_ID })
+          });
+          let freshContentDtl = null, freshSubDtl = null;
+          const sessText = await sessResp.text();
+          for (const part of sessText.split('\n')) {
+            try {
+              const obj = JSON.parse(part.trim());
+              const d = obj.data || obj;
+              if (d.contentDtl) freshContentDtl = d.contentDtl;
+              if (d.subscriberDtl || d.subscriptionDtl) freshSubDtl = d.subscriberDtl || d.subscriptionDtl;
+            } catch (_) {}
+          }
+          const useContentDtl = freshContentDtl || contentDtl || '';
+          const useSubDtl = freshSubDtl || subscriptionDtl || '';
+          // Phase 2: Call DRM auth with fresh (or original) tokens
+          const drmResp = await fetch(AZAM_DRM_AUTH_URL, {
+            method: 'POST',
+            headers: azamHeaders(finalBearer),
+            body: JSON.stringify({ offlineDownload: false, subscriptionDtl: useSubDtl, contentDtl: useContentDtl })
+          });
+          if (drmResp.status === 200) {
+            const drmJson = await drmResp.json();
+            if (drmJson.data?.authXmlToken) {
+              authXml = drmJson.data.authXmlToken;
+            }
+          } else {
+            // Phase 3: Fallbacks
+            const fallbackXml = await tryAllFallbacks(finalBearer, contentDtl);
+            if (fallbackXml) authXml = fallbackXml;
+          }
+        } catch (_) {}
+      }
       const body = await request.arrayBuffer();
       const contentType = request.headers.get('Content-Type') || 'application/octet-stream';
       const resp = await fetch(targetUrl, {
@@ -72,7 +233,6 @@ export default {
         body
       });
       const buf = await resp.arrayBuffer();
-      // Debug: add Nagra response info headers for non-200
       const respHeaders = { ...CORS, 'Content-Type': resp.headers.get('content-type') || 'application/octet-stream' };
       if (resp.status !== 200) {
         const bodyPreview = new TextDecoder().decode(buf.slice(0, 300));
@@ -165,11 +325,10 @@ async function handleAzamRefresh(request) {
     if (!refreshToken) {
       return new Response(JSON.stringify({ status: false, message: 'Missing refreshToken' }), { status: 400, headers: CORS });
     }
-    const deviceId = crypto.randomUUID();
     const deviceDetails = {
       platform: 'WEB', operating_system: 'Windows', locale: 'en-US',
       app_version: '1.0.0', device_name: 'Windows PC', browser_version: 150,
-      browser_name: 'Firefox', device_id: deviceId, device_type: 'open',
+      browser_name: 'Firefox', device_id: PERSISTENT_DEVICE_ID, device_type: 'open',
       device_platform: 'WEB', device_category: 'large',
       manufacturer: 'PC_Other', model: 'PC', sname: 'Windows PC',
       last_usage: Date.now()
@@ -214,44 +373,110 @@ async function handleAzamRefresh(request) {
   }
 }
 
+function channelKeyToDisplayName(key) {
+  // AzamSport2 → Azam Sport 2, SinemaZetu → Sinema Zetu
+  return key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
+}
+function channelKeyToSlug(key) {
+  // AzamSport2 → azam-sport-2
+  return channelKeyToDisplayName(key).toLowerCase().replace(/\s+/g, '-');
+}
+async function tryFetchCds(bearer, channelName) {
+  const names = [channelName, channelKeyToDisplayName(channelName), channelKeyToSlug(channelName)];
+  const versions = [2, 1];
+  const suffixes = ['', '?include=encryptedData', '?fields=encryptedData'];
+  const profileIds = ['1', '2', '25222709'];
+  for (const ver of versions) {
+    for (const name of names) {
+      for (const suffix of suffixes) {
+        for (const pid of profileIds) {
+          const url = `https://api.aztv.videoready.tv/content-detail-service/pub/v${ver}/channel/${encodeURIComponent(name)}${suffix}`;
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const resp = await fetch(url, {
+              signal: controller.signal,
+              headers: {
+                'Authorization': 'Bearer ' + bearer,
+                'tenant_identifier': 'master', 'platform': 'WEB',
+                'languageCode': 'eng', 'language': 'eng', 'local': 'TZ',
+                'profileId': pid, 'requestCount': '0',
+                'Origin': 'https://web.azamtvmax.com',
+                'Referer': 'https://web.azamtvmax.com/',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            clearTimeout(timeout);
+            const text = await resp.text();
+            let json;
+            try { json = JSON.parse(text); } catch { continue; }
+            const data = json.data || json;
+            const encryptedData = data.encryptedData || data.encrypted_data || data.contentDtl || null;
+            if (encryptedData) return encryptedData;
+          } catch (_) {}
+        }
+      }
+    }
+  }
+  return null;
+}
 async function handleAzamChannelContent(request) {
+  const azamDrmHeaders = (bearer, pid) => ({
+    'Authorization': 'Bearer ' + bearer,
+    'Content-Type': 'application/json',
+    'tenant_identifier': 'master', 'platform': 'WEB',
+    'device_id': 'undefined',
+    'languageCode': 'eng', 'language': 'eng', 'local': 'TZ',
+    'profileId': pid || '25222709', 'requestCount': '0',
+    'Origin': 'https://web.azamtvmax.com',
+    'Referer': 'https://web.azamtvmax.com/',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+  });
   try {
     const { bearer, channelName } = await request.json();
     if (!bearer || !channelName) {
       return new Response(JSON.stringify({ status: false, message: 'Missing bearer or channelName' }), { status: 400, headers: CORS });
     }
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
-    // Try content-detail-service API to get encryptedData (= fresh contentDtl)
-    const cdsUrl = 'https://api.aztv.videoready.tv/content-detail-service/pub/v2/channel/' + encodeURIComponent(channelName);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-    const resp = await fetch(cdsUrl, {
-      signal: controller.signal,
-      headers: {
-        'Authorization': 'Bearer ' + finalBearer,
-        'tenant_identifier': 'master',
-        'platform': 'WEB',
-        'languageCode': 'eng',
-        'language': 'eng',
-        'local': 'TZ',
-        'profileId': '25222709',
-        'requestCount': '0',
-        'Origin': 'https://web.azamtvmax.com',
-        'Referer': 'https://web.azamtvmax.com/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-    clearTimeout(timeout);
-    const text = await resp.text();
-    let json;
-    try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 300) }; }
-    // Try to extract encryptedData from various response formats
-    const data = json.data || json;
-    const encryptedData = data.encryptedData || data.encrypted_data || data.contentDtl || null;
+    // Try content-detail-service first
+    let encryptedData = await tryFetchCds(finalBearer, channelName);
     if (encryptedData) {
       return new Response(JSON.stringify({ status: true, data: { contentDtl: encryptedData } }), { status: 200, headers: CORS });
     }
-    return new Response(JSON.stringify({ status: false, message: 'No encryptedData found', raw: text.slice(0, 500) }), { status: 200, headers: CORS });
+    // Fallback: call session/initialize → get session token → call DRM auth with session token as both
+    try {
+      const deviceId = '8b303c13-d7a3-4b39-9579-a89ac703765c';
+      const sessResp = await fetch('https://api.aztv.videoready.tv/stream-concurrency/v1/session/initialize', {
+        method: 'POST',
+        headers: { ...azamDrmHeaders(finalBearer), 'device_id': deviceId },
+        body: JSON.stringify({ contentDtl: '', subscriberDtl: '', deviceId })
+      });
+      const sessText = await sessResp.text();
+      let sessionToken = null;
+      for (const part of sessText.split('\n')) {
+        try {
+          const obj = JSON.parse(part.trim());
+          if (obj?.data?.token) sessionToken = obj.data.token;
+        } catch (_) {}
+      }
+      if (sessionToken) {
+        // Try DRM auth with session token as both contentDtl and subscriptionDtl
+        const drmResp = await fetch(AZAM_DRM_AUTH_URL, {
+          method: 'POST',
+          headers: azamDrmHeaders(finalBearer),
+          body: JSON.stringify({ offlineDownload: false, subscriptionDtl: sessionToken, contentDtl: sessionToken })
+        });
+        const drmJson = await drmResp.json();
+        if (drmJson?.data?.authXmlToken) {
+          const freshCtl = drmJson.data.contentDtl || drmJson.data.encryptedData || null;
+          const freshSub = drmJson.data.subscriptionDtl || drmJson.data.subscriberDtl || null;
+          if (freshCtl) {
+            return new Response(JSON.stringify({ status: true, data: { contentDtl: freshCtl, authXmlToken: drmJson.data.authXmlToken, subscriptionDtl: freshSub } }), { status: 200, headers: CORS });
+          }
+        }
+      }
+    } catch (_) {}
+    return new Response(JSON.stringify({ status: false, message: 'No encryptedData found' }), { status: 200, headers: CORS });
   } catch (e) {
     return new Response(JSON.stringify({ status: false, message: e.message }), { status: 502, headers: CORS });
   }
@@ -259,43 +484,17 @@ async function handleAzamChannelContent(request) {
 
 async function handleAzamContent(request) {
   try {
-    const { bearer, contentDtl, subscriptionDtl, deviceId } = await request.json();
-    if (!bearer || !contentDtl || !subscriptionDtl) {
-      return new Response(JSON.stringify({ status: false, message: 'Missing bearer, contentDtl, or subscriptionDtl' }), { status: 400, headers: CORS });
+    const { bearer, contentDtl, subscriptionDtl } = await request.json();
+    if (!bearer) {
+      return new Response(JSON.stringify({ status: false, message: 'Missing bearer' }), { status: 400, headers: CORS });
     }
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
-    const finalDeviceId = deviceId || '8b303c13-d7a3-4b39-9579-a89ac703765c';
-    // Call session/initialize to refresh contentDtl + subscriberDtl
-    const sessUrl = 'https://api.aztv.videoready.tv/stream-concurrency/v1/session/initialize';
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-    const resp = await fetch(sessUrl, {
-      signal: controller.signal,
+    const resp = await fetch(AZAM_SESSION_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + finalBearer,
-        'Content-Type': 'application/json',
-        'tenant_identifier': 'master',
-        'platform': 'WEB',
-        'device_id': finalDeviceId,
-        'languageCode': 'eng',
-        'language': 'eng',
-        'local': 'TZ',
-        'profileId': '25222709',
-        'requestCount': '0',
-        'Origin': 'https://web.azamtvmax.com',
-        'Referer': 'https://web.azamtvmax.com/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      body: JSON.stringify({
-        contentDtl,
-        subscriberDtl: subscriptionDtl,
-        deviceId: finalDeviceId
-      })
+      headers: azamHeaders(finalBearer),
+      body: JSON.stringify({ contentDtl: contentDtl || '', subscriberDtl: subscriptionDtl || '', deviceId: PERSISTENT_DEVICE_ID })
     });
-    clearTimeout(timeout);
     const text = await resp.text();
-    // Azam session/initialize returns TWO JSON objects separated by newline
     let freshContentDtl = null, freshSubscriberDtl = null;
     for (const part of text.split('\n')) {
       const trimmed = part.trim();
@@ -318,122 +517,67 @@ async function handleAzamContent(request) {
 
 async function handleDrmAuth(request) {
   try {
-    const { bearer, contentDtl, subscriptionDtl, profileId } = await request.json();
+    let { bearer, contentDtl, subscriptionDtl, refreshToken } = await request.json();
     if (!bearer) {
       return new Response(JSON.stringify({ status: false, message: 'Missing bearer token' }), { status: 400, headers: CORS });
+    }
+    // Phase 0: If refreshToken provided, refresh bearer + contentDtl/subscriptionDtl first
+    if (refreshToken) {
+      try {
+        const refResult = await callAzamRefresh(refreshToken, bearer);
+        if (refResult) {
+          bearer = refResult.bearer;
+          if (refResult.contentDtl) contentDtl = refResult.contentDtl;
+          if (refResult.subscriptionDtl) subscriptionDtl = refResult.subscriptionDtl;
+        }
+      } catch (_) {}
     }
     const finalBearer = bearer.replace(/^Bearer\s+/i, '');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    const headers = {
-      'Authorization': `Bearer ${finalBearer}`,
-      'Content-Type': 'application/json',
-      'tenant_identifier': 'master',
-      'platform': 'WEB',
-      'device_id': 'undefined',
-      'languageCode': 'eng',
-      'language': 'eng',
-      'local': 'TZ',
-      'profileId': profileId || '25222709',
-      'requestCount': '0',
-      'Origin': 'https://web.azamtvmax.com',
-      'Referer': 'https://web.azamtvmax.com/',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    };
-    let body = JSON.stringify({
-      offlineDownload: false,
-      subscriptionDtl,
-      contentDtl
-    });
+    // Phase 1: Try session/initialize first for fresh contentDtl + subscriberDtl
+    let freshContentDtl = null, freshSubDtl = null;
+    try {
+      const sessResp = await fetch(AZAM_SESSION_URL, {
+        signal: controller.signal,
+        method: 'POST',
+        headers: azamHeaders(finalBearer),
+        body: JSON.stringify({ contentDtl: contentDtl || '', subscriberDtl: subscriptionDtl || '', deviceId: PERSISTENT_DEVICE_ID })
+      });
+      const sessText = await sessResp.text();
+      for (const part of sessText.split('\n')) {
+        try {
+          const obj = JSON.parse(part.trim());
+          const d = obj.data || obj;
+          if (d.contentDtl) freshContentDtl = d.contentDtl;
+          if (d.subscriberDtl || d.subscriptionDtl) freshSubDtl = d.subscriberDtl || d.subscriptionDtl;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    const useContentDtl = freshContentDtl || contentDtl || '';
+    const useSubDtl = freshSubDtl || subscriptionDtl || '';
     let resp = await fetch(AZAM_DRM_AUTH_URL, {
       signal: controller.signal,
       method: 'POST',
-      headers,
-      body
+      headers: azamHeaders(finalBearer),
+      body: JSON.stringify({ offlineDownload: false, subscriptionDtl: useSubDtl, contentDtl: useContentDtl })
     });
     let text = '';
-    // If 400/403 with Invalid subscriptionDtl, retry with alternatives
-    if ((resp.status === 403 || resp.status === 400) && subscriptionDtl) {
-      text = await resp.text();
-      try {
-        const retryJson = JSON.parse(text);
-        if (retryJson.errorCode === 106 && /invalid subscription/i.test(retryJson.message || '')) {
-          // Try retry with session token as subscriptionDtl
-          try {
-            const sessionResp = await fetch(AZAM_DRM_AUTH_URL, {
-              signal: controller.signal,
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
-                offlineDownload: false,
-                contentDtl,
-                subscriptionDtl: contentDtl
-              })
-            });
-            if (sessionResp.status === 200) {
-              const sessionText = await sessionResp.text();
-              let sessionJson;
-              try { sessionJson = JSON.parse(sessionText); } catch { sessionJson = null; }
-              if (sessionJson && sessionJson.data?.authXmlToken) {
-                sessionJson._debug = { statusCode: sessionResp.status, ts: Date.now(), retry: 'contentDtl-as-sub' };
-                clearTimeout(timeout);
-                return new Response(JSON.stringify(sessionJson), {
-                  status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
-                });
-              }
-            }
-            } catch (_) {}
-          // Try retry with bearer token (JWT) as subscriptionDtl
-          try {
-            const jwtSubResp = await fetch(AZAM_DRM_AUTH_URL, {
-              signal: controller.signal,
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
-                offlineDownload: false,
-                contentDtl,
-                subscriptionDtl: finalBearer
-              })
-            });
-            if (jwtSubResp.status === 200) {
-              const jwtSubText = await jwtSubResp.text();
-              let jwtSubJson;
-              try { jwtSubJson = JSON.parse(jwtSubText); } catch { jwtSubJson = null; }
-              if (jwtSubJson && jwtSubJson.data?.authXmlToken) {
-                jwtSubJson._debug = { statusCode: jwtSubResp.status, ts: Date.now(), retry: 'bearer-as-sub' };
-                clearTimeout(timeout);
-                return new Response(JSON.stringify(jwtSubJson), {
-                  status: 200, headers: { 'Content-Type': 'application/json', ...CORS }
-                });
-              }
-            }
-          } catch (_) {}
-          // Final fallback: send subscriptionDtl as empty string
-          const fallbackResp = await fetch(AZAM_DRM_AUTH_URL, {
-            signal: controller.signal,
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              offlineDownload: false,
-              contentDtl,
-              subscriptionDtl: ''
-            })
-          });
-          text = await fallbackResp.text();
-          clearTimeout(timeout);
-          let json;
-          try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200), status: false }; }
-          json._debug = { statusCode: fallbackResp.status, ts: Date.now() };
-          return new Response(JSON.stringify(json), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...CORS }
-          });
-        }
-      } catch (_) {}
-    } else if (resp.status === 200) {
+    if (resp.status === 200) {
       text = await resp.text();
     } else {
+      // Phase 3: Fallback — session token as both contentDtl and subscriptionDtl
       text = await resp.text();
+      let fallbackXml = null;
+      try {
+        const fallbackResp = await tryAllFallbacks(finalBearer, useContentDtl);
+        if (fallbackResp) fallbackXml = fallbackResp;
+      } catch (_) {}
+      if (fallbackXml) {
+        const fallbackJson = { status: true, data: { authXmlToken: fallbackXml }, _debug: { statusCode: 200, ts: Date.now(), retry: 'session-fallback' } };
+        clearTimeout(timeout);
+        return new Response(JSON.stringify(fallbackJson), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
     }
     clearTimeout(timeout);
     let json;
