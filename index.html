@@ -3029,8 +3029,14 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const json = await resp.json();
                 console.log('[AZAM] content-detail-service response:', JSON.stringify(json).slice(0, 300));
                 if (json.status && json.data && json.data.contentDtl) {
-                    // Got fresh contentDtl — keep old subscriptionDtl
-                    return { contentDtl: json.data.contentDtl, subscriptionDtl: oldSubscriptionDtl };
+                    const result = { contentDtl: json.data.contentDtl, subscriptionDtl: json.data.subscriptionDtl || oldSubscriptionDtl };
+                    if (json.data.authXmlToken) {
+                        currentAuthXmlToken = json.data.authXmlToken;
+                        currentAuthXmlTokenFetchedAt = Date.now();
+                        setAzamChannelData(channelName, { authXmlToken: json.data.authXmlToken });
+                        console.log('[AZAM] Got fresh authXmlToken from content-detail-service');
+                    }
+                    return result;
                 }
             } catch (_) { console.warn('[AZAM] content-detail-service error'); }
             return null;
@@ -3307,7 +3313,39 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         localStorage.setItem('heis5_azam_refresh_token', json.data.refreshToken || refreshToken);
                         document.getElementById('azam-bearer-input').value = newBearer;
                         fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(newBearer) }) }).catch(() => {});
-                        statusEl.textContent = 'Bearer refreshed! Token fetched: "' + (json.data.message || '') + '"';
+                        // Save fresh contentDtl/subscriptionDtl if returned from refresh API
+                        const freshContentDtl = json.data.contentDtl || null;
+                        const freshSubscriptionDtl = json.data.subscriptionDtl || null;
+                        if (freshContentDtl && freshSubscriptionDtl) {
+                            localStorage.setItem('heis5_azam_content_dtl', freshContentDtl);
+                            localStorage.setItem('heis5_azam_subscription_dtl', freshSubscriptionDtl);
+                            const channel = lastChannelName;
+                            if (channel) {
+                                setAzamChannelData(channel, { content_dtl: freshContentDtl, subscription_dtl: freshSubscriptionDtl });
+                            }
+                            statusEl.textContent = 'Bearer + contentDtl refreshed!';
+                        } else {
+                            statusEl.textContent = 'Bearer refreshed! Token fetched: "' + (json.data.message || '') + '"';
+                        }
+                        // After refresh, try to get fresh authXmlToken
+                        const channel = lastChannelName || document.getElementById('azam-channel-select')?.value;
+                        if (channel) {
+                            try {
+                                const bearer = getGlobalBearer();
+                                const data = getAzamChannelData(channel);
+                                const ctl = freshContentDtl || data.content_dtl || '';
+                                const sub = freshSubscriptionDtl || data.subscription_dtl || '';
+                                if (bearer && ctl && sub) {
+                                    const drmResult = await fetchDrmAuthToken(bearer, ctl, sub);
+                                    if (drmResult.data?.authXmlToken) {
+                                        currentAuthXmlToken = drmResult.data.authXmlToken;
+                                        currentAuthXmlTokenFetchedAt = Date.now();
+                                        setAzamChannelData(channel, { authXmlToken: currentAuthXmlToken });
+                                        statusEl.textContent = 'Bearer + authXmlToken refreshed!';
+                                    }
+                                }
+                            } catch (_) {}
+                        }
                         return;
                     }
                 }
