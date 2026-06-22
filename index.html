@@ -1596,10 +1596,14 @@
                             <input id="azam-bearer-input" type="text" placeholder="GLOBAL_BEARER token (auto-filled)" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
                             <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveGlobalBearer()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
                         </div>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                            <input id="azam-tok-input" type="text" placeholder="tok_prefix" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('tok_prefix')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
-                        </div>
+                        <div style="display:flex;gap:4px;margin-bottom:4px;">
+                                <input id="azam-jwt-input" type="text" placeholder="jwt_token (per-channel, from Azam localStorage)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('jwt_token')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
+                            </div>
+                            <div style="display:flex;gap:4px;margin-bottom:4px;">
+                                <input id="azam-refresh-ch-input" type="text" placeholder="refreshToken (per-channel)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
+                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('refreshToken')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
+                            </div>
                         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
                             <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
                             <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('authXmlToken')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
@@ -1770,13 +1774,15 @@
 
         function startTokenRefresh() {
             async function refreshLoop() {
-                const bearer = getGlobalBearer();
-                if (!bearer || !lastChannelName) return;
+                if (!lastChannelName) return;
+                const bearer = getChannelBearer(lastChannelName) || getGlobalBearer();
+                if (!bearer) return;
                 const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
                 const data = all[lastChannelName];
                 if (data && data.content_dtl && data.subscription_dtl) {
                     try {
-                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                        const rt = data.refreshToken || null;
+                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
                         if (result.status && result.data?.authXmlToken) {
                             data.authXmlToken = result.data.authXmlToken;
                             currentAuthXmlToken = result.data.authXmlToken;
@@ -1909,7 +1915,8 @@ const REMOVED = {};
                                   {name:'Nat Geo Wild',category:'Documentary',stream_url:'azam://NatGeoWild',logo:'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nat-geo-wild-us.png',_azam:true},
                                   {name:'National Geographic',category:'Documentary',stream_url:'azam://NatGeo',logo:'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png',_azam:true},
                                   {name:'Disney Jr.',category:'Kids',stream_url:'azam://DisneyJr',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Disney_Junior_2011_logo.svg/480px-Disney_Junior_2011_logo.svg.png',_azam:true},
-                                  {name:'Disney Channel',category:'Kids',stream_url:'azam://DisneyChannel',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Disney_Channel_logo_%282014%29.svg/480px-Disney_Channel_logo_%282014%29.svg.png',_azam:true},
+                                   {name:'Disney Channel',category:'Kids',stream_url:'azam://DisneyChannel',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Disney_Channel_logo_%282014%29.svg/480px-Disney_Channel_logo_%282014%29.svg.png',_azam:true},
+                                    {name:'Cartoon Network',category:'Kids',stream_url:'http://23.237.104.106:8080/USA_CARTOON_NETWORK/index.m3u8',logo:'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cartoon-network-int.png'},
 
                                   {name:'Baby TV',category:'Kids',stream_url:'azam://BabyTV',logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/BabyTV_logo.svg/480px-BabyTV_logo.svg.png',_azam:true},
                                   {name:'Fix & Fox',category:'Kids',stream_url:'azam://FixAndFox',logo:'',_azam:true},
@@ -2074,7 +2081,7 @@ const REMOVED = {};
                               if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
                           });
                           channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
-channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nickelodeon','cartoonito','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; }});
+channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nickelodeon','cartoonito','cartoon network','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; }});
                            const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
                            const REMOVED3 = {'tnt sport 1':1,'tnt sport 2':1,'tnt sport 3':1,'tnt sport 4':1,'bein sports 1':1,'bein sports 2':1,'bein sports 3':1,'trace sport stars':1,'willow sports':1,'abc news':1,'cnn':1,'france 24 english':1,'russia today (global)':1,'nhk world japan':1};
                            channels = channels.filter(ch => !REMOVED3[ch.name.toLowerCase().trim()]);
@@ -2105,7 +2112,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     {name:'UTV',category:'Azam',stream_url:'azam://UTV',logo:'https://static.wikia.nocookie.net/logopedia/images/1/18/Azam_UTV_Logo_%28Better%29.png',_azam:true}
                 ];
                 channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels');
-channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nickelodeon','cartoonito','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; } });
+channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://')) { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','wasafi tv','cheka plus','crowns tv','zbc','nickelodeon','cartoonito','cartoon network','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; } });
                  const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
                  const LOGO_FIX = {
 'cnn':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png',
@@ -2544,6 +2551,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             DisneyJr: { channel_id: 'c1e3b572-510e-4289-b965-af09cb430db0' },
             DisneyChannel: { channel_id: '266b46c1-21b9-4fd9-ad2f-62d008b8948a' },
             BabyTV: { channel_id: '568966cf-a42a-4984-ac87-5e1ef065275d' },
+            CartoonNetwork: { channel_id: '' },
             FixAndFox: { channel_id: '' },
             CBeebies: { channel_id: '' },
             Boing: { channel_id: '' },
@@ -2692,15 +2700,19 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         async function ensureValidAuthXml(channelName) {
             const data = getAzamChannelData(channelName);
             if (!data.authXmlToken) return null;
-            const bearer = getGlobalBearer();
+            const bearer = getChannelBearer(channelName) || getGlobalBearer();
             if (bearer && data.content_dtl && data.subscription_dtl) {
                 const now = Date.now();
                 if (now - lastDrmAuthCall >= 30000) {
                     lastDrmAuthCall = now;
                     try {
-                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                        const rt = data.refreshToken || null;
+                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
                         if (result.status && result.data && result.data.authXmlToken) {
-                            setAzamChannelData(channelName, { authXmlToken: result.data.authXmlToken });
+                            const toUpdate = { authXmlToken: result.data.authXmlToken };
+                            if (result.data.jwt_token || result.data.accessToken) toUpdate.jwt_token = result.data.jwt_token || result.data.accessToken;
+                            if (result._refreshToken || result.data.refreshToken) toUpdate.refreshToken = result._refreshToken || result.data.refreshToken;
+                            setAzamChannelData(channelName, toUpdate);
                             if (result.data.tok_prefix || result.data.cdn_url) {
                                 const cdn = result.data.tok_prefix || result.data.cdn_url;
                                 setAzamChannelData(channelName, { tok_prefix: cdn });
@@ -2750,13 +2762,14 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             console.log('[DBG] data keys:', Object.keys(data).join(','));
             // Try API first to get fresh authXmlToken (server TTL ~1 min, JWT exp is 45 min — can't trust JWT)
             if (data.content_dtl && data.subscription_dtl) {
-                const bearer = getGlobalBearer();
+                const bearer = getChannelBearer(channelName) || getGlobalBearer();
                 if (bearer) {
                     const now = Date.now();
                     if (now - lastDrmAuthCall >= 30000) {
                         lastDrmAuthCall = now;
                         try {
-                            const apiResult = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                            const rt = data.refreshToken || null;
+                            const apiResult = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
                             if (apiResult.status && apiResult.data && apiResult.data.authXmlToken) {
                                 console.log('[AZAM] Fresh authXmlToken from API for', channelName);
                                 const d = apiResult.data;
@@ -2790,6 +2803,12 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                                 if (freshCtl && freshSub) {
                                     toSave.content_dtl = freshCtl;
                                     toSave.subscription_dtl = freshSub;
+                                }
+                                if (d.jwt_token || d.accessToken) {
+                                    toSave.jwt_token = d.jwt_token || d.accessToken;
+                                }
+                                if (apiResult._refreshToken || d.refreshToken) {
+                                    toSave.refreshToken = apiResult._refreshToken || d.refreshToken;
                                 }
                                 setAzamChannelData(channelName, toSave);
                                 if (cdnBase && cdntoken) {
@@ -2828,8 +2847,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                 }
             }
-            // Only try API fallback if cooldown has elapsed (avoid rate limit from duplicate call)
-            const bearer = getGlobalBearer();
+            const bearer = getChannelBearer(channelName) || getGlobalBearer();
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return null;
             try {
                 const now = Date.now();
@@ -2888,6 +2906,12 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             toSave.content_dtl = freshCtl;
                             toSave.subscription_dtl = freshSub;
                             console.log('[AZAM] DRM auth returned fresh contentDtl+subscriptionDtl');
+                        }
+                        if (d.jwt_token || d.accessToken) {
+                            toSave.jwt_token = d.jwt_token || d.accessToken;
+                        }
+                        if (result._refreshToken || d.refreshToken) {
+                            toSave.refreshToken = result._refreshToken || d.refreshToken;
                         }
                         setAzamChannelData(channelName, toSave);
                         console.log('[AZAM] Got fresh tokens from direct DRM call for', channelName);
@@ -2971,16 +2995,23 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         }
         async function backgroundRefreshAzam(channelName) {
             const data = getAzamChannelData(channelName);
-            const bearer = getGlobalBearer();
+            const bearer = getChannelBearer(channelName) || getGlobalBearer();
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return;
             try {
-                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                const rt = data.refreshToken || null;
+                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
                     const toUpdate = { authXmlToken: d.authXmlToken };
                     if (d.tok_prefix || d.cdn_url) {
                         const cdn = d.tok_prefix || d.cdn_url;
                         toUpdate.tok_prefix = cdn;
+                    }
+                    if (d.jwt_token || d.accessToken) {
+                        toUpdate.jwt_token = d.jwt_token || d.accessToken;
+                    }
+                    if (d.refreshToken) {
+                        toUpdate.refreshToken = d.refreshToken;
                     }
                     setAzamChannelData(channelName, toUpdate);
                     console.log('[AZAM] Background refresh OK for', channelName);
@@ -3065,10 +3096,11 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         async function doAzamRefresh(channelName) {
             const data = getAzamChannelData(channelName);
             if (!data.content_dtl || !data.subscription_dtl) return;
-            let bearer = getGlobalBearer();
+            let bearer = getChannelBearer(channelName) || getGlobalBearer();
             if (!bearer) return;
             try {
-                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                const rt = data.refreshToken || null;
+                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
                 console.log('[AZAM] doAzamRefresh result:', JSON.stringify(result).slice(0, 300));
                 if (result.data && result.data.authXmlToken) {
                     currentAuthXmlToken = result.data.authXmlToken;
@@ -3082,12 +3114,18 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             toSave.subscription_dtl = freshSub;
                         }
                     }
+                    if (result.data.jwt_token || result.data.accessToken) {
+                        toSave.jwt_token = result.data.jwt_token || result.data.accessToken;
+                    }
+                    if (result.data.refreshToken) {
+                        toSave.refreshToken = result.data.refreshToken;
+                    }
                     setAzamChannelData(channelName, toSave);
                     console.log('[AZAM] Refreshed authXmlToken for', channelName);
                 } else if (result._debug?.statusCode === 400 || /invalid subscription/i.test(result.message || '')) {
                     console.warn('[AZAM] subscriptionDtl expired, trying to refresh bearer first...');
                     // Try refresh bearer first in case it expired
-                    const refreshToken = localStorage.getItem('heis5_azam_refresh_token');
+                    const refreshToken = data.refreshToken || localStorage.getItem('heis5_azam_refresh_token');
                     if (refreshToken) {
                         try {
                             const refResp = await fetch(API_AZAM_REFRESH, {
@@ -3098,17 +3136,19 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             if (refJson.status && refJson.data) {
                                 const newBearer = refJson.data.accessToken || refJson.data.jwt_token || '';
                                 if (newBearer) {
-                                    localStorage.setItem('heis5_azam_global_bearer', newBearer);
+                                    setAzamChannelData(channelName, { jwt_token: newBearer });
                                     bearer = newBearer;
                                     const freshCtl = refJson.data.contentDtl || null;
                                     const freshSub = refJson.data.subscriptionDtl || null;
                                     if (freshCtl && freshSub) {
-                                        setAzamChannelData(channelName, { content_dtl: freshCtl, subscription_dtl: freshSub });
-                                        const retry = await fetchDrmAuthToken(bearer, freshCtl, freshSub);
+                                        setAzamChannelData(channelName, { content_dtl: freshCtl, subscription_dtl: freshSub, jwt_token: newBearer });
+                                        const retry = await fetchDrmAuthToken(newBearer, freshCtl, freshSub);
                                         if (retry.data?.authXmlToken) {
                                             currentAuthXmlToken = retry.data.authXmlToken;
                                             currentAuthXmlTokenFetchedAt = Date.now();
-                                            setAzamChannelData(channelName, { authXmlToken: currentAuthXmlToken });
+                                            const toUpdate = { authXmlToken: currentAuthXmlToken, jwt_token: newBearer };
+                                            if (retry.data.refreshToken) toUpdate.refreshToken = retry.data.refreshToken;
+                                            setAzamChannelData(channelName, toUpdate);
                                             console.log('[AZAM] Bearer refresh + DRM auth succeeded');
                                             return;
                                         }
@@ -3131,7 +3171,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         }
         function azamNameToKey(name) {
             const m = name.trim().toLowerCase();
-            const MAP = {'azam one':'AzamOne','azam two':'AzamTwo','azam sport 1':'AzamSport1','azam sport 2':'AzamSport2','azam sport 3':'AzamSport3','azam sport 4':'AzamSport4','sinema zetu':'SinemaZetu','utv':'UTV','wasafi tv':'WasafiTV','cheka plus':'ChekaPlusTV','crowns tv':'CrownTv','zbc':'ZBC','nick jr.':'NickJr','nickelodeon':'Nickelodeon','cartoonito':'Cartoonito','disney jr.':'DisneyJr','disney channel':'DisneyChannel','baby tv':'BabyTV','fix & fox':'FixAndFox','cbeebies':'CBeebies','boing':'Boing','espn':'ESPN','espn 2':'ESPN2','nba tv':'NBATV','nat geo wild':'NatGeoWild','national geographic':'NatGeo','mbc 2':'MBC2','mbc max':'MBCMax','mbc action':'MBCAction','mbc pluspower':'MBCPlusPower','mbc drama':'MBCDrama','movies now hd':'MoviesNow','hbo hd':'HBO','kix movies':'KIXMovies','zamaradi tv':'ZamaradiTV','zbc 2':'ZBC2'};
+            const MAP = {'azam one':'AzamOne','azam two':'AzamTwo','azam sport 1':'AzamSport1','azam sport 2':'AzamSport2','azam sport 3':'AzamSport3','azam sport 4':'AzamSport4','sinema zetu':'SinemaZetu','utv':'UTV','wasafi tv':'WasafiTV','cheka plus':'ChekaPlusTV','crowns tv':'CrownTv','zbc':'ZBC','nick jr.':'NickJr','nickelodeon':'Nickelodeon','cartoonito':'Cartoonito','cartoon network':'CartoonNetwork','disney jr.':'DisneyJr','disney channel':'DisneyChannel','baby tv':'BabyTV','fix & fox':'FixAndFox','cbeebies':'CBeebies','boing':'Boing','espn':'ESPN','espn 2':'ESPN2','nba tv':'NBATV','nat geo wild':'NatGeoWild','national geographic':'NatGeo','mbc 2':'MBC2','mbc max':'MBCMax','mbc action':'MBCAction','mbc pluspower':'MBCPlusPower','mbc drama':'MBCDrama','movies now hd':'MoviesNow','hbo hd':'HBO','kix movies':'KIXMovies','zamaradi tv':'ZamaradiTV','zbc 2':'ZBC2'};
             return MAP[m] || name.replace(/[\s.'"]/g, '');
         }
         async function openAzamChannel(name, fakeUrl) {
@@ -3235,6 +3275,10 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             const m = tokPrefix.match(/\/tok_([A-Za-z0-9_.=-]+)/);
             return m ? m[1] : null;
         }
+        function getChannelBearer(channelName) {
+            const data = getAzamChannelData(channelName);
+            return data.jwt_token || localStorage.getItem('heis5_azam_global_bearer') || '';
+        }
         function loadAzamChannelUi() {
             const sel = document.getElementById('azam-channel-select');
             const name = sel.value;
@@ -3243,9 +3287,11 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             document.getElementById('azam-content-input').value = data.content_dtl || '';
             document.getElementById('azam-sub-input').value = data.subscription_dtl || '';
             document.getElementById('azam-xml-input').value = data.authXmlToken || '';
+            document.getElementById('azam-jwt-input').value = data.jwt_token || '';
+            document.getElementById('azam-refresh-ch-input').value = data.refreshToken || '';
         }
         function saveAzamField(field) {
-            const idMap = {tok_prefix:'azam-tok-input',content_dtl:'azam-content-input',subscription_dtl:'azam-sub-input',authXmlToken:'azam-xml-input'};
+            const idMap = {tok_prefix:'azam-tok-input',content_dtl:'azam-content-input',subscription_dtl:'azam-sub-input',authXmlToken:'azam-xml-input',jwt_token:'azam-jwt-input',refreshToken:'azam-refresh-ch-input'};
             const val = document.getElementById(idMap[field]).value.trim();
             if (!val) return;
             const sel = document.getElementById('azam-channel-select');
@@ -3280,6 +3326,12 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         function azamSaveAccessToken() {
             const val = document.getElementById('azam-access-token-input').value.trim();
             if (!val) return;
+            // Also save per-channel if a channel is selected
+            const sel = document.getElementById('azam-channel-select');
+            const channelName = sel?.value;
+            if (channelName) {
+                setAzamChannelData(channelName, { jwt_token: val });
+            }
             localStorage.setItem('heis5_azam_global_bearer', val);
             document.getElementById('azam-bearer-input').value = val;
             fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(val) }) }).catch(() => {});
@@ -3288,25 +3340,38 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         function azamSaveRefreshToken() {
             const val = document.getElementById('azam-refresh-token-input').value.trim();
             if (!val) return;
+            // Also save per-channel if a channel is selected
+            const sel = document.getElementById('azam-channel-select');
+            const channelName = sel?.value;
+            if (channelName) {
+                setAzamChannelData(channelName, { refreshToken: val });
+            }
             localStorage.setItem('heis5_azam_refresh_token', val);
             fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'azam_refresh_token', value: JSON.stringify(val) }) }).catch(() => {});
             document.getElementById('azam-login-status').textContent = 'Refresh token saved & synced!';
         }
         async function azamAutoFetchAll() {
             const statusEl = document.getElementById('azam-login-status');
-            const bearer = getGlobalBearer();
-            if (!bearer) { statusEl.textContent = 'Save accessToken first!'; return; }
             statusEl.textContent = 'Fetching tokens for all channels...';
             const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
             let fetched = 0, errors = 0;
             for (const name of Object.keys(AZAM_CHANNEL_MAP)) {
                 const data = all[name];
                 if (data && data.content_dtl && data.subscription_dtl) {
-                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+                    const bearer = getChannelBearer(name) || getGlobalBearer();
+                    const rt = data.refreshToken || null;
+                    if (!bearer) { statusEl.textContent = 'No bearer for ' + name + ', skip'; continue; }
+                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
                     if (result.status && result.data && result.data.authXmlToken) {
                         const update = { authXmlToken: result.data.authXmlToken };
                         if (result.data.tok_prefix || result.data.cdn_url) {
                             update.tok_prefix = result.data.tok_prefix || result.data.cdn_url;
+                        }
+                        if (result.data.jwt_token || result.data.accessToken) {
+                            update.jwt_token = result.data.jwt_token || result.data.accessToken;
+                        }
+                        if (result.data.refreshToken) {
+                            update.refreshToken = result.data.refreshToken;
                         }
                         setAzamChannelData(name, update);
                         fetched++;
@@ -3319,8 +3384,11 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         }
         async function azamRefreshBearer() {
             const statusEl = document.getElementById('azam-login-status');
-            const refreshToken = localStorage.getItem('heis5_azam_refresh_token');
-            const currentBearer = getGlobalBearer();
+            const sel = document.getElementById('azam-channel-select');
+            const channelName = sel?.value || lastChannelName;
+            const data = channelName ? getAzamChannelData(channelName) : null;
+            const refreshToken = data?.refreshToken || localStorage.getItem('heis5_azam_refresh_token');
+            const currentBearer = getChannelBearer(channelName) || getGlobalBearer();
             if (!refreshToken) { statusEl.textContent = 'No refresh_token stored. Login with Google first.'; return; }
             statusEl.textContent = 'Refreshing bearer...';
             try {
@@ -3332,21 +3400,28 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const json = await resp.json();
                 if (json.status && json.data) {
                     const newBearer = json.data.accessToken || json.data.jwt_token || '';
+                    const newRt = json.data.refreshToken || refreshToken;
                     if (newBearer) {
+                        // Save per-channel if we have a channel name
+                        if (channelName) {
+                            const perChUpdate = { jwt_token: newBearer, refreshToken: newRt };
+                            setAzamChannelData(channelName, perChUpdate);
+                        }
+                        // Also save global as fallback
                         localStorage.setItem('heis5_azam_global_bearer', newBearer);
-                        localStorage.setItem('heis5_azam_refresh_token', json.data.refreshToken || refreshToken);
+                        localStorage.setItem('heis5_azam_refresh_token', newRt);
                         document.getElementById('azam-bearer-input').value = newBearer;
                         fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(newBearer) }) }).catch(() => {});
-                        fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'azam_refresh_token', value: JSON.stringify(json.data.refreshToken || refreshToken) }) }).catch(() => {});
+                        fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'azam_refresh_token', value: JSON.stringify(newRt) }) }).catch(() => {});
                         // Save fresh contentDtl/subscriptionDtl if returned from refresh API
                         const freshContentDtl = json.data.contentDtl || null;
                         const freshSubscriptionDtl = json.data.subscriptionDtl || null;
                         if (freshContentDtl && freshSubscriptionDtl) {
                             localStorage.setItem('heis5_azam_content_dtl', freshContentDtl);
                             localStorage.setItem('heis5_azam_subscription_dtl', freshSubscriptionDtl);
-                            const channel = lastChannelName;
+                            const channel = channelName || lastChannelName;
                             if (channel) {
-                                setAzamChannelData(channel, { content_dtl: freshContentDtl, subscription_dtl: freshSubscriptionDtl });
+                                setAzamChannelData(channel, { content_dtl: freshContentDtl, subscription_dtl: freshSubscriptionDtl, jwt_token: newBearer });
                             }
                             statusEl.textContent = 'Bearer + contentDtl refreshed!';
                         } else {
@@ -3356,12 +3431,13 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         const channel = lastChannelName || document.getElementById('azam-channel-select')?.value;
                         if (channel) {
                             try {
-                                const bearer = getGlobalBearer();
+                                const bearer = getChannelBearer(channel) || getGlobalBearer();
                                 const data = getAzamChannelData(channel);
                                 const ctl = freshContentDtl || data.content_dtl || '';
                                 const sub = freshSubscriptionDtl || data.subscription_dtl || '';
+                                const rt = data.refreshToken || null;
                                 if (bearer && ctl && sub) {
-                                    const drmResult = await fetchDrmAuthToken(bearer, ctl, sub);
+                                    const drmResult = await fetchDrmAuthToken(bearer, ctl, sub, rt);
                                     if (drmResult.data?.authXmlToken) {
                                         currentAuthXmlToken = drmResult.data.authXmlToken;
                                         currentAuthXmlTokenFetchedAt = Date.now();
@@ -3497,7 +3573,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     if (uri.includes('wv-proxy') || uri.includes('/wv-proxy')) {
                         const channel = lastChannelName;
                         if (channel) {
-                            const bearer = getGlobalBearer();
+                            const bearer = getChannelBearer(channel) || getGlobalBearer();
                             const data = getAzamChannelData(channel);
                             // Send tokens to worker so it can refresh authXmlToken internally
                             if (bearer) {
@@ -3509,7 +3585,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             if (data.subscription_dtl) {
                                 request.headers['x-subscription-dtl'] = data.subscription_dtl;
                             }
-                            const rft = localStorage.getItem('heis5_azam_refresh_token');
+                            const rft = data.refreshToken || localStorage.getItem('heis5_azam_refresh_token');
                             if (rft) {
                                 request.headers['x-refresh-token'] = rft;
                             }

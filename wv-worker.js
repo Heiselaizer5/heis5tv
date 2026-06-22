@@ -522,6 +522,7 @@ async function handleDrmAuth(request) {
       return new Response(JSON.stringify({ status: false, message: 'Missing bearer token' }), { status: 400, headers: CORS });
     }
     // Phase 0: If refreshToken provided, refresh bearer + contentDtl/subscriptionDtl first
+    let newRefreshToken = null;
     if (refreshToken) {
       try {
         const refResult = await callAzamRefresh(refreshToken, bearer);
@@ -529,6 +530,7 @@ async function handleDrmAuth(request) {
           bearer = refResult.bearer;
           if (refResult.contentDtl) contentDtl = refResult.contentDtl;
           if (refResult.subscriptionDtl) subscriptionDtl = refResult.subscriptionDtl;
+          if (refResult.refreshToken) newRefreshToken = refResult.refreshToken;
         }
       } catch (_) {}
     }
@@ -575,6 +577,7 @@ async function handleDrmAuth(request) {
       } catch (_) {}
       if (fallbackXml) {
         const fallbackJson = { status: true, data: { authXmlToken: fallbackXml }, _debug: { statusCode: 200, ts: Date.now(), retry: 'session-fallback' } };
+        if (newRefreshToken) fallbackJson._refreshToken = newRefreshToken;
         clearTimeout(timeout);
         return new Response(JSON.stringify(fallbackJson), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
@@ -583,6 +586,7 @@ async function handleDrmAuth(request) {
     let json;
     try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200), status: false }; }
     json._debug = { statusCode: resp.status, ts: Date.now() };
+    if (newRefreshToken) json._refreshToken = newRefreshToken;
     return new Response(JSON.stringify(json), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...CORS }
