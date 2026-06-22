@@ -2558,10 +2558,11 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             try { const d = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}'); return d[channelName] || {}; } catch { return {}; }
         }
         function setAzamChannelData(channelName, data) {
-            try { const d = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}'); d[channelName] = { ...d[channelName], ...data }; localStorage.setItem('heis5_azam_channels', JSON.stringify(d)); } catch {}
-            // Also sync to Supabase for other users
+            let merged;
+            try { const d = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}'); d[channelName] = { ...d[channelName], ...data }; localStorage.setItem('heis5_azam_channels', JSON.stringify(d)); merged = d[channelName]; } catch { merged = data; }
+            // Sync full merged data to Supabase so other users get everything
             const key = 'azam_ch:' + channelName;
-            const val = JSON.stringify(data);
+            const val = JSON.stringify(merged);
             fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: key, value: val }) }).catch(() => {});
         }
         function getGlobalBearer() {
@@ -2574,10 +2575,19 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const data = await resp.json();
                 if (Array.isArray(data) && data.length > 0) {
                     const bearer = JSON.parse(data[0].value);
-                    if (bearer && !localStorage.getItem('heis5_azam_global_bearer')) localStorage.setItem('heis5_azam_global_bearer', bearer);
+                    if (bearer) localStorage.setItem('heis5_azam_global_bearer', bearer);
                 }
             } catch {}
-            // Load channel configs
+            // Load refreshToken for all users
+            try {
+                const resp = await fetch(SUPABASE_URL + '/rest/v1/azam_config?name=eq.azam_refresh_token&select=value&limit=1', { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } });
+                const data = await resp.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    const rt = JSON.parse(data[0].value);
+                    if (rt) localStorage.setItem('heis5_azam_refresh_token', rt);
+                }
+            } catch {}
+            // Load channel configs (always overwrite local with Supabase)
             try {
                 const resp = await fetch(SUPABASE_URL + '/rest/v1/azam_config?name=like.azam_ch:*&select=name,value', { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } });
                 const rows = await resp.json();
@@ -2585,9 +2595,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     const local = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
                     rows.forEach(row => {
                         const chName = row.name.replace('azam_ch:', '');
-                        if (!local[chName]) {
-                            try { local[chName] = JSON.parse(row.value); } catch {}
-                        }
+                        try { local[chName] = { ...local[chName], ...JSON.parse(row.value) }; } catch {}
                     });
                     localStorage.setItem('heis5_azam_channels', JSON.stringify(local));
                 }
@@ -2599,6 +2607,11 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             const bearer = localStorage.getItem('heis5_azam_global_bearer');
             if (bearer) {
                 await fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(bearer) }) });
+            }
+            // Sync refreshToken
+            const rt = localStorage.getItem('heis5_azam_refresh_token');
+            if (rt) {
+                await fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'azam_refresh_token', value: JSON.stringify(rt) }) });
             }
             // Sync channel data
             const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
@@ -3276,7 +3289,8 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             const val = document.getElementById('azam-refresh-token-input').value.trim();
             if (!val) return;
             localStorage.setItem('heis5_azam_refresh_token', val);
-            document.getElementById('azam-login-status').textContent = 'Refresh token saved!';
+            fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'azam_refresh_token', value: JSON.stringify(val) }) }).catch(() => {});
+            document.getElementById('azam-login-status').textContent = 'Refresh token saved & synced!';
         }
         async function azamAutoFetchAll() {
             const statusEl = document.getElementById('azam-login-status');
@@ -3323,6 +3337,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         localStorage.setItem('heis5_azam_refresh_token', json.data.refreshToken || refreshToken);
                         document.getElementById('azam-bearer-input').value = newBearer;
                         fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(newBearer) }) }).catch(() => {});
+                        fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'azam_refresh_token', value: JSON.stringify(json.data.refreshToken || refreshToken) }) }).catch(() => {});
                         // Save fresh contentDtl/subscriptionDtl if returned from refresh API
                         const freshContentDtl = json.data.contentDtl || null;
                         const freshSubscriptionDtl = json.data.subscriptionDtl || null;
