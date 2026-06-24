@@ -1803,16 +1803,23 @@
                     if (!name || !url) return null;
                     const type = (f.type?.stringValue || f.linkType?.stringValue || '').toLowerCase();
                     const cat = mapRevontechtvCategory(f.category?.stringValue || '');
-                    if (type === 'dash' && cdntoken) {
-                        url += (url.includes('?') ? '&' : '?') + 'cdntoken=' + encodeURIComponent(cdntoken);
-                    }
-                    return {
+                    const isAzamCdn = url.includes('azamtvltd.co.tz');
+                    const key = f.key?.stringValue || '';
+                    const kid = f.kid?.stringValue || '';
+                    const ch = {
                         name,
                         category: cat,
                         stream_url: url,
                         logo: f.iconUrl?.stringValue || '',
-                        _isDash: type === 'dash'
+                        _isDash: type === 'dash',
+                        _isAzamCdn: isAzamCdn
                     };
+                    if (type === 'dash' && cdntoken && isAzamCdn) {
+                        ch.stream_url = url + (url.includes('?') ? '&' : '?') + 'cdntoken=' + encodeURIComponent(cdntoken);
+                    } else if (type === 'dash' && !isAzamCdn && key && kid) {
+                        ch.drm = { clearKeys: { [kid]: key } };
+                    }
+                    return ch;
                 }).filter(Boolean);
             } catch (e) {
                 console.warn('[REVONTECH] Firestore fetch failed:', e.message);
@@ -3345,8 +3352,9 @@ const REMOVED = {};
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
                     }
                 });
+                const _stripCprot = hasCdntoken && url.includes('azamtvltd.co.tz');
                 netEng.registerResponseFilter(async (type, response) => {
-                    if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST && revontechtvCdntoken) {
+                    if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST && _stripCprot) {
                         const text = new TextDecoder().decode(new Uint8Array(response.data));
                         const stripped = text.replace(/<ContentProtection[\s\S]*?<\/ContentProtection>/g, '').replace(/<ContentProtection[^>]*\/>/g, '');
                         if (stripped !== text) {
