@@ -1394,6 +1394,8 @@
     <!-- ══════════════════════════════════════════ -->
     <!-- JAVASCRIPT                               -->
     <!-- ══════════════════════════════════════════ -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.12.3/dist/shaka-player.compiled.js"></script>
 
@@ -1755,62 +1757,76 @@
             e.preventDefault();
         });
 
-        // ═══ REVONTECH TV (Firestore) ═══
-        const REVONTECH_FIRESTORE_BASE = 'https://firestore.googleapis.com/v1/projects/revontech-6c62d/databases/(default)/documents';
+        // ═══ REVONTECH TV (Firebase SDK) ═══
         let revontechtvCdntoken = '';
+        let _db = null;
+
+        function initRevontechtvFirebase() {
+            if (_db) return _db;
+            try {
+                const config = {
+                    apiKey: "AIzaSyANWodzlGTb1S7FrbG5aTbYeca6E-gxeSk",
+                    authDomain: "revontech-6c62d.firebaseapp.com",
+                    projectId: "revontech-6c62d",
+                    storageBucket: "revontech-6c62d.firebasestorage.app",
+                    messagingSenderId: "932084301099",
+                    appId: "1:932084301099:web:6c455d838f922c3cf1596e"
+                };
+                const app = firebase.initializeApp(config, 'revontechtv');
+                _db = firebase.firestore(app);
+                _db.settings({ merge: true });
+                return _db;
+            } catch (e) {
+                console.warn('[REVONTECH] Firebase init failed:', e.message);
+                return null;
+            }
+        }
 
         function mapRevontechtvCategory(cat) {
-            const t = cat.trim();
+            const t = (cat || '').trim();
             const map = { 'Sport': 'Sports', 'Habari': 'News', 'Movie': 'Movies', 'Cartoon': 'Kids', 'Music': 'Music', 'Wild': 'Entertainment', 'Religion': 'Religion', 'Local': 'Local' };
             return map[t] || t || 'General';
         }
 
         async function fetchRevontechtvCdntoken() {
-            for (let attempt = 0; attempt < 2; attempt++) {
-                try {
-                    const resp = await fetch(REVONTECH_FIRESTORE_BASE + '/tokens', {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    if (resp.status === 429 && attempt === 0) { await new Promise(r => setTimeout(r, 500)); continue; }
-                    if (!resp.ok) return '';
-                    const json = await resp.json();
-                    const docs = json.documents || [];
-                    for (const doc of docs) {
-                        const f = doc.fields || {};
-                        const token = f.token?.stringValue || f.cdntoken?.stringValue || f.value?.stringValue || '';
-                        if (token) return token;
-                    }
-                    return '';
-                } catch { if (attempt === 0) { await new Promise(r => setTimeout(r, 500)); continue; } return ''; }
+            const db = initRevontechtvFirebase();
+            if (!db) return '';
+            try {
+                const snap = await db.collection('tokens').get();
+                for (const doc of snap.docs) {
+                    const data = doc.data() || {};
+                    const token = data.token || data.cdntoken || data.value || '';
+                    if (token) return token;
+                }
+                return '';
+            } catch (e) {
+                console.warn('[REVONTECH] Token fetch failed:', e.message);
+                return '';
             }
-            return '';
         }
 
         async function loadRevontechtvChannels() {
+            const db = initRevontechtvFirebase();
+            if (!db) return [];
             try {
                 const cdntoken = await fetchRevontechtvCdntoken();
                 revontechtvCdntoken = cdntoken;
-                const chanResp = await fetch(REVONTECH_FIRESTORE_BASE + '/channels', {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (!chanResp.ok) return [];
-                const json = await chanResp.json();
-                const docs = json.documents || [];
-                return docs.map(doc => {
-                    const f = doc.fields || {};
-                    const name = (f.name?.stringValue || '').trim();
-                    let url = (f.url?.stringValue || '').trim();
+                const snap = await db.collection('channels').get();
+                return snap.docs.map(doc => {
+                    const d = doc.data() || {};
+                    const name = (d.name || '').trim();
+                    let url = (d.url || '').trim();
                     if (!name || !url) return null;
-                    const type = (f.type?.stringValue || f.linkType?.stringValue || '').toLowerCase();
-                    const cat = mapRevontechtvCategory(f.category?.stringValue || '');
+                    const type = (d.type || d.linkType || '').toLowerCase();
+                    const cat = mapRevontechtvCategory(d.category);
                     const isAzamCdn = url.includes('azamtvltd.co.tz');
-                    const key = f.key?.stringValue || '';
-                    const kid = f.kid?.stringValue || '';
+                    const key = d.key || '';
+                    const kid = d.kid || '';
                     const ch = {
                         name,
                         category: cat,
                         stream_url: url,
-                        logo: f.iconUrl?.stringValue || '',
+                        logo: d.iconUrl || '',
                         _isDash: type === 'dash',
                         _isAzamCdn: isAzamCdn
                     };
