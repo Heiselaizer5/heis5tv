@@ -3283,9 +3283,8 @@ const REMOVED = {};
             if (isDash) {
                 currentEngine = 'shaka';
                 shakaPlayer = new shaka.Player(videoEl);
-                const isAzamSport4 = name.includes('Azam Sport 4');
                 const hasCdntoken = url.includes('cdntoken=');
-                const hasClearKeys = drm && drm.clearKeys && !isAzamSport4;
+                const hasClearKeys = drm && drm.clearKeys;
                 const drmConfig = {
                     streaming: { rebufferingGoal: 5, bufferingGoal: 12, startAtSegmentBoundary: false },
                     manifest: { dash: { ignoreMinBufferTime: true, ignoreDrmInfo: hasCdntoken && !hasClearKeys } },
