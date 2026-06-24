@@ -155,15 +155,16 @@
         .channel-card {
             cursor: pointer;
             opacity: 0;
-            animation: cardFadeIn 0.35s ease forwards;
+            transform: translateY(12px);
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
             width: 100%;
             min-width: 0;
             display: flex;
             flex-direction: column;
         }
-        @keyframes cardFadeIn {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
+        .channel-card.visible {
+            opacity: 1;
+            transform: translateY(0);
         }
         .channel-card:active {
             transform: scale(0.95);
@@ -2269,7 +2270,7 @@ const REMOVED = {};
             } else {
                 logoHtml = `<div class="placeholder"><i class="fa-solid fa-tower-broadcast"></i></div>`;
             }
-            return `<div class="channel-card" style="animation-delay: ${idx * 0.05}s;" onclick="openVideoPlayer('${escapedName}', '${escapedUrl}', '${encodeURIComponent(drmStr)}')">
+            return `<div class="channel-card" style="transition-delay: ${idx * 0.04}s;" onclick="openVideoPlayer('${escapedName}', '${escapedUrl}', '${encodeURIComponent(drmStr)}')">
                 <div class="channel-poster">
                     ${logoHtml}
                     <div class="live-badge"><span class="pulse-dot"></span>LIVE</div>
@@ -2406,6 +2407,16 @@ const REMOVED = {};
                 });
             }
             container.innerHTML = html;
+            // Stagger entrance
+            requestAnimationFrame(() => {
+                document.querySelectorAll('.channel-card').forEach((el, i) => {
+                    setTimeout(() => el.classList.add('visible'), i * 60);
+                });
+            });
+            // Fallback: ensure visible after 2s (fixes mobile where rAF may not fire)
+            setTimeout(() => {
+                document.querySelectorAll('.channel-card').forEach(el => el.classList.add('visible'));
+            }, 2000);
         }
 
         // ═══ PLANS ═══
@@ -3354,24 +3365,11 @@ const REMOVED = {};
                     if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST) {
                         if (_transformCprot) {
                             const text = new TextDecoder().decode(new Uint8Array(response.data));
-                            console.log('[MPD DEBUG] Full MPD text:', text.substring(0, 3000));
-                            if (text.length > 3000) console.log('[MPD DEBUG] MPD truncated, full length:', text.length);
-                            const kidMatch = text.match(/cenc:default_KID="([^"]*)"/);
-                            if (kidMatch && drm && drm.clearKeys) {
-                                const realKid = kidMatch[1].replace(/-/g, '');
-                                const firestoreKid = Object.keys(drm.clearKeys)[0];
-                                const firestoreKey = drm.clearKeys[firestoreKid];
-                                if (realKid && realKid !== firestoreKid) {
-                                    shakaPlayer.configure({ drm: { clearKeys: { [realKid]: '00000000000000000000000000000000' } } });
-                                    console.log('[CLEARKEY] Real KID differs, trying all-zeros key for: ' + realKid);
-                                }
-                            }
                             const clearKeyCP = '<ContentProtection schemeIdUri="urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b" value="Clear Key"/>';
-                            const hasWidevine = /urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21d/.test(text);
                             const modified = text
                                 .replace(/<ContentProtection schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21d"[^>]*>[\s\S]*?<\/ContentProtection>/g, clearKeyCP)
                                 .replace(/<ContentProtection schemeIdUri="urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95"[^>]*>[\s\S]*?<\/ContentProtection>/g, '')
-                                .replace(/<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011"[^>]*\/>/g, hasWidevine ? '' : clearKeyCP);
+                                .replace(/<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011"[^>]*\/>/g, '');
                             if (modified !== text) {
                                 console.log('[CLEARKEY] Transformed ContentProtection to Clear Key');
                                 response.data = new TextEncoder().encode(modified).buffer;
