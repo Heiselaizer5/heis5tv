@@ -1773,19 +1773,16 @@
                 const resp = await fetch(REVONTECH_FIRESTORE_BASE + '/tokens', {
                     headers: { 'Content-Type': 'application/json' }
                 });
-                if (!resp.ok) { console.warn('[TOKEN] Fetch failed:', resp.status); return ''; }
+                if (!resp.ok) return '';
                 const json = await resp.json();
-                console.log('[TOKEN] Full response:', JSON.stringify(json).substring(0, 800));
                 const docs = json.documents || [];
                 for (const doc of docs) {
                     const f = doc.fields || {};
-                    console.log('[TOKEN] Doc fields:', Object.keys(f).join(', '));
-                    if (docs.length === 1) console.log('[TOKEN] First doc values:', JSON.stringify(Object.fromEntries(Object.entries(f).map(([k,v]) => [k, Object.values(v)[0]]))));
-                    const token = f.token?.stringValue || f.cdntoken?.stringValue || f.value?.stringValue || f.cdnToken?.stringValue || f.cdn_url?.stringValue || f.tok_prefix?.stringValue || f.jwt?.stringValue || '';
+                    const token = f.token?.stringValue || f.cdntoken?.stringValue || f.value?.stringValue || '';
                     if (token) return token;
                 }
                 return '';
-            } catch (e) { console.warn('[TOKEN] Error:', e.message); return ''; }
+            } catch { return ''; }
         }
 
         async function loadRevontechtvChannels() {
@@ -1800,11 +1797,6 @@
                 if (!chanResp.ok) return [];
                 const json = await chanResp.json();
                 const docs = json.documents || [];
-                if (docs.length > 0) {
-                    const first = docs[0];
-                    console.log('[FIRESTORE] First doc fields:', Object.keys(first.fields || {}).join(', '));
-                    console.log('[FIRESTORE] First doc name+url:', first.fields?.name?.stringValue, first.fields?.url?.stringValue);
-                }
                 return docs.map(doc => {
                     const f = doc.fields || {};
                     const name = (f.name?.stringValue || '').trim();
