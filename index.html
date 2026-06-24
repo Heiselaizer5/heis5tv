@@ -2778,16 +2778,14 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             console.log('[DBG] fetchAzamTokensFromApi called for', channelName + (forceRefresh ? ' (forced)' : ''));
             const data = getAzamChannelData(channelName);
             console.log('[DBG] data keys:', Object.keys(data).join(','));
-            // Try API first to get fresh authXmlToken (server TTL ~1 min, JWT exp is 45 min — can't trust JWT)
-            if (data.content_dtl && data.subscription_dtl) {
-                const bearer = getChannelBearer(channelName) || getGlobalBearer();
-                if (bearer) {
-                    const now = Date.now();
-                    if (forceRefresh || now - lastDrmAuthCall >= 30000) {
-                        lastDrmAuthCall = now;
-                        try {
-                            const rt = data.refreshToken || null;
-                            const apiResult = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
+            const bearer = getChannelBearer(channelName) || getGlobalBearer();
+            if (bearer) {
+                const now = Date.now();
+                if (forceRefresh || now - lastDrmAuthCall >= 30000) {
+                    lastDrmAuthCall = now;
+                    try {
+                        const rt = data.refreshToken || null;
+                        const apiResult = await fetchDrmAuthToken(bearer, data.content_dtl || '', data.subscription_dtl || '', rt);
                             if (apiResult.status && apiResult.data && apiResult.data.authXmlToken) {
                                 console.log('[AZAM] Fresh authXmlToken from API for', channelName);
                                 const d = apiResult.data;
@@ -2855,7 +2853,6 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         console.log('[AZAM] Skipping API refresh for', channelName, '(within 30s cooldown)');
                     }
                 }
-            }
             // Fallback to stored tokens if API failed
             if (data.tok_prefix) {
                 const parsed = extractTokPrefix(data.tok_prefix);
@@ -2876,17 +2873,16 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                 }
             }
-            const bearer = getChannelBearer(channelName) || getGlobalBearer();
-            if (!bearer || !data.content_dtl || !data.subscription_dtl) return null;
+            if (!bearer) return null;
+            const now = Date.now();
+            if (!forceRefresh && now - lastDrmAuthCall < 30000) {
+                console.log('[AZAM] Skipping API fallback for', channelName, '(within 30s cooldown)');
+                console.timeEnd('[TIMER] fetchTokens-' + channelName);
+                return null;
+            }
+            lastDrmAuthCall = now;
             try {
-                const now = Date.now();
-                if (!forceRefresh && now - lastDrmAuthCall < 30000) {
-                    console.log('[AZAM] Skipping API fallback for', channelName, '(within 30s cooldown)');
-                    console.timeEnd('[TIMER] fetchTokens-' + channelName);
-                    return null;
-                }
-                lastDrmAuthCall = now;
-                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl);
+            const result = await fetchDrmAuthToken(bearer, data.content_dtl || '', data.subscription_dtl || '');
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
                     const authXmlToken = d.authXmlToken;

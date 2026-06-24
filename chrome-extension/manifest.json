@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "HEIS5 Azam Token Saver",
+    "version": "2.0.0",
+    "description": "Auto-save Azam TV cookies (jwt_token + refresh_token) to Supabase",
+    "permissions": ["scripting", "activeTab"],
+    "host_permissions": [
+        "https://web.azamtvmax.com/*",
+        "https://yvztqzisrgqybapkdhcr.supabase.co/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["https://web.azamtvmax.com/*"],
+            "js": ["content.js"],
+            "run_at": "document_idle"
+        }
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "HEIS5 Azam Token Saver"
+    }
+}
