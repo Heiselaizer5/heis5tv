@@ -3274,15 +3274,16 @@ const REMOVED = {};
             if (isDash) {
                 currentEngine = 'shaka';
                 shakaPlayer = new shaka.Player(videoEl);
+                const hasCdntoken = url.includes('cdntoken=');
                 const drmConfig = {
                     streaming: { rebufferingGoal: 5, bufferingGoal: 12, startAtSegmentBoundary: false },
-                    manifest: { dash: { ignoreMinBufferTime: true } },
+                    manifest: { dash: { ignoreMinBufferTime: true, ignoreDrmInfo: hasCdntoken } },
                     abr: { enabled: true, defaultBandwidthEstimate: 800000 },
                 };
                 if (drm && drm.clearKeys) {
                     drmConfig.drm = { clearKeys: drm.clearKeys };
                     console.log('[CLEARKEY] Using clear key DRM');
-                } else {
+                } else if (!hasCdntoken) {
                     const finalXmlToken = authXmlToken || currentAuthXmlToken;
                     if (finalXmlToken) {
                         const wvProxy = API_WV_PROXY || '/wv-proxy';
@@ -3297,6 +3298,8 @@ const REMOVED = {};
                             console.log('[PSSH] Configured initData, pssh length:', psshData.pssh.length);
                         }
                     }
+                } else {
+                    console.log('[CDNTOKEN] ignoreDrmInfo=true — playing without DRM');
                 }
                 let azamCdnBaseUrl = '';
                 shakaPlayer.configure(drmConfig);
