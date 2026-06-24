@@ -1763,8 +1763,9 @@
         let revontechtvCdntoken = '';
 
         function mapRevontechtvCategory(cat) {
+            const t = cat.trim();
             const map = { 'Sport': 'Sports', 'Habari': 'News', 'Movie': 'Movies', 'Cartoon': 'Kids', 'Music': 'Music', 'Wild': 'Entertainment', 'Religion': 'Religion', 'Local': 'Local' };
-            return map[cat] || cat || 'General';
+            return map[t] || t || 'General';
         }
 
         async function fetchRevontechtvCdntoken() {
@@ -1816,6 +1817,7 @@
                     };
                     if (type === 'dash' && cdntoken && isAzamCdn) {
                         ch.stream_url = url + (url.includes('?') ? '&' : '?') + 'cdntoken=' + encodeURIComponent(cdntoken);
+                        if (key && kid) ch.drm = { clearKeys: { [kid]: key } };
                     } else if (type === 'dash' && !isAzamCdn && key && kid) {
                         ch.drm = { clearKeys: { [kid]: key } };
                     }
@@ -3282,12 +3284,13 @@ const REMOVED = {};
                 currentEngine = 'shaka';
                 shakaPlayer = new shaka.Player(videoEl);
                 const hasCdntoken = url.includes('cdntoken=');
+                const hasClearKeys = drm && drm.clearKeys;
                 const drmConfig = {
                     streaming: { rebufferingGoal: 5, bufferingGoal: 12, startAtSegmentBoundary: false },
-                    manifest: { dash: { ignoreMinBufferTime: true, ignoreDrmInfo: hasCdntoken } },
+                    manifest: { dash: { ignoreMinBufferTime: true, ignoreDrmInfo: hasCdntoken && !hasClearKeys } },
                     abr: { enabled: true, defaultBandwidthEstimate: 800000 },
                 };
-                if (drm && drm.clearKeys) {
+                if (hasClearKeys) {
                     drmConfig.drm = { clearKeys: drm.clearKeys };
                     console.log('[CLEARKEY] Using clear key DRM');
                 } else if (!hasCdntoken) {
@@ -3352,7 +3355,7 @@ const REMOVED = {};
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
                     }
                 });
-                const _stripCprot = hasCdntoken && url.includes('azamtvltd.co.tz');
+                const _stripCprot = hasCdntoken && !hasClearKeys && url.includes('azamtvltd.co.tz');
                 netEng.registerResponseFilter(async (type, response) => {
                     if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST && _stripCprot) {
                         const text = new TextDecoder().decode(new Uint8Array(response.data));
