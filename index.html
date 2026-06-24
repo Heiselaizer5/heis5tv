@@ -3361,6 +3361,16 @@ const REMOVED = {};
                     if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST) {
                         if (_transformCprot) {
                             const text = new TextDecoder().decode(new Uint8Array(response.data));
+                            const kidMatch = text.match(/cenc:default_KID="([^"]*)"/);
+                            if (kidMatch && drm && drm.clearKeys) {
+                                const realKid = kidMatch[1].replace(/-/g, '');
+                                const firestoreKid = Object.keys(drm.clearKeys)[0];
+                                const key = drm.clearKeys[firestoreKid];
+                                if (realKid && key && realKid !== firestoreKid) {
+                                    shakaPlayer.configure({ drm: { clearKeys: { [realKid]: key } } });
+                                    console.log('[CLEARKEY] Real KID differs, overriding clearkey: ' + realKid);
+                                }
+                            }
                             const clearKeyCP = '<ContentProtection schemeIdUri="urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b" value="Clear Key"/>';
                             const modified = text
                                 .replace(/<ContentProtection schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21d"[^>]*>[\s\S]*?<\/ContentProtection>/g, clearKeyCP)
