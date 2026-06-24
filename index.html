@@ -1401,25 +1401,22 @@
         const SUPABASE_URL = "https://yvztqzisrgqybapkdhcr.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU";
         // ── PROXY MODE ──
-        // 'cf-proxy' = via Cloudflare Worker (CF_WORKER_URL)
-        // 'supabase-proxy' = via Supabase Edge Function
-        // 'local' = via local Node.js server (requires: node server.js)
-        // 'direct' = browser fetches directly from Azam CDN
-        const IS_NETLIFY = location.hostname.includes('netlify.app');
-        const IS_CLOUDFLARE = location.hostname.includes('pages.dev') || location.hostname.includes('cloudflare');
-        const AZAM_PROXY_MODE = IS_CLOUDFLARE ? 'cf-pages' : IS_NETLIFY ? 'netlify' : 'local';
-        const AZAM_PROXY_URL = 'https://azam-render-proxy.onrender.com';
-        const CF_WORKER_URL = 'https://azam-proxy.erastokasoga5.workers.dev';
-        const SUPABASE_PROXY_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co/functions/v1/azam-proxy';
-        const LOCAL_PROXY_URL = 'http://localhost:3000/proxy';
-        const WIDEVINE_LICENSE_URL = 'https://azy4sj9b.anycast.nagra.com/AZY4SJ9B/wvls/contentlicenseservice/v1/licenses';
-        const API_BASE = IS_NETLIFY ? '/.netlify/functions' : '';
-        const API_AZAM_PROXY = API_BASE + '/azam-proxy';
-        const API_WV_PROXY = 'https://wv-proxy.erastokasoga5.workers.dev';
-        const API_DRM_AUTH = 'https://wv-proxy.erastokasoga5.workers.dev/drm-auth';
-        const API_AZAM_LOGIN = 'https://wv-proxy.erastokasoga5.workers.dev/azam-login';
-        const API_AZAM_REFRESH = 'https://wv-proxy.erastokasoga5.workers.dev/azam-refresh';
-        const API_LOAD_TOK = 'https://wv-proxy.erastokasoga5.workers.dev/load-tok';
+        // [REVONTECH] Azam proxy constants disabled
+        // const IS_NETLIFY = location.hostname.includes('netlify.app');
+        // const IS_CLOUDFLARE = location.hostname.includes('pages.dev') || location.hostname.includes('cloudflare');
+        // const AZAM_PROXY_MODE = IS_CLOUDFLARE ? 'cf-pages' : IS_NETLIFY ? 'netlify' : 'local';
+        // const AZAM_PROXY_URL = 'https://azam-render-proxy.onrender.com';
+        // const CF_WORKER_URL = 'https://azam-proxy.erastokasoga5.workers.dev';
+        // const SUPABASE_PROXY_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co/functions/v1/azam-proxy';
+        // const LOCAL_PROXY_URL = 'http://localhost:3000/proxy';
+        // const WIDEVINE_LICENSE_URL = 'https://azy4sj9b.anycast.nagra.com/AZY4SJ9B/wvls/contentlicenseservice/v1/licenses';
+        // const API_BASE = IS_NETLIFY ? '/.netlify/functions' : '';
+        // const API_AZAM_PROXY = API_BASE + '/azam-proxy';
+        // const API_WV_PROXY = 'https://wv-proxy.erastokasoga5.workers.dev';
+        // const API_DRM_AUTH = 'https://wv-proxy.erastokasoga5.workers.dev/drm-auth';
+        // const API_AZAM_LOGIN = 'https://wv-proxy.erastokasoga5.workers.dev/azam-login';
+        // const API_AZAM_REFRESH = 'https://wv-proxy.erastokasoga5.workers.dev/azam-refresh';
+        // const API_LOAD_TOK = 'https://wv-proxy.erastokasoga5.workers.dev/load-tok';
 
         // Init shaka polyfill
         if (typeof shaka !== 'undefined') { shaka.polyfill.installAll(); }
@@ -1478,7 +1475,7 @@
                 localStorage.setItem('heis5_session', JSON.stringify({ username, name: 'Admin', email: 'erastokasoga5@gmail.com', role: 'admin' }));
                 checkPendingSubscription();
                 goToApp();
-                syncLocalAzamToSupabase();
+                // [REVONTECH] syncLocalAzamToSupabase disabled
                 return;
             }
             let resp;
@@ -1687,7 +1684,7 @@
                     app.style.opacity = '1';
                     renderHero();
                     loadChannels();
-                    loadAzamConfigFromSupabase();
+                    // [REVONTECH] loadAzamConfigFromSupabase disabled
                     if (session) {
                         showWelcomeToast(session.name || session.username, session.role);
                     }
@@ -2565,6 +2562,7 @@ const REMOVED = {};
             window.open('https://wa.me/255656424007?text=' + encodeURIComponent('Habari HEIS5 TV! Nataka kujiandikisha na kupata chaneli zote. Akaunti: ' + session.email + ' (@' + session.username + ')'), '_blank');
         }
 
+        /* [REVONTECH] Entire Azam stream integration disabled
         // ═══ AZAM STREAM INTEGRATION ═══
         // channel_id haibadiliki. Tokens zinasave kwenye localStorage kupitia admin panel.
         const AZAM_CHANNEL_MAP = {
@@ -2694,7 +2692,7 @@ const REMOVED = {};
                 return payload.exp ? parseInt(payload.exp) : null;
             } catch { return null; }
         }
-        /* [REVONTECH] Azam DRM auth functions disabled
+        // [REVONTECH] Azam DRM auth functions disabled
         async function tryRefreshTokPrefix(channelName) {
             try {
                 const resp = await fetch(API_LOAD_TOK || '/load-tok');
@@ -3238,17 +3236,13 @@ const REMOVED = {};
             const MAP = {'azam one':'AzamOne','azam two':'AzamTwo','azam sport 1':'AzamSport1','azam sport 2':'AzamSport2','azam sport 3':'AzamSport3','azam sport 4':'AzamSport4','sinema zetu':'SinemaZetu','utv':'UTV','wasafi tv':'WasafiTV','cheka plus':'ChekaPlusTV','crowns tv':'CrownTv','zamaradi tv':'ZamaradiTV','zbc':'ZBC','zbc 2':'ZBC2','nickelodeon':'Nickelodeon','cartoonito':'Cartoonito','cartoon network':'CartoonNetwork','baby tv':'BabyTV','fix & fox':'FixandFoxi','cbeebies':'CBeebies','boing':'Boing','espn':'ESPN','espn 2':'ESPN2','nba tv':'NBATV','nat geo wild':'NatGeoWild','national geographic':'NatGeo','mbc 2':'MBC2','mbc max':'MBCMax','mbc action':'MBCAction','mbc pluspower':'MBCPlusPower','mbc drama':'MBCDrama','kix movies':'KIXMovies'};
             return MAP[m] || name.replace(/[\s.'"]/g, '');
         }
-        */
-        /* [REVONTECH] Azam functions disabled
+        // [REVONTECH] Azam functions disabled
         async function openAzamChannel(name, fakeUrl) {
             ...
         }
         // [REVONTECH] Remaining Azam functions (azamRefreshBearer, fmtExpiry, getTokenExpiry, updateAzamStatus) disabled
         */
-        let azamAuthRefreshTimer = null;
-        function stopAuthXmlRefresh() {
-            if (azamAuthRefreshTimer) { clearInterval(azamAuthRefreshTimer); azamAuthRefreshTimer = null; }
-        }
+        // [REVONTECH] stopAuthXmlRefresh disabled
 
         function openVideoPlayer(name, url, drmStr, authXmlToken, psshData, cdntoken) {
             const drm = drmStr ? JSON.parse(decodeURIComponent(drmStr)) : null;
@@ -3299,57 +3293,14 @@ const REMOVED = {};
                 if (hasClearKeys) {
                     drmConfig.drm = { clearKeys: drm.clearKeys };
                     console.log('[CLEARKEY] Using clear key DRM');
-                } else if (!hasCdntoken) {
-                    const finalXmlToken = authXmlToken || currentAuthXmlToken;
-                    if (finalXmlToken) {
-                        const wvProxy = API_WV_PROXY || '/wv-proxy';
-                        drmConfig.drm = {
-                            servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) }
-                        };
-                        currentAuthXmlToken = finalXmlToken;
-                        currentAuthXmlTokenFetchedAt = Date.now();
-                        if (psshData && psshData.success && psshData.pssh) {
-                            const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
-                            drmConfig.drm.initData = [{ initDataType: 'cenc', initData, systemId: psshData.systemId || 'com.widevine.alpha' }];
-                            console.log('[PSSH] Configured initData, pssh length:', psshData.pssh.length);
-                        }
-                    }
-                }
-                let azamCdnBaseUrl = '';
+                } // [REVONTECH] Azam Widevine fallback disabled
                 shakaPlayer.configure(drmConfig);
                 const netEng = shakaPlayer.getNetworkingEngine();
                 console.log('[FILTER] NetworkingEngine:', !!netEng);
                 if (netEng) {
-                const mpdUrl = url;
-                const lastSlash = mpdUrl.lastIndexOf('/');
-                if (lastSlash > 0) azamCdnBaseUrl = mpdUrl.substring(0, lastSlash + 1);
                 netEng.registerRequestFilter(async (type, request) => {
                     const uri = request.uris[0];
-                    if (uri.includes('wv-proxy') || uri.includes('/wv-proxy')) {
-                        const channel = lastChannelName;
-                        if (channel) {
-                            const bearer = getChannelBearer(channel) || getGlobalBearer();
-                            const data = getAzamChannelData(channel);
-                            // Send tokens to worker so it can refresh authXmlToken internally
-                            if (bearer) {
-                                request.headers['x-bearer'] = bearer;
-                            }
-                            if (data.content_dtl) {
-                                request.headers['x-content-dtl'] = data.content_dtl;
-                            }
-                            if (data.subscription_dtl) {
-                                request.headers['x-subscription-dtl'] = data.subscription_dtl;
-                            }
-                            const rft = data.refreshToken || localStorage.getItem('heis5_azam_refresh_token');
-                            if (rft) {
-                                request.headers['x-refresh-token'] = rft;
-                            }
-                        }
-                        if (currentAuthXmlToken) {
-                            request.headers['nv-authorizations'] = currentAuthXmlToken;
-                        }
-                        return;
-                    }
+                    // [REVONTECH] Azam wv-proxy handler disabled
                     if (uri.includes('azamtvltd.co.tz') || uri.includes('102.208.244.')) {
                         if (revontechtvCdntoken && !uri.includes('cdntoken=')) {
                             request.uris[0] = uri + (uri.includes('?') ? '&' : '?') + 'cdntoken=' + encodeURIComponent(revontechtvCdntoken);
@@ -3551,9 +3502,7 @@ const REMOVED = {};
         function getVideoEl() { return document.getElementById('hls-video'); }
 
         function closeVideoPlayer() {
-            stopAuthXmlRefresh();
-            lastChannelName = '';
-            lastMpdUrl = '';
+            // [REVONTECH] Azam cleanup disabled
             if (hlsPlayer) { hlsPlayer.destroy(); hlsPlayer = null; }
             if (shakaPlayer) { shakaPlayer.destroy(); shakaPlayer = null; }
             const vid = getVideoEl();
