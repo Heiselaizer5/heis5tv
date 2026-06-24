@@ -190,7 +190,7 @@ export default {
             headers: azamHeaders(finalBearer),
             body: JSON.stringify({ contentDtl: contentDtl || '', subscriberDtl: subscriptionDtl || '', deviceId: PERSISTENT_DEVICE_ID })
           });
-          let freshContentDtl = null, freshSubDtl = null;
+          let freshContentDtl = null, freshSubDtl = null, freshCdnToken = null;
           const sessText = await sessResp.text();
           for (const part of sessText.split('\n')) {
             try {
@@ -198,6 +198,7 @@ export default {
               const d = obj.data || obj;
               if (d.contentDtl) freshContentDtl = d.contentDtl;
               if (d.subscriberDtl || d.subscriptionDtl) freshSubDtl = d.subscriberDtl || d.subscriptionDtl;
+              if (d.cdnToken && !freshCdnToken) freshCdnToken = d.cdnToken;
             } catch (_) {}
           }
           const useContentDtl = freshContentDtl || contentDtl || '';
@@ -249,8 +250,6 @@ export default {
 async function handleLoadTok(request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   try {
-    const SUPABASE_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU';
     const queries = [
       '/rest/v1/stream_tokens?select=tok_url,channel_key,expires_at&order=expires_at.desc&limit=1',
       '/rest/v1/stream_tokens?select=*&order=expires_at.desc&limit=1',
@@ -373,6 +372,35 @@ async function handleAzamRefresh(request) {
   }
 }
 
+function decodeJwtPayload(jwt) {
+  try {
+    const payload = jwt.split('.')[1];
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json);
+  } catch { return null; }
+}
+
+function extractCustomerId(bearer) {
+  try {
+    const payload = decodeJwtPayload(bearer);
+    if (payload && payload.iss) return payload.iss.split('_')[0];
+  } catch {}
+  return null;
+}
+
+async function fetchSubscriptionDtl(bearer) {
+  try {
+    const customerId = extractCustomerId(bearer);
+    if (!customerId) return null;
+    const resp = await fetch(`https://api.aztv.videoready.tv/subscription-service/v1/${customerId}/currentSubscription`, {
+      headers: azamHeaders(bearer)
+    });
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    return json.data?.packValidationCode || null;
+  } catch { return null; }
+}
+
 function channelKeyToDisplayName(key) {
   // AzamSport2 → Azam Sport 2, SinemaZetu → Sinema Zetu
   return key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
@@ -411,7 +439,7 @@ async function tryFetchCds(bearer, channelName) {
             let json;
             try { json = JSON.parse(text); } catch { continue; }
             const data = json.data || json;
-            const encryptedData = data.encryptedData || data.encrypted_data || data.contentDtl || null;
+            const encryptedData = data.encryptedData || data.encrypted_data || data.contentDtl || (data.meta && data.meta.encryptedData) || null;
             if (encryptedData) return encryptedData;
           } catch (_) {}
         }
@@ -515,9 +543,43 @@ async function handleAzamContent(request) {
   }
 }
 
+const SUPABASE_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU';
+
+function decodeJwtExpiry(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    let p = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (p.length % 4) p += '=';
+    const body = JSON.parse(atob(p));
+    return body.exp ? body.exp * 1000 : null;
+  } catch { return null; }
+}
+
+async function querySupabaseCdnToken(channelName) {
+  if (!channelName) return null;
+  const names = [`cdn_jwt_${channelName}`, `cdn_tok_${channelName}`, 'cdn_jwt_global', 'cdn_tok_global'];
+  for (const name of names) {
+    try {
+      const resp = await fetch(SUPABASE_URL + `/rest/v1/azam_config?select=value&name=eq.${name}&limit=1`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+      });
+      const json = await resp.json();
+      if (Array.isArray(json) && json.length > 0 && json[0].value) {
+        const value = json[0].value;
+        const exp = name.startsWith('cdn_jwt_') ? decodeJwtExpiry(value) : null;
+        if (exp && exp <= Date.now()) continue;
+        return { name, value };
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
 async function handleDrmAuth(request) {
   try {
-    let { bearer, contentDtl, subscriptionDtl, refreshToken } = await request.json();
+    let { bearer, contentDtl, subscriptionDtl, refreshToken, channelName } = await request.json();
     if (!bearer) {
       return new Response(JSON.stringify({ status: false, message: 'Missing bearer token' }), { status: 400, headers: CORS });
     }
@@ -538,7 +600,7 @@ async function handleDrmAuth(request) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     // Phase 1: Try session/initialize first for fresh contentDtl + subscriberDtl
-    let freshContentDtl = null, freshSubDtl = null;
+    let freshContentDtl = null, freshSubDtl = null, freshCdnToken = null, freshTokPrefix = null;
     try {
       const sessResp = await fetch(AZAM_SESSION_URL, {
         signal: controller.signal,
@@ -553,11 +615,22 @@ async function handleDrmAuth(request) {
           const d = obj.data || obj;
           if (d.contentDtl) freshContentDtl = d.contentDtl;
           if (d.subscriberDtl || d.subscriptionDtl) freshSubDtl = d.subscriberDtl || d.subscriptionDtl;
+          if (d.cdnToken) freshCdnToken = d.cdnToken;
+          if (d.tok_prefix || d.cdn_url) freshTokPrefix = d.tok_prefix || d.cdn_url;
+          if (d.cdns && Array.isArray(d.cdns) && !freshTokPrefix) freshTokPrefix = d.cdns[0];
         } catch (_) {}
       }
     } catch (_) {}
-    const useContentDtl = freshContentDtl || contentDtl || '';
-    const useSubDtl = freshSubDtl || subscriptionDtl || '';
+    let useContentDtl = freshContentDtl || contentDtl || '';
+    let useSubDtl = freshSubDtl || subscriptionDtl || '';
+
+    // If subscriptionDtl is missing/empty, try to fetch fresh from subscription-service API
+    if (!useSubDtl) {
+      const freshSub = await fetchSubscriptionDtl(finalBearer);
+      if (freshSub) useSubDtl = freshSub;
+    }
+
+    // Try DRM auth
     let resp = await fetch(AZAM_DRM_AUTH_URL, {
       signal: controller.signal,
       method: 'POST',
@@ -568,23 +641,56 @@ async function handleDrmAuth(request) {
     if (resp.status === 200) {
       text = await resp.text();
     } else {
-      // Phase 3: Fallback — session token as both contentDtl and subscriptionDtl
       text = await resp.text();
-      let fallbackXml = null;
-      try {
-        const fallbackResp = await tryAllFallbacks(finalBearer, useContentDtl);
-        if (fallbackResp) fallbackXml = fallbackResp;
-      } catch (_) {}
-      if (fallbackXml) {
-        const fallbackJson = { status: true, data: { authXmlToken: fallbackXml }, _debug: { statusCode: 200, ts: Date.now(), retry: 'session-fallback' } };
-        if (newRefreshToken) fallbackJson._refreshToken = newRefreshToken;
-        clearTimeout(timeout);
-        return new Response(JSON.stringify(fallbackJson), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+      // If subscriptionDtl likely expired, try fetching fresh from subscription-service API
+      if ((!subscriptionDtl || resp.status === 403)) {
+        const freshSub = await fetchSubscriptionDtl(finalBearer);
+        if (freshSub && freshSub !== useSubDtl) {
+          useSubDtl = freshSub;
+          const retryResp = await fetch(AZAM_DRM_AUTH_URL, {
+            signal: controller.signal,
+            method: 'POST',
+            headers: azamHeaders(finalBearer),
+            body: JSON.stringify({ offlineDownload: false, subscriptionDtl: useSubDtl, contentDtl: useContentDtl })
+          });
+          if (retryResp.status === 200) {
+            resp = retryResp;
+            text = await retryResp.text();
+          }
+        }
+      }
+      // Phase 3: Try fallback strategies if DRM auth still failed
+      if (resp.status !== 200) {
+        let fallbackXml = null;
+        try {
+          const fallbackResp = await tryAllFallbacks(finalBearer, useContentDtl);
+          if (fallbackResp) fallbackXml = fallbackResp;
+        } catch (_) {}
+        if (fallbackXml) {
+          const fallbackJson = { status: true, data: { authXmlToken: fallbackXml }, _debug: { statusCode: 200, ts: Date.now(), retry: 'session-fallback' } };
+          if (newRefreshToken) fallbackJson._refreshToken = newRefreshToken;
+          clearTimeout(timeout);
+          return new Response(JSON.stringify(fallbackJson), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+        }
       }
     }
     clearTimeout(timeout);
     let json;
     try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200), status: false }; }
+    if (json.data) {
+      if (freshCdnToken && !json.data.cdnToken) json.data.cdnToken = freshCdnToken;
+      if (freshTokPrefix && !json.data.tok_prefix && !json.data.cdn_url) json.data.tok_prefix = freshTokPrefix;
+      if (!json.data.cdnToken && !json.data.tok_prefix && channelName) {
+        const supCdn = await querySupabaseCdnToken(channelName);
+        if (supCdn) {
+          if (supCdn.name.startsWith('cdn_jwt_')) {
+            json.data.cdnToken = supCdn.value;
+          } else {
+            json.data.tok_prefix = supCdn.value;
+          }
+        }
+      }
+    }
     json._debug = { statusCode: resp.status, ts: Date.now() };
     if (newRefreshToken) json._refreshToken = newRefreshToken;
     return new Response(JSON.stringify(json), {

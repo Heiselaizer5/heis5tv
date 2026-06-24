@@ -1786,7 +1786,7 @@
                 if (data && data.content_dtl && data.subscription_dtl) {
                     try {
                         const rt = data.refreshToken || null;
-                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
+                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt, lastChannelName);
                         if (result.status && result.data?.authXmlToken) {
                             data.authXmlToken = result.data.authXmlToken;
                             currentAuthXmlToken = result.data.authXmlToken;
@@ -2693,9 +2693,9 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 return JSON.parse(atob(p));
             } catch (e) { return null; }
         }
-        async function fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl, refreshToken) {
+        async function fetchDrmAuthToken(bearer, contentDtl, subscriptionDtl, refreshToken, channelName) {
             const endpoint = API_DRM_AUTH || '/drm-auth';
-            const body = { bearer, contentDtl, subscriptionDtl };
+            const body = { bearer, contentDtl, subscriptionDtl, channelName };
             if (refreshToken) body.refreshToken = refreshToken;
             const resp = await fetch(endpoint, {
                 method: 'POST',
@@ -2725,7 +2725,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     lastDrmAuthCall = now;
                     try {
                         const rt = data.refreshToken || null;
-                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
+                        const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt, channelName);
                         if (result.status && result.data && result.data.authXmlToken) {
                             const toUpdate = { authXmlToken: result.data.authXmlToken };
                             if (result.data.jwt_token || result.data.accessToken) toUpdate.jwt_token = result.data.jwt_token || result.data.accessToken;
@@ -2785,7 +2785,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     lastDrmAuthCall = now;
                     try {
                         const rt = data.refreshToken || null;
-                        const apiResult = await fetchDrmAuthToken(bearer, data.content_dtl || '', data.subscription_dtl || '', rt);
+                        const apiResult = await fetchDrmAuthToken(bearer, data.content_dtl || '', data.subscription_dtl || '', rt, channelName);
                             if (apiResult.status && apiResult.data && apiResult.data.authXmlToken) {
                                 console.log('[AZAM] Fresh authXmlToken from API for', channelName);
                                 const d = apiResult.data;
@@ -2882,7 +2882,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             }
             lastDrmAuthCall = now;
             try {
-            const result = await fetchDrmAuthToken(bearer, data.content_dtl || '', data.subscription_dtl || '');
+            const result = await fetchDrmAuthToken(bearer, data.content_dtl || '', data.subscription_dtl || '', null, channelName);
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
                     const authXmlToken = d.authXmlToken;
@@ -2954,7 +2954,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         setAzamChannelData(channelName, { content_dtl: freshContentDtl, subscription_dtl: freshSubDtl });
                         currentContentDtl = freshContentDtl;
                         currentSubscriptionDtl = freshSubDtl;
-                        const retry = await fetchDrmAuthToken(bearer, freshContentDtl, freshSubDtl);
+                        const retry = await fetchDrmAuthToken(bearer, freshContentDtl, freshSubDtl, null, channelName);
                         if (retry.status && retry.data && retry.data.authXmlToken) {
                             const d = retry.data;
                             const rawTok = d.tok_prefix || d.cdn_url || null;
@@ -2981,7 +2981,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                         setAzamChannelData(channelName, fresh);
                         currentContentDtl = fresh.contentDtl;
                         currentSubscriptionDtl = fresh.subscriptionDtl;
-                        const retry = await fetchDrmAuthToken(bearer, fresh.contentDtl, fresh.subscriptionDtl);
+                        const retry = await fetchDrmAuthToken(bearer, fresh.contentDtl, fresh.subscriptionDtl, null, channelName);
                         console.log('[AZAM] Retry DRM auth result:', JSON.stringify(retry).slice(0, 300));
                         if (retry.status && retry.data && retry.data.authXmlToken) {
                             const d = retry.data;
@@ -3024,7 +3024,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return;
             try {
                 const rt = data.refreshToken || null;
-                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
+                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt, channelName);
                 if (result.status && result.data && result.data.authXmlToken) {
                     const d = result.data;
                     const toUpdate = { authXmlToken: d.authXmlToken };
@@ -3079,7 +3079,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                             const obj = JSON.parse(part.trim());
                             const sessionToken = obj?.data?.token;
                             if (sessionToken) {
-                                const drmResult = await fetchDrmAuthToken(bearer, oldContentDtl, sessionToken);
+                                const drmResult = await fetchDrmAuthToken(bearer, oldContentDtl, sessionToken, null, channelName);
                                 if (drmResult.status && drmResult.data && drmResult.data.authXmlToken) {
                                     console.log('[AZAM] Session token worked as subscriptionDtl!');
                                     return { contentDtl: oldContentDtl, subscriptionDtl: sessionToken };
@@ -3125,7 +3125,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             if (!bearer) return;
             try {
                 const rt = data.refreshToken || null;
-                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
+                const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt, channelName);
                 console.log('[AZAM] doAzamRefresh result:', JSON.stringify(result).slice(0, 300));
                 if (result.data && result.data.authXmlToken) {
                     currentAuthXmlToken = result.data.authXmlToken;
@@ -3179,7 +3179,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                                     const freshSub = refJson.data.subscriptionDtl || null;
                                     if (freshCtl && freshSub) {
                                         setAzamChannelData(channelName, { content_dtl: freshCtl, subscription_dtl: freshSub, jwt_token: newBearer });
-                                        const retry = await fetchDrmAuthToken(newBearer, freshCtl, freshSub);
+                                        const retry = await fetchDrmAuthToken(newBearer, freshCtl, freshSub, null, channelName);
                                         if (retry.data?.authXmlToken) {
                                             currentAuthXmlToken = retry.data.authXmlToken;
                                             currentAuthXmlTokenFetchedAt = Date.now();
@@ -3232,9 +3232,12 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 currentCdnTokenQuery = apiTokens.cdnTokenQuery || '';
                 currentAuthXmlToken = apiTokens.authXmlToken;
                 currentAuthXmlTokenFetchedAt = Date.now();
-                // Path injection with PATH JWT (has sip: "", no IP restriction) — works from any browser
-                // Official site flow confirms: cdnedgch2/tok_<path_JWT>/live/eds/... returns 200
-                if (currentCdntoken) {
+                // Use ?cdntoken=JWT format if cdnTokenQuery is set (fresh JWT from Azam)
+                // Otherwise use /tok_xxx/ path prefix format
+                if (currentCdnTokenQuery) {
+                    const cleanJwt = currentCdnTokenQuery.replace(/^\?cdntoken=/, '');
+                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(cleanJwt);
+                } else if (currentCdntoken) {
                     mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                 } else {
                     mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
@@ -3260,7 +3263,12 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 if (tokPrefix) {
                     currentCdnBase = extractCdnHost(tokPrefix);
                     currentCdntoken = extractCdntoken(tokPrefix);
-                    mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                    if (currentCdnTokenQuery) {
+                        const cleanJwt = currentCdnTokenQuery.replace(/^\?cdntoken=/, '');
+                        mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(cleanJwt);
+                    } else {
+                        mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                    }
                     lastMpdUrl = mpdUrl;
                 }
                 const fallbackData = getAzamChannelData(channelName);
@@ -3277,8 +3285,13 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 if (mpdCheck.status === 403) {
                     console.warn('[AZAM] MPD returned 403 — token rejected, refreshing...');
                     const apiRetry = await fetchAzamTokensFromApi(channelName, true);
-                    if (apiRetry && currentCdntoken) {
-                        mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                    if (apiRetry) {
+                        if (currentCdnTokenQuery) {
+                            const cleanJwt = currentCdnTokenQuery.replace(/^\?cdntoken=/, '');
+                            mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(cleanJwt);
+                        } else if (currentCdntoken) {
+                            mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                        }
                         lastMpdUrl = mpdUrl;
                     }
                 }
@@ -3289,7 +3302,9 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 try {
                     const apiRetry = await fetchAzamTokensFromApi(channelName);
                     if (apiRetry && (currentCdntoken || currentCdnTokenQuery)) {
-                        const retryUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
+                        const retryUrl = currentCdnTokenQuery
+                            ? currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(currentCdnTokenQuery.replace(/^\?cdntoken=/, ''))
+                            : currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
                         lastMpdUrl = retryUrl;
                         const retryData = getAzamChannelData(channelName);
                         if (!currentContentDtl) currentContentDtl = retryData.content_dtl || '';
@@ -3398,7 +3413,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     const bearer = getChannelBearer(name) || getGlobalBearer();
                     const rt = data.refreshToken || null;
                     if (!bearer) { statusEl.textContent = 'No bearer for ' + name + ', skip'; continue; }
-                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt);
+                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt, name);
                     if (result.status && result.data && result.data.authXmlToken) {
                         const update = { authXmlToken: result.data.authXmlToken };
                         if (result.data.tok_prefix || result.data.cdn_url) {
@@ -3474,7 +3489,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                                 const sub = freshSubscriptionDtl || data.subscription_dtl || '';
                                 const rt = data.refreshToken || null;
                                 if (bearer && ctl && sub) {
-                                    const drmResult = await fetchDrmAuthToken(bearer, ctl, sub, rt);
+                                    const drmResult = await fetchDrmAuthToken(bearer, ctl, sub, rt, channel);
                                     if (drmResult.data?.authXmlToken) {
                                         currentAuthXmlToken = drmResult.data.authXmlToken;
                                         currentAuthXmlTokenFetchedAt = Date.now();

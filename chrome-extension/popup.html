@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { width: 320px; font-family: Arial, sans-serif; margin: 0; padding: 16px; background: #110d24; color: #fff; }
+        h2 { margin: 0 0 12px; font-size: 16px; color: #FFD700; }
+        .status { padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
+        .ok { background: #1a3a2a; color: #2ecc71; border: 1px solid #2ecc71; }
+        .err { background: #3a1a1a; color: #e74c3c; border: 1px solid #e74c3c; }
+        .info { background: #1a2a3a; color: #3498db; border: 1px solid #3498db; }
+        .btn { width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background: #FFD700; color: #110d24; }
+        .btn-primary:hover { background: #e6c200; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .detail { font-size: 12px; color: #b0a5c8; margin-top: 8px; }
+        .token-list { margin-top: 8px; max-height: 200px; overflow-y: auto; }
+        .token-item { padding: 4px 0; font-size: 11px; border-bottom: 1px solid #2a2050; word-break: break-all; }
+        .token-key { color: #FFD700; }
+    </style>
+</head>
+<body>
+    <h2>HEIS5 Azam Token Saver</h2>
+    <div id="status" class="status info">Checking...</div>
+    <button id="saveBtn" class="btn btn-primary" disabled>Save Now</button>
+    <div class="detail" id="detail">Not on web.azamtvmax.com</div>
+    <div id="tokenList" class="token-list"></div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
