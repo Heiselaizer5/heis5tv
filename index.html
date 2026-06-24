@@ -155,16 +155,15 @@
         .channel-card {
             cursor: pointer;
             opacity: 0;
-            transform: translateY(12px);
-            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+            animation: cardFadeIn 0.35s ease forwards;
             width: 100%;
             min-width: 0;
             display: flex;
             flex-direction: column;
         }
-        .channel-card.visible {
-            opacity: 1;
-            transform: translateY(0);
+        @keyframes cardFadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .channel-card:active {
             transform: scale(0.95);
@@ -1835,7 +1834,7 @@
             // 1. Try Revontechtv Firestore first (has Azam streams with tokens + clear keys)
             channels = await loadRevontechtvChannels();
             if (channels.length > 0) {
-                console.log('[REVONTECH] Loaded', channels.length, 'channels from Firestore');
+                console.log('[REVONTECH] Loaded', channels.length, 'channels from Firestore:', channels.map(c => c.name).join(', '));
                 renderChannels(); renderCategoryFilter(); loadIPTV();
                 return;
             }
@@ -2270,7 +2269,7 @@ const REMOVED = {};
             } else {
                 logoHtml = `<div class="placeholder"><i class="fa-solid fa-tower-broadcast"></i></div>`;
             }
-            return `<div class="channel-card" style="transition-delay: ${idx * 0.04}s;" onclick="openVideoPlayer('${escapedName}', '${escapedUrl}', '${encodeURIComponent(drmStr)}')">
+            return `<div class="channel-card" style="animation-delay: ${idx * 0.05}s;" onclick="openVideoPlayer('${escapedName}', '${escapedUrl}', '${encodeURIComponent(drmStr)}')">
                 <div class="channel-poster">
                     ${logoHtml}
                     <div class="live-badge"><span class="pulse-dot"></span>LIVE</div>
@@ -2407,12 +2406,6 @@ const REMOVED = {};
                 });
             }
             container.innerHTML = html;
-            // Stagger entrance
-            requestAnimationFrame(() => {
-                document.querySelectorAll('.channel-card').forEach((el, i) => {
-                    setTimeout(() => el.classList.add('visible'), i * 60);
-                });
-            });
         }
 
         // ═══ PLANS ═══
@@ -3361,6 +3354,8 @@ const REMOVED = {};
                     if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST) {
                         if (_transformCprot) {
                             const text = new TextDecoder().decode(new Uint8Array(response.data));
+                            console.log('[MPD DEBUG] Full MPD text:', text.substring(0, 3000));
+                            if (text.length > 3000) console.log('[MPD DEBUG] MPD truncated, full length:', text.length);
                             const kidMatch = text.match(/cenc:default_KID="([^"]*)"/);
                             if (kidMatch && drm && drm.clearKeys) {
                                 const realKid = kidMatch[1].replace(/-/g, '');
