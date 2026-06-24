@@ -3356,13 +3356,27 @@ const REMOVED = {};
                     }
                 });
                 const _stripCprot = hasCdntoken && !hasClearKeys && url.includes('azamtvltd.co.tz');
+                const _transformCprot = hasClearKeys && url.includes('azamtvltd.co.tz');
                 netEng.registerResponseFilter(async (type, response) => {
-                    if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST && _stripCprot) {
-                        const text = new TextDecoder().decode(new Uint8Array(response.data));
-                        const stripped = text.replace(/<ContentProtection[\s\S]*?<\/ContentProtection>/g, '').replace(/<ContentProtection[^>]*\/>/g, '');
-                        if (stripped !== text) {
-                            console.log('[CDNTOKEN] Stripped ContentProtection from manifest');
-                            response.data = new TextEncoder().encode(stripped).buffer;
+                    if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST) {
+                        if (_transformCprot) {
+                            const text = new TextDecoder().decode(new Uint8Array(response.data));
+                            const clearKeyCP = '<ContentProtection schemeIdUri="urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b" value="Clear Key"/>';
+                            const modified = text
+                                .replace(/<ContentProtection schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21d"[^>]*>[\s\S]*?<\/ContentProtection>/g, clearKeyCP)
+                                .replace(/<ContentProtection schemeIdUri="urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95"[^>]*>[\s\S]*?<\/ContentProtection>/g, '')
+                                .replace(/<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011"[^>]*\/>/g, '');
+                            if (modified !== text) {
+                                console.log('[CLEARKEY] Transformed ContentProtection to Clear Key');
+                                response.data = new TextEncoder().encode(modified).buffer;
+                            }
+                        } else if (_stripCprot) {
+                            const text = new TextDecoder().decode(new Uint8Array(response.data));
+                            const stripped = text.replace(/<ContentProtection[\s\S]*?<\/ContentProtection>/g, '').replace(/<ContentProtection[^>]*\/>/g, '');
+                            if (stripped !== text) {
+                                console.log('[CDNTOKEN] Stripped ContentProtection from manifest');
+                                response.data = new TextEncoder().encode(stripped).buffer;
+                            }
                         }
                         return;
                     }
