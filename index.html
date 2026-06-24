@@ -1769,31 +1769,33 @@
         }
 
         async function fetchRevontechtvCdntoken() {
-            try {
-                const resp = await fetch(REVONTECH_FIRESTORE_BASE + '/tokens', {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (!resp.ok) return '';
-                const json = await resp.json();
-                const docs = json.documents || [];
-                for (const doc of docs) {
-                    const f = doc.fields || {};
-                    const token = f.token?.stringValue || f.cdntoken?.stringValue || f.value?.stringValue || '';
-                    if (token) return token;
-                }
-                return '';
-            } catch { return ''; }
+            for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                    const resp = await fetch(REVONTECH_FIRESTORE_BASE + '/tokens', {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (resp.status === 429 && attempt === 0) { await new Promise(r => setTimeout(r, 500)); continue; }
+                    if (!resp.ok) return '';
+                    const json = await resp.json();
+                    const docs = json.documents || [];
+                    for (const doc of docs) {
+                        const f = doc.fields || {};
+                        const token = f.token?.stringValue || f.cdntoken?.stringValue || f.value?.stringValue || '';
+                        if (token) return token;
+                    }
+                    return '';
+                } catch { if (attempt === 0) { await new Promise(r => setTimeout(r, 500)); continue; } return ''; }
+            }
+            return '';
         }
 
         async function loadRevontechtvChannels() {
             try {
-                const [cdntoken, chanResp] = await Promise.all([
-                    fetchRevontechtvCdntoken(),
-                    fetch(REVONTECH_FIRESTORE_BASE + '/channels', {
-                        headers: { 'Content-Type': 'application/json' }
-                    })
-                ]);
+                const cdntoken = await fetchRevontechtvCdntoken();
                 revontechtvCdntoken = cdntoken;
+                const chanResp = await fetch(REVONTECH_FIRESTORE_BASE + '/channels', {
+                    headers: { 'Content-Type': 'application/json' }
+                });
                 if (!chanResp.ok) return [];
                 const json = await chanResp.json();
                 const docs = json.documents || [];
