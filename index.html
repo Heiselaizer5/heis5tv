@@ -2783,7 +2783,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 const bearer = getChannelBearer(channelName) || getGlobalBearer();
                 if (bearer) {
                     const now = Date.now();
-                    if (now - lastDrmAuthCall >= 30000) {
+                    if (forceRefresh || now - lastDrmAuthCall >= 30000) {
                         lastDrmAuthCall = now;
                         try {
                             const rt = data.refreshToken || null;
@@ -2803,6 +2803,17 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                                     for (const c of d.cdns) {
                                         const m = c.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
                                         if (m) { cdnBase = m[1]; cdntoken = m[2]; break; }
+                                    }
+                                }
+                                // If response has cdnToken (no tok_prefix/cdn_url), extract JWT from it
+                                if (!cdnBase || !cdntoken) {
+                                    if (d.cdnToken) {
+                                        const cdnTokJwt = d.cdnToken.replace(/^\?cdntoken=/, '');
+                                        if (cdnTokJwt) {
+                                            cdntoken = cdnTokJwt;
+                                            cdnBase = data.tok_prefix ? extractCdnHost(extractTokPrefix(data.tok_prefix)) : currentCdnBase;
+                                            if (!cdnBase) cdnBase = 'https://cdnblncr.azamtvltd.co.tz';
+                                        }
                                     }
                                 }
                                 // Fallback: use stored tok_prefix for CDN (manual, long-lived)
@@ -2869,7 +2880,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             if (!bearer || !data.content_dtl || !data.subscription_dtl) return null;
             try {
                 const now = Date.now();
-                if (now - lastDrmAuthCall < 30000) {
+                if (!forceRefresh && now - lastDrmAuthCall < 30000) {
                     console.log('[AZAM] Skipping API fallback for', channelName, '(within 30s cooldown)');
                     console.timeEnd('[TIMER] fetchTokens-' + channelName);
                     return null;
@@ -3137,6 +3148,18 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     }
                     if (result.data.refreshToken) {
                         toSave.refreshToken = result.data.refreshToken;
+                    }
+                    // Update cdntoken if response has cdnToken or tok_prefix
+                    const respTok = result.data.tok_prefix || result.data.cdn_url || null;
+                    if (respTok) {
+                        const m = respTok.match(/^(https?:\/\/[^/]+)\/tok_([A-Za-z0-9_.=-]+)/);
+                        if (m) { currentCdnBase = m[1]; currentCdntoken = m[2]; }
+                    } else if (result.data.cdnToken) {
+                        const cdnTokJwt = result.data.cdnToken.replace(/^\?cdntoken=/, '');
+                        if (cdnTokJwt) {
+                            currentCdntoken = cdnTokJwt;
+                            currentCdnTokenQuery = result.data.cdnToken;
+                        }
                     }
                     setAzamChannelData(channelName, toSave);
                     console.log('[AZAM] Refreshed authXmlToken for', channelName);
