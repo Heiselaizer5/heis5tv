@@ -1835,7 +1835,7 @@
             // 1. Try Revontechtv Firestore first (has Azam streams with tokens + clear keys)
             channels = await loadRevontechtvChannels();
             if (channels.length > 0) {
-                console.log('[REVONTECH] Loaded', channels.length, 'channels from Firestore:', channels.map(c => c.name).join(', '));
+                console.log('[REVONTECH] Loaded', channels.length, 'channels from Firestore');
                 renderChannels(); renderCategoryFilter(); loadIPTV();
                 return;
             }
