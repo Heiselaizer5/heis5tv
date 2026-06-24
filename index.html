@@ -3372,10 +3372,11 @@ const REMOVED = {};
                                 }
                             }
                             const clearKeyCP = '<ContentProtection schemeIdUri="urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b" value="Clear Key"/>';
+                            const hasWidevine = /urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21d/.test(text);
                             const modified = text
                                 .replace(/<ContentProtection schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21d"[^>]*>[\s\S]*?<\/ContentProtection>/g, clearKeyCP)
                                 .replace(/<ContentProtection schemeIdUri="urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95"[^>]*>[\s\S]*?<\/ContentProtection>/g, '')
-                                .replace(/<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011"[^>]*\/>/g, '');
+                                .replace(/<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011"[^>]*\/>/g, hasWidevine ? '' : clearKeyCP);
                             if (modified !== text) {
                                 console.log('[CLEARKEY] Transformed ContentProtection to Clear Key');
                                 response.data = new TextEncoder().encode(modified).buffer;
