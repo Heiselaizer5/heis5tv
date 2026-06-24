@@ -3298,8 +3298,6 @@ const REMOVED = {};
                             console.log('[PSSH] Configured initData, pssh length:', psshData.pssh.length);
                         }
                     }
-                } else {
-                    console.log('[CDNTOKEN] ignoreDrmInfo=true — playing without DRM');
                 }
                 let azamCdnBaseUrl = '';
                 shakaPlayer.configure(drmConfig);
@@ -3348,6 +3346,15 @@ const REMOVED = {};
                     }
                 });
                 netEng.registerResponseFilter(async (type, response) => {
+                    if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST && revontechtvCdntoken) {
+                        const text = new TextDecoder().decode(new Uint8Array(response.data));
+                        const stripped = text.replace(/<ContentProtection[\s\S]*?<\/ContentProtection>/g, '').replace(/<ContentProtection[^>]*\/>/g, '');
+                        if (stripped !== text) {
+                            console.log('[CDNTOKEN] Stripped ContentProtection from manifest');
+                            response.data = new TextEncoder().encode(stripped).buffer;
+                        }
+                        return;
+                    }
                     if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
                         const nagraStatus = response.headers?.['X-Nagra-Status'];
                         const nagraBody = response.headers?.['X-Nagra-Body'];
