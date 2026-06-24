@@ -1570,62 +1570,11 @@
                         <div class="admin-user-count">${Object.keys(users).length} registered user(s)</div>
                         ${userList || '<div class="admin-empty">No users registered.</div>'}
                     </div>
+                    <!-- [REVONTECH] Azam Tokens admin section disabled
                     <div class="admin-dash-section">
-                        <h3><i class="fa-solid fa-cloud-arrow-down" style="margin-right:4px;"></i> Azam Tokens</h3>
-                        <div id="azam-stream-status" style="font-size:0.6rem;margin-bottom:8px;color:var(--muted);"></div>
-                        <div style="display:flex;gap:4px;margin-bottom:6px;">
-                            <select id="azam-channel-select" onchange="loadAzamChannelUi()" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">${Object.keys(AZAM_CHANNEL_MAP).map(n => '<option value="' + n + '">' + n + '</option>').join('')}</select>
-                        </div>
-                        <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
-                            <div style="font-size:0.5rem;color:var(--accent);margin-bottom:4px;">Azam TV Tokens (copy from web.azamtvmax.com → F12 → Application → Local Storage)</div>
-                            <div style="display:flex;gap:4px;margin-bottom:4px;">
-                                <input id="azam-access-token-input" type="text" placeholder="accessToken or jwt_token" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamSaveAccessToken()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                            </div>
-                            <div style="display:flex;gap:4px;margin-bottom:4px;">
-                                <input id="azam-refresh-token-input" type="text" placeholder="refreshToken" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamSaveRefreshToken()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                            </div>
-                            <div style="display:flex;gap:4px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamRefreshBearer()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-rotate"></i> Refresh Bearer</button>
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="azamAutoFetchAll()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-cloud-arrow-down"></i> Fetch All Channel Tokens</button>
-                            </div>
-                            <div id="azam-login-status" style="font-size:0.45rem;color:var(--muted);margin-top:3px;"></div>
-                        </div>
-                        <div style="display:flex;gap:4px;margin-bottom:4px;">
-                            <input id="azam-bearer-input" type="text" placeholder="GLOBAL_BEARER token (auto-filled)" style="flex:1;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveGlobalBearer()" style="font-size:0.5rem;background:var(--accent);color:#000;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                        </div>
-                        <div style="display:flex;gap:4px;margin-bottom:4px;">
-                                <input id="azam-jwt-input" type="text" placeholder="jwt_token (per-channel, from Azam localStorage)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('jwt_token')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
-                            </div>
-                            <div style="display:flex;gap:4px;margin-bottom:4px;">
-                                <input id="azam-refresh-ch-input" type="text" placeholder="refreshToken (per-channel)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('refreshToken')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
-                            </div>
-                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                                <input id="azam-tok-input" type="text" placeholder="tok_prefix" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                                <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('tok_prefix')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
-                            </div>
-                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                            <input id="azam-xml-input" type="text" placeholder="authXmlToken" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('authXmlToken')" style="font-size:0.5rem;background:var(--accent);color:#000;">Save</button>
-                        </div>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                            <input id="azam-content-input" type="text" placeholder="content_dtl (auto-refresh)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('content_dtl')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
-                        </div>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-                            <input id="azam-sub-input" type="text" placeholder="subscription_dtl (auto-refresh)" style="flex:2;font-size:0.5rem;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 6px;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="saveAzamField('subscription_dtl')" style="font-size:0.5rem;background:var(--accent3);color:#000;">Save</button>
-                        </div>
-                        <div id="azam-ui-status" style="font-size:0.5rem;color:var(--muted);margin-top:4px;"></div>
-                        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="adminWatchLive()" style="font-size:0.5rem;"><i class="fa-solid fa-eye"></i> Watch Live</button>
-                            <button class="admin-glow-btn admin-glow-btn-sm" onclick="syncLocalAzamToSupabase()" style="font-size:0.5rem;background:var(--accent3);color:#000;"><i class="fa-solid fa-cloud-arrow-up"></i> Sync All to Cloud</button>
-                        </div>
-                    </div>`;
+                        ...
+                    </div>
+                    -->`;
             }
 
             container.innerHTML = `
@@ -1643,8 +1592,8 @@
                     ${adminSection}
                 </div>
             `;
-            loadAzamChannelUi();
-            updateAzamStatus();
+            // loadAzamChannelUi();   // [REVONTECH] Azam admin UI disabled
+            // updateAzamStatus();    // [REVONTECH] Azam admin UI disabled
         }
 
 
@@ -1773,9 +1722,10 @@
             } else {
                 goToApp();
             }
-            startTokenRefresh();
+            // startTokenRefresh(); // [REVONTECH] Azam token refresh disabled
         });
 
+        /* [REVONTECH] Azam token refresh disabled
         function startTokenRefresh() {
             async function refreshLoop() {
                 if (!lastChannelName) return;
@@ -1800,6 +1750,7 @@
             refreshLoop();
             setInterval(refreshLoop, 900000);
         }
+        */
 
         // Catch unhandled promise rejections (e.g., CDN errors)
         window.addEventListener('unhandledrejection', (e) => {
@@ -1807,11 +1758,61 @@
             e.preventDefault();
         });
 
+        // ═══ REVONTECH TV (Firestore) ═══
+        const REVONTECH_FIRESTORE_BASE = 'https://firestore.googleapis.com/v1/projects/revontech-6c62d/databases/(default)/documents';
+
+        function mapRevontechtvCategory(cat) {
+            const map = { 'Sport': 'Sports', 'Habari': 'News', 'Movie': 'Movies', 'Cartoon': 'Kids', 'Music': 'Music', 'Wild': 'Entertainment', 'Religion': 'Religion', 'Local': 'Local' };
+            return map[cat] || cat || 'General';
+        }
+
+        async function loadRevontechtvChannels() {
+            try {
+                const resp = await fetch(REVONTECH_FIRESTORE_BASE + '/channels', {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!resp.ok) return [];
+                const json = await resp.json();
+                const docs = json.documents || [];
+                return docs.map(doc => {
+                    const f = doc.fields || {};
+                    const name = (f.name?.stringValue || '').trim();
+                    const url = (f.url?.stringValue || '').trim();
+                    if (!name || !url) return null;
+                    const type = (f.type?.stringValue || f.linkType?.stringValue || '').toLowerCase();
+                    const cat = mapRevontechtvCategory(f.category?.stringValue || '');
+                    const key = f.key?.stringValue || '';
+                    const kid = f.kid?.stringValue || '';
+                    const ch = {
+                        name,
+                        category: cat,
+                        stream_url: url,
+                        logo: f.iconUrl?.stringValue || '',
+                        _isDash: type === 'dash'
+                    };
+                    if (type === 'dash' && key && kid) {
+                        ch.drm = { clearKeys: { [kid]: key } };
+                    }
+                    return ch;
+                }).filter(Boolean);
+            } catch (e) {
+                console.warn('[REVONTECH] Firestore fetch failed:', e.message);
+                return [];
+            }
+        }
+
         // ═══ CHANNELS ═══
         async function loadChannels() {
-            let extra; // shared across RTDB & Supabase paths
+            let extra;
+            // 1. Try Revontechtv Firestore first (has Azam streams with tokens + clear keys)
+            channels = await loadRevontechtvChannels();
+            if (channels.length > 0) {
+                console.log('[REVONTECH] Loaded', channels.length, 'channels from Firestore');
+                renderChannels(); renderCategoryFilter(); loadIPTV();
+                return;
+            }
+            // 2. Fallback: RTDB (old source)
             try {
-                // Try RTDB first (live data from Revontech TV app)
                 const rtdb = await fetch('https://tweve-stream-default-rtdb.firebaseio.com/channels.json');
                 if (rtdb.ok) {
                     const obj = await rtdb.json();
@@ -2091,7 +2092,8 @@ const REMOVED = {};
                               if (LOGO_OVERRIDES[lower]) ch.logo = LOGO_OVERRIDES[lower];
                           });
                           channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels' && ch.category !== 'Music');
-channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://') && ch.category !== 'Local') { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','nickelodeon','cartoonito','cartoon network','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; }});
+        // [REVONTECH] _azam flag assignment disabled
+        // channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://') && ch.category !== 'Local') { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','nickelodeon','cartoonito','cartoon network','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; }});
                            const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
                              const REMOVED3 = {'buzzr':1,'tnt sport 1':1,'tnt sport 2':1,'tnt sport 3':1,'tnt sport 4':1,'bein sports 1':1,'bein sports 2':1,'bein sports 3':1,'trace sport stars':1,'willow sports':1,'abc news':1,'cnn':1,'france 24 english':1,'russia today (global)':1,'nhk world japan':1,'arirang':1,'stingray':1,'kix':1,'hbo':1,'ramogi tv':1,'tanzania safari channel':1,'africa tv2':1,'tbc1':1,'tbc2':1,'ibn tv africa':1};
                             channels = channels.filter(ch => !REMOVED3[ch.name.toLowerCase().trim()]);
@@ -2126,7 +2128,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     {name:'UTV',category:'Azam',stream_url:'azam://UTV',logo:'https://static.wikia.nocookie.net/logopedia/images/1/18/Azam_UTV_Logo_%28Better%29.png',_azam:true}
                 ];
                 channels = channels.filter(ch => ch.category !== 'General' && ch.category !== 'FREE CHANNELS' && ch.category !== 'Free Channels' && ch.category !== 'Music');
-channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://') && ch.category !== 'Local') { ch.category = 'Azam'; ch._azam = true; } }); channels.forEach(ch => { const n = ch.name.toLowerCase().trim(); if (['azam sport 1','azam sport 2','azam sport 3','azam sport 4','azam one','azam two','sinema zetu','utv','nickelodeon','cartoonito','cartoon network','baby tv','fix & fox','cbeebies','boing','espn','espn 2','nba tv','nat geo wild','national geographic','mbc 2','mbc max','mbc action','mbc pluspower','mbc drama','kix movies'].includes(n)) { ch.category = 'Azam'; ch._azam = true; } });
+// [REVONTECH] _azam flag assignment disabled
                  const seen = new Set(); channels = channels.filter(ch => { const k = ch.name.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; });
                  const LOGO_FIX = {
 'cnn':'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/international/cnn-international-int.png',
@@ -2230,15 +2232,8 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
         function channelCard(c, idx) {
             const escapedName = c.name.replace(/'/g, "\\'");
             const escapedUrl = c.stream_url.replace(/'/g, "\\'");
-            if (c._azam) {
-                return `<div class="channel-card" style="transition-delay: ${idx * 0.04}s;" onclick="openAzamChannel('${escapedName}', '${escapedUrl}')">
-                    <div class="channel-poster">
-                        <img src="${c.logo}" alt="" onerror="this.outerHTML='<div class=\\'placeholder\\'><i class=\\'fa-solid fa-tower-broadcast\\'></i></div>'">
-                        <div class="live-badge"><span class="pulse-dot"></span>LIVE</div>
-                    </div>
-                    <h4>${c.name}</h4>
-                </div>`;
-            }
+            // [REVONTECH] _azam path disabled — channels use openVideoPlayer with drmStr instead
+
             const hasDrm = c.drm && (c.drm.licenseUrl || c.drm.clearKeys);
             const drmStr = hasDrm ? JSON.stringify(c.drm) : '';
             let logoHtml;
@@ -2665,6 +2660,7 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                 return payload.exp ? parseInt(payload.exp) : null;
             } catch { return null; }
         }
+        /* [REVONTECH] Azam DRM auth functions disabled
         async function tryRefreshTokPrefix(channelName) {
             try {
                 const resp = await fetch(API_LOAD_TOK || '/load-tok');
@@ -3203,356 +3199,22 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
             doAzamRefresh(channelName);
             azamAuthRefreshTimer = setInterval(() => doAzamRefresh(channelName), 60000);
         }
-        function stopAuthXmlRefresh() {
-            if (azamAuthRefreshTimer) { clearInterval(azamAuthRefreshTimer); azamAuthRefreshTimer = null; }
-        }
         function azamNameToKey(name) {
             const m = name.trim().toLowerCase();
             const MAP = {'azam one':'AzamOne','azam two':'AzamTwo','azam sport 1':'AzamSport1','azam sport 2':'AzamSport2','azam sport 3':'AzamSport3','azam sport 4':'AzamSport4','sinema zetu':'SinemaZetu','utv':'UTV','wasafi tv':'WasafiTV','cheka plus':'ChekaPlusTV','crowns tv':'CrownTv','zamaradi tv':'ZamaradiTV','zbc':'ZBC','zbc 2':'ZBC2','nickelodeon':'Nickelodeon','cartoonito':'Cartoonito','cartoon network':'CartoonNetwork','baby tv':'BabyTV','fix & fox':'FixandFoxi','cbeebies':'CBeebies','boing':'Boing','espn':'ESPN','espn 2':'ESPN2','nba tv':'NBATV','nat geo wild':'NatGeoWild','national geographic':'NatGeo','mbc 2':'MBC2','mbc max':'MBCMax','mbc action':'MBCAction','mbc pluspower':'MBCPlusPower','mbc drama':'MBCDrama','kix movies':'KIXMovies'};
             return MAP[m] || name.replace(/[\s.'"]/g, '');
         }
+        */
+        /* [REVONTECH] Azam functions disabled
         async function openAzamChannel(name, fakeUrl) {
-            const channelName = fakeUrl.startsWith('azam://') ? fakeUrl.replace('azam://', '') : (fakeUrl.match(/\/live\/eds\/([^/]+)\//) || [,''])[1] || azamNameToKey(name);
-            channelStartTime = Date.now();
-            console.log('[DBG] openAzamChannel CALLED name=' + name + ' channelName=' + channelName);
-            console.time('[TIMER] openAzamChannel-' + channelName);
-            document.getElementById('modal-channel-name').textContent = name;
-            document.getElementById('now-playing-name').textContent = name;
-            document.getElementById('video-modal').classList.add('show');
-            document.getElementById('now-playing-bar').classList.add('show');
-            document.getElementById('player-error').style.display = 'none';
-            document.getElementById('player-error').classList.remove('show');
-            document.getElementById('buffering-spinner').style.display = 'flex';
-            let mpdUrl = null;
-            let authXml = null;
-            const apiTokens = await fetchAzamTokensFromApi(channelName);
-            if (apiTokens) {
-                currentCdnBase = apiTokens.cdnBase;
-                currentCdntoken = apiTokens.cdntoken || '';
-                currentCdnTokenQuery = apiTokens.cdnTokenQuery || '';
-                currentAuthXmlToken = apiTokens.authXmlToken;
-                currentAuthXmlTokenFetchedAt = Date.now();
-                // Use ?cdntoken=JWT format if cdnTokenQuery is set (fresh JWT from Azam)
-                // Otherwise use /tok_xxx/ path prefix format
-                if (currentCdnTokenQuery) {
-                    const cleanJwt = currentCdnTokenQuery.replace(/^\?cdntoken=/, '');
-                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(cleanJwt);
-                } else if (currentCdntoken) {
-                    mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
-                } else {
-                    mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
-                }
-                lastMpdUrl = mpdUrl;
-                lastChannelName = channelName;
-                const chanData = getAzamChannelData(channelName);
-                currentContentDtl = chanData.content_dtl || '';
-                currentSubscriptionDtl = chanData.subscription_dtl || '';
-                authXml = currentAuthXmlToken;
-                startAuthXmlRefresh(channelName);
-                console.timeLog('[TIMER] openAzamChannel-' + channelName, 'got tokens + mpdUrl');
-            } else {
-                let tokPrefix = await ensureValidTokPrefix(channelName);
-                authXml = await ensureValidAuthXml(channelName);
-                // Always check if authXml refresh stored a fresh tok_prefix
-                const freshData = getAzamChannelData(channelName);
-                if (freshData.tok_prefix) {
-                    const parsed = extractTokPrefix(freshData.tok_prefix) || freshData.tok_prefix;
-                    const exp = getTokExpiry(parsed);
-                    if (exp && exp * 1000 > Date.now()) tokPrefix = parsed;
-                }
-                if (tokPrefix) {
-                    currentCdnBase = extractCdnHost(tokPrefix);
-                    currentCdntoken = extractCdntoken(tokPrefix);
-                    if (currentCdnTokenQuery) {
-                        const cleanJwt = currentCdnTokenQuery.replace(/^\?cdntoken=/, '');
-                        mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(cleanJwt);
-                    } else {
-                        mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
-                    }
-                    lastMpdUrl = mpdUrl;
-                }
-                const fallbackData = getAzamChannelData(channelName);
-                if (!currentContentDtl) currentContentDtl = fallbackData.content_dtl || '';
-                if (!currentSubscriptionDtl) currentSubscriptionDtl = fallbackData.subscription_dtl || '';
-                startAuthXmlRefresh(channelName);
-            }
-            try {
-                if (!mpdUrl || (!currentCdntoken && !currentCdnTokenQuery)) {
-                    throw new Error('No tok_ for ' + channelName + '. Weka tok_prefix kwenye Admin Panel → Azam Channels.');
-                }
-                // Pre-check MPD - if 403, refresh token immediately
-                const mpdCheck = await fetch(mpdUrl, { method: 'GET', mode: 'cors' });
-                if (mpdCheck.status === 403) {
-                    console.warn('[AZAM] MPD returned 403 — token rejected, refreshing...');
-                    const apiRetry = await fetchAzamTokensFromApi(channelName, true);
-                    if (apiRetry) {
-                        if (currentCdnTokenQuery) {
-                            const cleanJwt = currentCdnTokenQuery.replace(/^\?cdntoken=/, '');
-                            mpdUrl = currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(cleanJwt);
-                        } else if (currentCdntoken) {
-                            mpdUrl = currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
-                        }
-                        lastMpdUrl = mpdUrl;
-                    }
-                }
-                openVideoPlayer(name, mpdUrl, '', authXml, null, currentCdntoken);
-                console.timeLog('[TIMER] openAzamChannel-' + channelName, 'openVideoPlayer called');
-            } catch (e) {
-                console.warn('[AZAM] First attempt failed, retrying with fresh tok...');
-                try {
-                    const apiRetry = await fetchAzamTokensFromApi(channelName);
-                    if (apiRetry && (currentCdntoken || currentCdnTokenQuery)) {
-                        const retryUrl = currentCdnTokenQuery
-                            ? currentCdnBase + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd?cdntoken=' + encodeURIComponent(currentCdnTokenQuery.replace(/^\?cdntoken=/, ''))
-                            : currentCdnBase + '/tok_' + currentCdntoken + '/live/eds/' + channelName + '/DASH/' + channelName + '.mpd';
-                        lastMpdUrl = retryUrl;
-                        const retryData = getAzamChannelData(channelName);
-                        if (!currentContentDtl) currentContentDtl = retryData.content_dtl || '';
-                        if (!currentSubscriptionDtl) currentSubscriptionDtl = retryData.subscription_dtl || '';
-                        startAuthXmlRefresh(channelName);
-                        openVideoPlayer(name, retryUrl, '', currentAuthXmlToken, null, currentCdntoken);
-                        return;
-                    }
-                } catch (e2) { console.warn('[AZAM] Retry also failed:', e2.message); }
-                console.error('[AZAM] stream error:', e);
-                document.getElementById('buffering-spinner').style.display = 'none';
-                alert('Failed to load Azam stream: ' + e.message);
-            }
+            ...
         }
-        function extractCdnHost(tokPrefix) {
-            const m = tokPrefix.match(/^(https?:\/\/[^/]+)/);
-            return m ? m[1] : null;
+        // [REVONTECH] Remaining Azam functions (azamRefreshBearer, fmtExpiry, getTokenExpiry, updateAzamStatus) disabled
+        */
+        let azamAuthRefreshTimer = null;
+        function stopAuthXmlRefresh() {
+            if (azamAuthRefreshTimer) { clearInterval(azamAuthRefreshTimer); azamAuthRefreshTimer = null; }
         }
-        function extractCdntoken(tokPrefix) {
-            const m = tokPrefix.match(/\/tok_([A-Za-z0-9_.=-]+)/);
-            return m ? m[1] : null;
-        }
-        function getChannelBearer(channelName) {
-            const data = getAzamChannelData(channelName);
-            return data.jwt_token || localStorage.getItem('heis5_azam_global_bearer') || '';
-        }
-        function loadAzamChannelUi() {
-            const sel = document.getElementById('azam-channel-select');
-            const name = sel.value;
-            const data = getAzamChannelData(name);
-            document.getElementById('azam-tok-input').value = data.tok_prefix || '';
-            document.getElementById('azam-content-input').value = data.content_dtl || '';
-            document.getElementById('azam-sub-input').value = data.subscription_dtl || '';
-            document.getElementById('azam-xml-input').value = data.authXmlToken || '';
-            document.getElementById('azam-jwt-input').value = data.jwt_token || '';
-            document.getElementById('azam-refresh-ch-input').value = data.refreshToken || '';
-        }
-        function saveAzamField(field) {
-            const idMap = {tok_prefix:'azam-tok-input',content_dtl:'azam-content-input',subscription_dtl:'azam-sub-input',authXmlToken:'azam-xml-input',jwt_token:'azam-jwt-input',refreshToken:'azam-refresh-ch-input'};
-            const val = document.getElementById(idMap[field]).value.trim();
-            if (!val) return;
-            const sel = document.getElementById('azam-channel-select');
-            const name = sel.value;
-            const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
-            if (!all[name]) all[name] = {};
-            all[name][field] = val;
-            localStorage.setItem('heis5_azam_channels', JSON.stringify(all));
-            loadAzamChannelUi();
-            updateAzamStatus();
-            // Sync to Supabase for all users
-            const key = 'azam_ch:' + name;
-            const chVal = JSON.stringify(all[name]);
-            fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: key, value: chVal }) }).catch(() => {});
-            if (field === 'content_dtl' && name === lastChannelName) currentContentDtl = val;
-            if (field === 'subscription_dtl' && name === lastChannelName) currentSubscriptionDtl = val;
-            const data = all[name];
-            const tokExp = data.tok_prefix ? getTokenExpiry(data.tok_prefix) : null;
-            const xmlExp = data.authXmlToken ? getExpiryFromAuthXml(data.authXmlToken) : null;
-            let expInfo = ' [' + name + ']';
-            if (tokExp) expInfo += ' | tok_: ' + fmtExpiry(tokExp);
-            if (xmlExp) expInfo += ' | authXml: ' + fmtExpiry(xmlExp);
-            document.getElementById('azam-ui-status').textContent = field + ' saved' + expInfo;
-        }
-        function saveGlobalBearer() {
-            const val = document.getElementById('azam-bearer-input').value.trim();
-            localStorage.setItem('heis5_azam_global_bearer', val);
-            // Sync to Supabase for all users
-            fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(val) }) }).catch(() => {});
-            document.getElementById('azam-ui-status').textContent = 'Bearer saved & synced';
-        }
-        function azamSaveAccessToken() {
-            const val = document.getElementById('azam-access-token-input').value.trim();
-            if (!val) return;
-            // Also save per-channel if a channel is selected
-            const sel = document.getElementById('azam-channel-select');
-            const channelName = sel?.value;
-            if (channelName) {
-                setAzamChannelData(channelName, { jwt_token: val });
-            }
-            localStorage.setItem('heis5_azam_global_bearer', val);
-            document.getElementById('azam-bearer-input').value = val;
-            fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(val) }) }).catch(() => {});
-            document.getElementById('azam-login-status').textContent = 'Access token saved!';
-        }
-        function azamSaveRefreshToken() {
-            const val = document.getElementById('azam-refresh-token-input').value.trim();
-            if (!val) return;
-            // Also save per-channel if a channel is selected
-            const sel = document.getElementById('azam-channel-select');
-            const channelName = sel?.value;
-            if (channelName) {
-                setAzamChannelData(channelName, { refreshToken: val });
-            }
-            localStorage.setItem('heis5_azam_refresh_token', val);
-            fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'azam_refresh_token', value: JSON.stringify(val) }) }).catch(() => {});
-            document.getElementById('azam-login-status').textContent = 'Refresh token saved & synced!';
-        }
-        async function azamAutoFetchAll() {
-            const statusEl = document.getElementById('azam-login-status');
-            statusEl.textContent = 'Fetching tokens for all channels...';
-            const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
-            let fetched = 0, errors = 0;
-            for (const name of Object.keys(AZAM_CHANNEL_MAP)) {
-                const data = all[name];
-                if (data && data.content_dtl && data.subscription_dtl) {
-                    const bearer = getChannelBearer(name) || getGlobalBearer();
-                    const rt = data.refreshToken || null;
-                    if (!bearer) { statusEl.textContent = 'No bearer for ' + name + ', skip'; continue; }
-                    const result = await fetchDrmAuthToken(bearer, data.content_dtl, data.subscription_dtl, rt, name);
-                    if (result.status && result.data && result.data.authXmlToken) {
-                        const update = { authXmlToken: result.data.authXmlToken };
-                        if (result.data.tok_prefix || result.data.cdn_url) {
-                            update.tok_prefix = result.data.tok_prefix || result.data.cdn_url;
-                        }
-                        if (result.data.jwt_token || result.data.accessToken) {
-                            update.jwt_token = result.data.jwt_token || result.data.accessToken;
-                        }
-                        if (result.data.refreshToken) {
-                            update.refreshToken = result.data.refreshToken;
-                        }
-                        setAzamChannelData(name, update);
-                        fetched++;
-                    } else {
-                        errors++;
-                    }
-                }
-            }
-            statusEl.textContent = 'Fetched: ' + fetched + ' channels, errors: ' + errors;
-        }
-        async function azamRefreshBearer() {
-            const statusEl = document.getElementById('azam-login-status');
-            const sel = document.getElementById('azam-channel-select');
-            const channelName = sel?.value || lastChannelName;
-            const data = channelName ? getAzamChannelData(channelName) : null;
-            const refreshToken = data?.refreshToken || localStorage.getItem('heis5_azam_refresh_token');
-            const currentBearer = getChannelBearer(channelName) || getGlobalBearer();
-            if (!refreshToken) { statusEl.textContent = 'No refresh_token stored. Login with Google first.'; return; }
-            statusEl.textContent = 'Refreshing bearer...';
-            try {
-                const resp = await fetch(API_AZAM_REFRESH, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refreshToken, currentBearer })
-                });
-                const json = await resp.json();
-                if (json.status && json.data) {
-                    const newBearer = json.data.accessToken || json.data.jwt_token || '';
-                    const newRt = json.data.refreshToken || refreshToken;
-                    if (newBearer) {
-                        // Save per-channel if we have a channel name
-                        if (channelName) {
-                            const perChUpdate = { jwt_token: newBearer, refreshToken: newRt };
-                            setAzamChannelData(channelName, perChUpdate);
-                        }
-                        // Also save global as fallback
-                        localStorage.setItem('heis5_azam_global_bearer', newBearer);
-                        localStorage.setItem('heis5_azam_refresh_token', newRt);
-                        document.getElementById('azam-bearer-input').value = newBearer;
-                        fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'global_tok', value: JSON.stringify(newBearer) }) }).catch(() => {});
-                        fetch(SUPABASE_URL + '/rest/v1/azam_config', { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify({ name: 'azam_refresh_token', value: JSON.stringify(newRt) }) }).catch(() => {});
-                        // Save fresh contentDtl/subscriptionDtl if returned from refresh API
-                        const freshContentDtl = json.data.contentDtl || null;
-                        const freshSubscriptionDtl = json.data.subscriptionDtl || null;
-                        if (freshContentDtl && freshSubscriptionDtl) {
-                            localStorage.setItem('heis5_azam_content_dtl', freshContentDtl);
-                            localStorage.setItem('heis5_azam_subscription_dtl', freshSubscriptionDtl);
-                            const channel = channelName || lastChannelName;
-                            if (channel) {
-                                setAzamChannelData(channel, { content_dtl: freshContentDtl, subscription_dtl: freshSubscriptionDtl, jwt_token: newBearer });
-                            }
-                            statusEl.textContent = 'Bearer + contentDtl refreshed!';
-                        } else {
-                            statusEl.textContent = 'Bearer refreshed! Token fetched: "' + (json.data.message || '') + '"';
-                        }
-                        // After refresh, try to get fresh authXmlToken
-                        const channel = lastChannelName || document.getElementById('azam-channel-select')?.value;
-                        if (channel) {
-                            try {
-                                const bearer = getChannelBearer(channel) || getGlobalBearer();
-                                const data = getAzamChannelData(channel);
-                                const ctl = freshContentDtl || data.content_dtl || '';
-                                const sub = freshSubscriptionDtl || data.subscription_dtl || '';
-                                const rt = data.refreshToken || null;
-                                if (bearer && ctl && sub) {
-                                    const drmResult = await fetchDrmAuthToken(bearer, ctl, sub, rt, channel);
-                                    if (drmResult.data?.authXmlToken) {
-                                        currentAuthXmlToken = drmResult.data.authXmlToken;
-                                        currentAuthXmlTokenFetchedAt = Date.now();
-                                        setAzamChannelData(channel, { authXmlToken: currentAuthXmlToken });
-                                        statusEl.textContent = 'Bearer + authXmlToken refreshed!';
-                                    }
-                                }
-                            } catch (_) {}
-                        }
-                        return;
-                    }
-                }
-                if (json.message) {
-                    statusEl.textContent = 'Refresh failed: ' + json.message;
-                } else {
-                    statusEl.textContent = 'Refresh failed. Try "Login & Get Tokens" instead.';
-                }
-            } catch (e) {
-                statusEl.textContent = 'Refresh error: ' + e.message;
-            }
-        }
-
-        function fmtExpiry(expTs) {
-            if (!expTs) return 'N/A';
-            const diff = expTs * 1000 - Date.now();
-            if (diff <= 0) return 'EXPIRED';
-            const h = Math.floor(diff / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            return h + 'h ' + m + 'm';
-        }
-        function getTokenExpiry(tok) {
-            if (!tok) return null;
-            try {
-                const parts = tok.replace(/^.*\/tok_/, '').split('.');
-                if (parts.length < 2) return null;
-                let p = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-                while (p.length % 4) p += '=';
-                return JSON.parse(atob(p)).exp || null;
-            } catch { return null; }
-        }
-        function updateAzamStatus() {
-            const el = document.getElementById('azam-stream-status');
-            if (!el) return;
-            const bearer = getGlobalBearer();
-            const total = Object.keys(AZAM_CHANNEL_MAP).length;
-            let withTok = 0, withXml = 0;
-            let tokExp = null, xmlExp = null;
-            try {
-                const all = JSON.parse(localStorage.getItem('heis5_azam_channels') || '{}');
-                Object.keys(AZAM_CHANNEL_MAP).forEach(name => {
-                    const d = all[name];
-                    if (d && d.tok_prefix) { withTok++; if (!tokExp) tokExp = getTokenExpiry(d.tok_prefix); }
-                    if (d && d.authXmlToken) { withXml++; if (!xmlExp) xmlExp = getExpiryFromAuthXml(d.authXmlToken); }
-                });
-            } catch {}
-            el.innerHTML = `<span style="color:var(--accent3);">${total} channels</span>`
-                + ` | tok_: ${withTok}/${total}`
-                + ` | authXml: ${withXml}/${total}`
-                + (bearer ? ' | ✅ Bearer' : ' | ❌ No Bearer')
-                + (tokExp ? ` | CDN: <span style="color:${tokExp*1000<Date.now()?'red':'var(--accent)'};">${fmtExpiry(tokExp)}</span>` : '')
-                + (xmlExp ? ` | AuthXML: <span style="color:${xmlExp*1000<Date.now()?'red':'var(--accent)'};">${fmtExpiry(xmlExp)}</span>` : '');
-        }
-
 
         function openVideoPlayer(name, url, drmStr, authXmlToken, psshData, cdntoken) {
             const drm = drmStr ? JSON.parse(decodeURIComponent(drmStr)) : null;
@@ -3598,18 +3260,23 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     manifest: { dash: { ignoreMinBufferTime: true } },
                     abr: { enabled: true, defaultBandwidthEstimate: 800000 },
                 };
-                const finalXmlToken = authXmlToken || currentAuthXmlToken;
-                if (finalXmlToken) {
-                    const wvProxy = API_WV_PROXY || '/wv-proxy';
-                    drmConfig.drm = {
-                        servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) }
-                    };
-                    currentAuthXmlToken = finalXmlToken;
-                    currentAuthXmlTokenFetchedAt = Date.now();
-                    if (psshData && psshData.success && psshData.pssh) {
-                        const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
-                        drmConfig.drm.initData = [{ initDataType: 'cenc', initData, systemId: psshData.systemId || 'com.widevine.alpha' }];
-                        console.log('[PSSH] Configured initData, pssh length:', psshData.pssh.length);
+                if (drm && drm.clearKeys) {
+                    drmConfig.drm = { clearKeys: drm.clearKeys };
+                    console.log('[CLEARKEY] Using clear key DRM');
+                } else {
+                    const finalXmlToken = authXmlToken || currentAuthXmlToken;
+                    if (finalXmlToken) {
+                        const wvProxy = API_WV_PROXY || '/wv-proxy';
+                        drmConfig.drm = {
+                            servers: { 'com.widevine.alpha': wvProxy + '?url=' + encodeURIComponent(WIDEVINE_LICENSE_URL) }
+                        };
+                        currentAuthXmlToken = finalXmlToken;
+                        currentAuthXmlTokenFetchedAt = Date.now();
+                        if (psshData && psshData.success && psshData.pssh) {
+                            const initData = Uint8Array.from(atob(psshData.pssh), c => c.charCodeAt(0)).buffer;
+                            drmConfig.drm.initData = [{ initDataType: 'cenc', initData, systemId: psshData.systemId || 'com.widevine.alpha' }];
+                            console.log('[PSSH] Configured initData, pssh length:', psshData.pssh.length);
+                        }
                     }
                 }
                 let azamCdnBaseUrl = '';
@@ -3688,20 +3355,8 @@ channels.forEach(ch => { if (ch.stream_url && ch.stream_url.startsWith('azam://'
                     const detail = e?.detail;
                     console.error('[SHAKA] Player error event:', detail);
                     const code = detail?.code || 0;
-                    if ((code === 6007 || code === 1002) && lastChannelName && !azamReloadLock && azamRetryCount < 2) {
-                        azamReloadLock = true;
-                        azamRetryCount++;
-                        console.log('[AZAM] Retry #' + azamRetryCount + ' for', lastChannelName);
-                        const oldPlayer = shakaPlayer;
-                        shakaPlayer = null;
-                        if (oldPlayer) oldPlayer.destroy();
-                        setTimeout(() => {
-                            azamReloadLock = false;
-                            openAzamChannel(document.getElementById('modal-channel-name').textContent, 'azam://' + lastChannelName);
-                        }, 500);
-                        return;
-                    }
-                    azamRetryCount = 0;
+                    // [REVONTECH] Azam retry disabled
+                    // azamRetryCount = 0;
                     showPlayerError('shaka-error: ' + (detail?.message || ''));
                 });
                 videoEl.addEventListener('playing', () => {

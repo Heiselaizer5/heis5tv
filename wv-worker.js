@@ -545,6 +545,7 @@ async function handleAzamContent(request) {
 
 const SUPABASE_URL = 'https://yvztqzisrgqybapkdhcr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU';
+const REVONTECH_FIRESTORE_BASE = 'https://firestore.googleapis.com/v1/projects/revontech-6c62d/databases/(default)/documents';
 
 function decodeJwtExpiry(token) {
   try {
