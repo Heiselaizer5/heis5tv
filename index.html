@@ -3365,10 +3365,10 @@ const REMOVED = {};
                             if (kidMatch && drm && drm.clearKeys) {
                                 const realKid = kidMatch[1].replace(/-/g, '');
                                 const firestoreKid = Object.keys(drm.clearKeys)[0];
-                                const key = drm.clearKeys[firestoreKid];
-                                if (realKid && key && realKid !== firestoreKid) {
-                                    shakaPlayer.configure({ drm: { clearKeys: { [realKid]: key } } });
-                                    console.log('[CLEARKEY] Real KID differs, overriding clearkey: ' + realKid);
+                                const firestoreKey = drm.clearKeys[firestoreKid];
+                                if (realKid && realKid !== firestoreKid) {
+                                    shakaPlayer.configure({ drm: { clearKeys: { [realKid]: '00000000000000000000000000000000' } } });
+                                    console.log('[CLEARKEY] Real KID differs, trying all-zeros key for: ' + realKid);
                                 }
                             }
                             const clearKeyCP = '<ContentProtection schemeIdUri="urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b" value="Clear Key"/>';
