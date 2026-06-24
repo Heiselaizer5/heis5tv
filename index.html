@@ -3037,7 +3037,7 @@ const REMOVED = {};
                     setAzamChannelData(channelName, toUpdate);
                     console.log('[AZAM] Background refresh OK for', channelName);
                 }
-            } catch (e) { /* refresh not critical */ }
+            } catch (e) { // refresh not critical 
         }
         async function refreshAzamContentDtl(bearer, channelName, oldContentDtl, oldSubscriptionDtl) {
             // Try session/initialize first
