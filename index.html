@@ -1915,23 +1915,18 @@
         async function callXplGetStream(channelId, sessionToken, jwt) {
             try {
                 const cleanJwt = jwt.replace(/^Bearer\s+/i, '').replace(/[^\x00-\x7F]/g, '');
-                const res = await fetch(XPL_URL + '/functions/v1/get-stream', {
+                const res = await fetch('/xpl-proxy', {
                     method: 'POST',
-                    headers: {
-                        'apikey': XPL_ANON_KEY,
-                        'Authorization': 'Bearer ' + cleanJwt,
-                        'X-Proxy-Key': XPL_PROXY_KEY,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ channel_id: channelId, session_token: sessionToken })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channel_id: channelId, session_token: sessionToken, jwt: cleanJwt })
                 });
                 if (!res.ok) {
                     const errText = await res.text();
-                    console.warn('[XPL] get-stream HTTP', res.status, 'for', channelId, ':', errText);
+                    console.warn('[XPL] proxy HTTP', res.status, 'for', channelId, ':', errText);
                     return null;
                 }
                 return await res.json();
-            } catch (e) { console.warn('[XPL] get-stream fetch error:', e.message); return null; }
+            } catch (e) { console.warn('[XPL] proxy fetch error:', e.message); return null; }
         }
 
         async function extractXploitechsChannels(jwt, sessionToken) {
