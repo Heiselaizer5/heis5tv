@@ -3163,13 +3163,15 @@
                     // azamRetryCount = 0;
                     showPlayerError('shaka-error: ' + (detail?.message || ''));
                 });
+                let _hasStarted = false;
                 videoEl.addEventListener('playing', () => {
                     document.getElementById('buffering-spinner').style.display = 'none';
+                    document.getElementById('player-error').style.display = 'none';
+                    document.getElementById('player-error').classList.remove('show');
                     document.title = '▶ ' + name;
-                    console.timeLog('[TIMER] openVideoPlayer-' + name, 'playing event');
-                    console.timeEnd('[TIMER] openVideoPlayer-' + name);
-                    setTimeout(() => { videoEl.muted = false; }, 100);
-                }, {once: true});
+                    if (!_hasStarted) { _hasStarted = true; console.timeEnd('[TIMER] openVideoPlayer-' + name); }
+                    setTimeout(() => { if (!videoEl.muted) return; videoEl.muted = false; }, 100);
+                });
                 videoEl.addEventListener('waiting', () => {
                     document.getElementById('buffering-spinner').style.display = 'flex';
                     console.timeLog('[TIMER] openVideoPlayer-' + name, 'waiting (buffering)');
