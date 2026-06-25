@@ -3094,11 +3094,9 @@
                     if (uri.includes('akamaihd.net')) {
                         request.headers['Origin'] = 'https://xploitechstv.netlify.app';
                         request.headers['Referer'] = 'https://xploitechstv.netlify.app/';
-                        request.allowCrossSiteCredentials = true;
                     } else if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
                         request.headers['Origin'] = 'https://heis5tv.netlify.app';
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
-                        request.allowCrossSiteCredentials = true;
                     }
                 });
                 const _stripCprot = hasCdntoken && !hasClearKeys && url.includes('azamtvltd.co.tz');
