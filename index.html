@@ -9,9 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    <link rel="preconnect" href="https://azy4sj9b.anycast.nagra.com">
     <link rel="preconnect" href="https://wv-proxy.erastokasoga5.workers.dev">
-    <link rel="dns-prefetch" href="https://azy4sj9b.anycast.nagra.com">
     <link rel="dns-prefetch" href="https://wv-proxy.erastokasoga5.workers.dev">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1805,28 +1803,27 @@
             }
         }
 
-        async function loadRevontechtvChannels() {
-            const db = initRevontechtvFirebase();
-            if (!db) return [];
+        const EXTRA_COLLECTIONS = ['channels', 'streams', 'live', 'movies', 'channels_dev', 'channels_test', 'all_channels'];
+
+        async function loadCollection(db, name, cdntoken) {
             try {
-                const cdntoken = await fetchRevontechtvCdntoken();
-                revontechtvCdntoken = cdntoken;
-                const snap = await db.collection('channels').get();
+                const snap = await db.collection(name).get();
+                if (snap.empty) return [];
                 return snap.docs.map(doc => {
                     const d = doc.data() || {};
                     const name = (d.name || '').trim();
-                    let url = (d.url || '').trim();
+                    let url = (d.url || d.stream_url || '').trim();
                     if (!name || !url) return null;
                     const type = (d.type || d.linkType || '').toLowerCase();
                     const cat = mapRevontechtvCategory(d.category);
                     const isAzamCdn = url.includes('azamtvltd.co.tz');
-                    const key = d.key || '';
-                    const kid = d.kid || '';
+                    const key = d.key || d.defaultKeyId || '';
+                    const kid = d.kid || d.keyId || '';
                     const ch = {
                         name,
                         category: cat,
                         stream_url: url,
-                        logo: d.iconUrl || '',
+                        logo: d.iconUrl || d.logo || '',
                         _isDash: type === 'dash',
                         _isAzamCdn: isAzamCdn
                     };
@@ -1838,10 +1835,33 @@
                     }
                     return ch;
                 }).filter(Boolean);
-            } catch (e) {
-                console.warn('[REVONTECH] Firestore fetch failed:', e.message);
+            } catch {
                 return [];
             }
+        }
+
+        async function loadRevontechtvChannels() {
+            const db = initRevontechtvFirebase();
+            if (!db) return [];
+            let cdntoken = revontechtvCdntoken;
+            if (!cdntoken) {
+                cdntoken = await fetchRevontechtvCdntoken();
+                revontechtvCdntoken = cdntoken;
+            }
+            const seen = new Set();
+            const all = [];
+            for (const col of EXTRA_COLLECTIONS) {
+                const items = await loadCollection(db, col, cdntoken);
+                for (const ch of items) {
+                    const key = ch.name + '|' + ch.stream_url;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        all.push(ch);
+                    }
+                }
+                if (items.length > 0) console.log('[REVONTECH] Found', items.length, 'channels in collection:', col);
+            }
+            return all;
         }
 
         // ═══ CHANNELS ═══
@@ -2903,12 +2923,10 @@
                 if (netEng) {
                 netEng.registerRequestFilter(async (type, request) => {
                     const uri = request.uris[0];
-                    // [REVONTECH] Azam wv-proxy handler disabled
                     if (uri.includes('azamtvltd.co.tz') || uri.includes('102.208.244.')) {
                         if (revontechtvCdntoken && !uri.includes('cdntoken=')) {
                             request.uris[0] = uri + (uri.includes('?') ? '&' : '?') + 'cdntoken=' + encodeURIComponent(revontechtvCdntoken);
                         }
-                        console.log('[CDN] Fetching:', request.uris[0].substring(0, 120));
                         return;
                     }
                     if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
@@ -2949,13 +2967,6 @@
                             }
                         }
                         return;
-                    }
-                    if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
-                        const nagraStatus = response.headers?.['X-Nagra-Status'];
-                        const nagraBody = response.headers?.['X-Nagra-Body'];
-                        if (nagraStatus || response.status !== 200) {
-                            console.log('[NAGRA RESPONSE] status=' + response.status + ' nagraStatus=' + nagraStatus + ' nagraBody=' + nagraBody + ' dataSize=' + (response.data?.byteLength || 0));
-                        }
                     }
                 });
 
