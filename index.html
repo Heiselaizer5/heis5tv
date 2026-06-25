@@ -1914,7 +1914,7 @@
 
         async function callXplGetStream(channelId, sessionToken, jwt) {
             try {
-                const cleanJwt = jwt.replace(/^Bearer\s+/i, '');
+                const cleanJwt = jwt.replace(/^Bearer\s+/i, '').replace(/[^\x00-\x7F]/g, '');
                 const res = await fetch(XPL_URL + '/functions/v1/get-stream', {
                     method: 'POST',
                     headers: {
@@ -1961,9 +1961,11 @@
         }
 
         async function handleXplExtract() {
-            const jwt = document.getElementById('xpl-jwt').value.trim();
+            const rawJwt = (document.getElementById('xpl-jwt').value || '').trim();
             const session = document.getElementById('xpl-session').value.trim();
-            if (!jwt || !session) { setXplStatus('Fill in both JWT and Session Token', 'error'); return; }
+            if (!rawJwt || !session) { setXplStatus('Fill in both JWT and Session Token', 'error'); return; }
+            if (/[^\x00-\x7F]/.test(rawJwt)) { setXplStatus('JWT ina special characters (…)! Nakili JWT kamili kutoka DevTools → Copy value.', 'error'); return; }
+            const jwt = rawJwt.replace(/^Bearer\s+/i, '');
             const btn = document.getElementById('xpl-btn');
             const statusEl = document.getElementById('xpl-status');
             const progressEl = document.getElementById('xpl-progress');
