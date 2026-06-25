@@ -2062,27 +2062,35 @@
             'trace tv': 'https://upload.wikimedia.org/wikipedia/commons/5/50/Trace_TV_logo.svg',
             'zbc': 'https://upload.wikimedia.org/wikipedia/commons/8/87/ZBC_TV_logo.png',
             'zbc tv': 'https://upload.wikimedia.org/wikipedia/commons/8/87/ZBC_TV_logo.png',
-            'azam sports 1': 'https://azamtv.co.tz/favicon.ico',
-            'azam sports 2': 'https://azamtv.co.tz/favicon.ico',
-            'azam sports 3': 'https://azamtv.co.tz/favicon.ico',
-            'azam sports 4': 'https://azamtv.co.tz/favicon.ico',
-            'azam one': 'https://azamtv.co.tz/favicon.ico',
-            'azam two': 'https://azamtv.co.tz/favicon.ico',
-            'azam 1': 'https://azamtv.co.tz/favicon.ico',
-            'azam 2': 'https://azamtv.co.tz/favicon.ico',
-            'azam cinema': 'https://azamtv.co.tz/favicon.ico',
-            'azam max': 'https://azamtv.co.tz/favicon.ico',
-            'arise and shine': 'https://upload.wikimedia.org/wikipedia/commons/2/20/Arise_News_Logo.png',
-            'wasafi': 'https://wasafimedia.co.tz/wp-content/uploads/2023/01/Wasafi-TV-Logo.png',
-            'wasafi tv': 'https://wasafimedia.co.tz/wp-content/uploads/2023/01/Wasafi-TV-Logo.png',
+            'azam sports 1': 'https://www.lyngsat.com/logo/tv/aa/azam-sports-1-tz.png',
+            'azam sports 2': 'https://www.lyngsat.com/logo/tv/aa/azam-sports-2-tz.png',
+            'azam sports 3': 'https://www.lyngsat.com/logo/tv/aa/azam-sports-3-tz.png',
+            'azam sports 4': 'https://www.lyngsat.com/logo/tv/aa/azam-sports-4-tz.png',
+            'azam one': 'https://www.lyngsat.com/logo/tv/aa/azam_tz_one.png',
+            'azam two': 'https://www.lyngsat.com/logo/tv/aa/azam_tz_two.png',
+            'azam 1': 'https://www.lyngsat.com/logo/tv/aa/azam_tz_one.png',
+            'azam 2': 'https://www.lyngsat.com/logo/tv/aa/azam_tz_two.png',
+            'azam xtra': 'https://www.lyngsat.com/logo/tv/aa/azam-xtra-tz.png',
+            'azam cinema': 'https://www.lyngsat.com/logo/tv/aa/azam_tz_one.png',
+            'azam max': 'https://www.lyngsat.com/logo/tv/aa/azam_tz_two.png',
+            'arise and shine': 'https://www.lyngsat.com/logo/tv/aa/arise-and-shine-tv-tz.png',
+            'arise & shine': 'https://www.lyngsat.com/logo/tv/aa/arise-and-shine-tv-tz.png',
+            'wasafi': 'https://www.lyngsat.com/logo/tv/ww/wasafi-tv-tz.png',
+            'wasafi tv': 'https://www.lyngsat.com/logo/tv/ww/wasafi-tv-tz.png',
+            'crown': 'https://www.lyngsat.com/logo/tv/cc/crown-tv-tz.png',
+            'crown tv': 'https://www.lyngsat.com/logo/tv/cc/crown-tv-tz.png',
+            'zbc': 'https://www.lyngsat.com/logo/tv/zz/zbc-tv-tz.png',
+            'zbc tv': 'https://www.lyngsat.com/logo/tv/zz/zbc-tv-tz.png',
+            'zbc 2': 'https://www.lyngsat.com/logo/tv/zz/zbc-2-tz.png',
+            'zamaradi': 'https://www.lyngsat.com/logo/tv/zz/zamaradi-tv-tz.png',
+            'zamaradi tv': 'https://www.lyngsat.com/logo/tv/zz/zamaradi-tv-tz.png',
+            'sinema zetu': 'https://www.lyngsat.com/logo/tv/ss/sinema_zetu_tz.png',
+            'utv': 'https://www.lyngsat.com/logo/tv/uu/utv-tz.png',
             'channel o': 'https://upload.wikimedia.org/wikipedia/commons/7/75/Channel_O_logo.svg',
         };
 
         function getFallbackLogo(name) {
-            const initials = name.split(' ').slice(0, 3).map(w => w[0]).join('').toUpperCase();
-            const colors = ['ff2d95','00e5ff','ff6b35','7c3aed','10b981','f59e0b','ef4444','8b5cf6','06b6d4','ec4899'];
-            const c = colors[Math.abs(name.split('').reduce((a,b) => a + b.charCodeAt(0), 0)) % colors.length];
-            return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(initials) + '&background=' + c + '&color=fff&size=128&font-size=0.4&rounded=true&bold=true';
+            return '/heis5-logo.svg';
         }
 
         async function getXplLogoMap() {
