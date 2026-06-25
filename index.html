@@ -2017,14 +2017,105 @@
         }
 
         // ═══ CHANNELS ═══
+        let _xplLogoMap = null;
+        const LOGO_OVERRIDES = {
+            'bein sports': 'https://upload.wikimedia.org/wikipedia/commons/f/f6/BeIN_Sports.svg',
+            'bein sports 2': 'https://upload.wikimedia.org/wikipedia/commons/f/f6/BeIN_Sports.svg',
+            'bein sports 3': 'https://upload.wikimedia.org/wikipedia/commons/f/f6/BeIN_Sports.svg',
+            'tnt sports': 'https://upload.wikimedia.org/wikipedia/en/4/44/TNT_Sports_2023.svg',
+            'tnt sports 1': 'https://upload.wikimedia.org/wikipedia/en/4/44/TNT_Sports_2023.svg',
+            'tnt sports 2': 'https://upload.wikimedia.org/wikipedia/en/4/44/TNT_Sports_2023.svg',
+            'tnt sports 3': 'https://upload.wikimedia.org/wikipedia/en/4/44/TNT_Sports_2023.svg',
+            'tnt sports 4': 'https://upload.wikimedia.org/wikipedia/en/4/44/TNT_Sports_2023.svg',
+            'espn': 'https://upload.wikimedia.org/wikipedia/commons/2/2f/ESPN_wordmark.svg',
+            'espn 1': 'https://upload.wikimedia.org/wikipedia/commons/2/2f/ESPN_wordmark.svg',
+            'espn 2': 'https://upload.wikimedia.org/wikipedia/commons/2/2f/ESPN_wordmark.svg',
+            'espn 3': 'https://upload.wikimedia.org/wikipedia/commons/2/2f/ESPN_wordmark.svg',
+            'espn 4': 'https://upload.wikimedia.org/wikipedia/commons/2/2f/ESPN_wordmark.svg',
+            'champions league': 'https://upload.wikimedia.org/wikipedia/commons/f/f5/UEFA_Champions_League_2024.svg',
+            'uefa champions league': 'https://upload.wikimedia.org/wikipedia/commons/f/f5/UEFA_Champions_League_2024.svg',
+            'wwe': 'https://upload.wikimedia.org/wikipedia/commons/a/a6/WWE_2024_logo.svg',
+            'bbc news': 'https://upload.wikimedia.org/wikipedia/commons/0/0c/BBC_News_2022.svg',
+            'cnn': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/CNN.svg',
+            'cnn international': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/CNN.svg',
+            'al jazeera': 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Al_Jazeera_English_Logo_%282022%29.svg',
+            'aljazeera': 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Al_Jazeera_English_Logo_%282022%29.svg',
+            'abc news': 'https://upload.wikimedia.org/wikipedia/commons/8/8f/ABC_News_2021_logo.svg',
+            'sky news': 'https://upload.wikimedia.org/wikipedia/commons/f/f7/Sky_News_2019.svg',
+            'sky news uk': 'https://upload.wikimedia.org/wikipedia/commons/f/f7/Sky_News_2019.svg',
+            'russia today': 'https://upload.wikimedia.org/wikipedia/commons/1/1a/RT_%282017%29.svg',
+            'rt': 'https://upload.wikimedia.org/wikipedia/commons/1/1a/RT_%282017%29.svg',
+            'rt news': 'https://upload.wikimedia.org/wikipedia/commons/1/1a/RT_%282017%29.svg',
+            'cbeebies': 'https://upload.wikimedia.org/wikipedia/en/6/6d/CBeebies_2023.svg',
+            'cartoon network': 'https://upload.wikimedia.org/wikipedia/commons/8/80/Cartoon_Network_2010_logo.svg',
+            'national geographic': 'https://upload.wikimedia.org/wikipedia/commons/f/fc/National_Geographic_Channel_2024.svg',
+            'nat geo': 'https://upload.wikimedia.org/wikipedia/commons/f/fc/National_Geographic_Channel_2024.svg',
+            'national geographic wild': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Nat_Geo_Wild_logo.svg',
+            'nat geo wild': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Nat_Geo_Wild_logo.svg',
+            'sony max': 'https://upload.wikimedia.org/wikipedia/commons/0/06/Sony_MAX_logo.svg',
+            'sony pix': 'https://upload.wikimedia.org/wikipedia/commons/6/6c/Sony_PIX_2020_logo.svg',
+            'sonypix': 'https://upload.wikimedia.org/wikipedia/commons/6/6c/Sony_PIX_2020_logo.svg',
+            'viki rakuten': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Viki_logo.svg',
+            'viki': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Viki_logo.svg',
+            'trace africa': 'https://upload.wikimedia.org/wikipedia/commons/5/50/Trace_TV_logo.svg',
+            'trace': 'https://upload.wikimedia.org/wikipedia/commons/5/50/Trace_TV_logo.svg',
+            'trace tv': 'https://upload.wikimedia.org/wikipedia/commons/5/50/Trace_TV_logo.svg',
+            'zbc': 'https://upload.wikimedia.org/wikipedia/commons/8/87/ZBC_TV_logo.png',
+            'zbc tv': 'https://upload.wikimedia.org/wikipedia/commons/8/87/ZBC_TV_logo.png',
+            'azam sports 1': 'https://azamtv.co.tz/favicon.ico',
+            'azam sports 2': 'https://azamtv.co.tz/favicon.ico',
+            'azam sports 3': 'https://azamtv.co.tz/favicon.ico',
+            'azam sports 4': 'https://azamtv.co.tz/favicon.ico',
+            'azam one': 'https://azamtv.co.tz/favicon.ico',
+            'azam two': 'https://azamtv.co.tz/favicon.ico',
+            'azam 1': 'https://azamtv.co.tz/favicon.ico',
+            'azam 2': 'https://azamtv.co.tz/favicon.ico',
+            'azam cinema': 'https://azamtv.co.tz/favicon.ico',
+            'azam max': 'https://azamtv.co.tz/favicon.ico',
+            'arise and shine': 'https://upload.wikimedia.org/wikipedia/commons/2/20/Arise_News_Logo.png',
+            'wasafi': 'https://wasafimedia.co.tz/wp-content/uploads/2023/01/Wasafi-TV-Logo.png',
+            'wasafi tv': 'https://wasafimedia.co.tz/wp-content/uploads/2023/01/Wasafi-TV-Logo.png',
+            'channel o': 'https://upload.wikimedia.org/wikipedia/commons/7/75/Channel_O_logo.svg',
+        };
+
+        function getFallbackLogo(name) {
+            const initials = name.split(' ').slice(0, 3).map(w => w[0]).join('').toUpperCase();
+            const colors = ['ff2d95','00e5ff','ff6b35','7c3aed','10b981','f59e0b','ef4444','8b5cf6','06b6d4','ec4899'];
+            const c = colors[Math.abs(name.split('').reduce((a,b) => a + b.charCodeAt(0), 0)) % colors.length];
+            return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(initials) + '&background=' + c + '&color=fff&size=128&font-size=0.4&rounded=true&bold=true';
+        }
+
+        async function getXplLogoMap() {
+            if (_xplLogoMap) return _xplLogoMap;
+            try {
+                const res = await fetch(XPL_URL + '/rest/v1/channels_public?select=name,img_url&active=eq.true', {
+                    headers: { 'apikey': XPL_ANON_KEY, 'Authorization': 'Bearer ' + XPL_ANON_KEY }
+                });
+                if (!res.ok) return {};
+                const list = await res.json();
+                const map = {};
+                for (const ch of list) { if (ch.name && ch.img_url) map[ch.name.toLowerCase().trim()] = ch.img_url; }
+                _xplLogoMap = map;
+                return map;
+            } catch { return {}; }
+        }
+
         async function loadChannels() {
             channels = await loadRevontechtvChannels();
+            const logoMap = await getXplLogoMap();
+            for (const ch of channels) {
+                if (!ch.logo) {
+                    const key = ch.name.toLowerCase().trim();
+                    ch.logo = LOGO_OVERRIDES[key] || logoMap[key] || getFallbackLogo(ch.name);
+                }
+            }
             const existingNames = new Set(channels.map(c => c.name.toLowerCase().trim()));
             const xplChannels = getXplChannels();
             for (const c of xplChannels) {
                 const key = c.name.toLowerCase().trim();
                 const urlKey = (c.stream_url || '').trim();
                 if (!existingNames.has(key) && urlKey) {
+                    if (!c.logo) c.logo = LOGO_OVERRIDES[key] || logoMap[key] || getFallbackLogo(c.name);
                     existingNames.add(key);
                     channels.push(c);
                 }
