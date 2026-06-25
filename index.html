@@ -1400,6 +1400,10 @@
     <script>
         const SUPABASE_URL = "https://yvztqzisrgqybapkdhcr.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2enRxemlzcmdxeWJhcGtkaGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MTA1NjAsImV4cCI6MjA5NTk4NjU2MH0.Zx591ai9OQOAfV45PRX2ekcNubdj0tMWJhRakrWOIeU";
+        // ── XPLOITECHS ──
+        const XPL_URL = "https://ihmpjsjkcqkqzeespnna.supabase.co";
+        const XPL_ANON_KEY = "sb_publishable_5wVkjVYttgIKf_3Hby2x8g_6_gSCnXi";
+        const XPL_PROXY_KEY = "xt_proxy_2k25_xp10!t3ch5_tz";
         // ── PROXY MODE ──
         // [REVONTECH] Azam proxy constants disabled
         // const IS_NETLIFY = location.hostname.includes('netlify.app');
@@ -1573,6 +1577,27 @@
                     </div>
                     -->`;
             }
+            const hasXpl = !!getXplJwt();
+            const xplSection = `
+                <div class="admin-dash-section" id="xpl-section" style="margin-top:${isAdmin ? '0' : '16px'};">
+                    <h3><i class="fa-solid fa-cloud-arrow-down"></i> Xploitechs Import</h3>
+                    <div style="font-size:0.55rem;color:var(--muted);margin-bottom:8px;">
+                        1. Login to xploitechstv.netlify.app · 2. Open DevTools (F12) → Network · 3. Click any channel · 4. Find <code>get-stream</code> request · 5. Copy <b>Authorization</b> header (JWT) and <b>session_token</b> from request body
+                    </div>
+                    <div style="display:flex;gap:4px;margin-bottom:4px;">
+                        <input class="token-input" id="xpl-jwt" type="text" placeholder="JWT (eyJ...)" style="font-size:0.5rem;flex:1;" value="${getXplJwt()}">
+                    </div>
+                    <div style="display:flex;gap:4px;margin-bottom:6px;">
+                        <input class="token-input" id="xpl-session" type="text" placeholder="session_token (uuid)" style="font-size:0.5rem;flex:1;" value="${getXplSession()}">
+                    </div>
+                    <div style="display:flex;gap:6px;margin-bottom:6px;">
+                        <button class="admin-glow-btn admin-glow-btn-sm" onclick="handleXplExtract()" id="xpl-btn" style="flex:1;"><i class="fa-solid fa-download"></i> Extract All Channels</button>
+                        <button class="admin-glow-btn admin-glow-btn-sm" onclick="clearXplChannels()" style="flex:0;background:linear-gradient(135deg,#ff2d95,#ff2d95);padding:8px 12px;" title="Clear Xploitechs data"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                    <div id="xpl-status" style="font-size:0.55rem;color:var(--muted);"></div>
+                    <div id="xpl-progress" style="font-size:0.5rem;color:var(--accent);margin-top:4px;"></div>
+                    ${hasXpl ? '<div style="font-size:0.5rem;color:var(--accent3);margin-top:4px;">✓ JWT saved — reload to use saved Xploitechs channels</div>' : ''}
+                </div>`;
 
             container.innerHTML = `
                 <div id="hero-content">
@@ -1587,6 +1612,7 @@
                         </div>
                     </div>
                     ${adminSection}
+                    ${xplSection}
                 </div>
             `;
             // loadAzamChannelUi();   // [REVONTECH] Azam admin UI disabled
@@ -1864,11 +1890,142 @@
             return all;
         }
 
+        // ═══ XPLOITECHS ═══
+        function getXplJwt() { return localStorage.getItem('heis5_xpl_jwt') || ''; }
+        function getXplSession() { return localStorage.getItem('heis5_xpl_session') || ''; }
+        function getXplChannels() {
+            try { return JSON.parse(localStorage.getItem('heis5_xpl_channels') || '[]'); } catch { return []; }
+        }
+
+        function xplMapCategory(cat) {
+            const m = { 'Sports': 'Sports', 'Movies': 'Movies', 'News': 'News', 'Kids & Family': 'Kids', 'Entertainment': 'Entertainment', 'Documentaries': 'Documentary', 'General': 'General', 'Azam Channels': 'Azam', 'Music': 'Music', 'Religion': 'Religion' };
+            return m[cat] || cat || 'General';
+        }
+
+        async function fetchXplChannelsPublic() {
+            try {
+                const res = await fetch(XPL_URL + '/rest/v1/channels_public?select=id,name,type,img_url,category,is_free,active&active=eq.true&order=sort_order', {
+                    headers: { 'apikey': XPL_ANON_KEY, 'Authorization': 'Bearer ' + XPL_ANON_KEY, 'Accept': 'application/json' }
+                });
+                if (!res.ok) { console.warn('[XPL] channels_public fetch failed:', res.status); return []; }
+                return await res.json();
+            } catch (e) { console.warn('[XPL] channels_public error:', e.message); return []; }
+        }
+
+        async function callXplGetStream(channelId, sessionToken, jwt) {
+            try {
+                const res = await fetch(XPL_URL + '/functions/v1/get-stream', {
+                    method: 'POST',
+                    headers: {
+                        'apikey': XPL_ANON_KEY,
+                        'Authorization': 'Bearer ' + jwt,
+                        'X-Proxy-Key': XPL_PROXY_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ channel_id: channelId, session_token: sessionToken })
+                });
+                if (!res.ok) return null;
+                return await res.json();
+            } catch { return null; }
+        }
+
+        async function extractXploitechsChannels(jwt, sessionToken) {
+            const channelsPublic = await fetchXplChannelsPublic();
+            if (!channelsPublic.length) { throw new Error('Failed to fetch channel list from xploitechs'); }
+            const extracted = [];
+            for (let i = 0; i < channelsPublic.length; i++) {
+                const ch = channelsPublic[i];
+                console.log('[XPL] Extracting', (i + 1) + '/' + channelsPublic.length, ch.name);
+                const data = await callXplGetStream(ch.id, sessionToken, jwt);
+                if (data && data.ok && data.url) {
+                    const chObj = {
+                        name: ch.name,
+                        category: xplMapCategory(ch.category),
+                        stream_url: data.url,
+                        logo: ch.img_url || '',
+                        _isDash: data.type === 'dash'
+                    };
+                    if (data.clearKeys) chObj.drm = { clearKeys: data.clearKeys };
+                    extracted.push(chObj);
+                }
+            }
+            localStorage.setItem('heis5_xpl_channels', JSON.stringify(extracted));
+            localStorage.setItem('heis5_xpl_jwt', jwt);
+            localStorage.setItem('heis5_xpl_session', sessionToken);
+            return extracted;
+        }
+
+        async function handleXplExtract() {
+            const jwt = document.getElementById('xpl-jwt').value.trim();
+            const session = document.getElementById('xpl-session').value.trim();
+            if (!jwt || !session) { setXplStatus('Fill in both JWT and Session Token', 'error'); return; }
+            const btn = document.getElementById('xpl-btn');
+            const statusEl = document.getElementById('xpl-status');
+            const progressEl = document.getElementById('xpl-progress');
+            btn.disabled = true; btn.textContent = 'Extracting...';
+            setXplStatus('Fetching channel list...', '');
+            try {
+                const channelsPublic = await fetchXplChannelsPublic();
+                if (!channelsPublic.length) { throw new Error('No channels found in channels_public'); }
+                const extracted = [];
+                for (let i = 0; i < channelsPublic.length; i++) {
+                    const ch = channelsPublic[i];
+                    progressEl.textContent = (i + 1) + '/' + channelsPublic.length + ' ' + ch.name;
+                    const data = await callXplGetStream(ch.id, session, jwt);
+                    if (data && data.ok && data.url) {
+                        const chObj = {
+                            name: ch.name,
+                            category: xplMapCategory(ch.category),
+                            stream_url: data.url,
+                            logo: ch.img_url || '',
+                            _isDash: data.type === 'dash'
+                        };
+                        if (data.clearKeys) chObj.drm = { clearKeys: data.clearKeys };
+                        extracted.push(chObj);
+                    }
+                }
+                localStorage.setItem('heis5_xpl_channels', JSON.stringify(extracted));
+                localStorage.setItem('heis5_xpl_jwt', jwt);
+                localStorage.setItem('heis5_xpl_session', session);
+                setXplStatus('Extracted ' + extracted.length + ' channels successfully!', 'success');
+                progressEl.textContent = '';
+                channels = [];
+                loadChannels();
+            } catch (e) { setXplStatus('Error: ' + e.message, 'error'); }
+            btn.disabled = false; btn.textContent = 'Extract All Channels';
+        }
+
+        function clearXplChannels() {
+            localStorage.removeItem('heis5_xpl_channels');
+            localStorage.removeItem('heis5_xpl_jwt');
+            localStorage.removeItem('heis5_xpl_session');
+            document.getElementById('xpl-status').textContent = 'Xploitechs channels cleared';
+            document.getElementById('xpl-status').className = '';
+            channels = [];
+            loadChannels();
+        }
+
+        function setXplStatus(msg, type) {
+            const el = document.getElementById('xpl-status');
+            el.textContent = msg;
+            el.className = type === 'error' ? 'auth-msg error show' : type === 'success' ? 'auth-msg success show' : '';
+        }
+
         // ═══ CHANNELS ═══
         async function loadChannels() {
             channels = await loadRevontechtvChannels();
+            const existingNames = new Set(channels.map(c => c.name.toLowerCase().trim()));
+            const xplChannels = getXplChannels();
+            for (const c of xplChannels) {
+                const key = c.name.toLowerCase().trim();
+                const urlKey = (c.stream_url || '').trim();
+                if (!existingNames.has(key) && urlKey) {
+                    existingNames.add(key);
+                    channels.push(c);
+                }
+            }
             if (channels.length > 0) {
-                console.log('[REVONTECH] Loaded', channels.length, 'channels from Firestore');
+                console.log('[CHANNELS] Loaded', channels.length, 'total channels (Revontechtv + Xploitechs)');
                 renderChannels();
                 renderCategoryFilter();
                 return;
