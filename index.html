@@ -1991,7 +1991,8 @@
                 localStorage.setItem('heis5_xpl_channels', JSON.stringify(extracted));
                 localStorage.setItem('heis5_xpl_jwt', jwt);
                 localStorage.setItem('heis5_xpl_session', session);
-                setXplStatus('Extracted ' + extracted.length + ' channels successfully!', 'success');
+                const failed = channelsPublic.length - extracted.length;
+                setXplStatus('Extracted ' + extracted.length + '/' + channelsPublic.length + ' channels' + (failed ? ' (' + failed + ' skipped — login required)' : ''), 'success');
                 progressEl.textContent = '';
                 channels = [];
                 loadChannels();
@@ -3090,8 +3091,14 @@
                         }
                         return;
                     }
-                    if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
+                    if (uri.includes('akamaihd.net')) {
+                        request.headers['Origin'] = 'https://xploitechstv.netlify.app';
+                        request.headers['Referer'] = 'https://xploitechstv.netlify.app/';
+                        request.allowCrossSiteCredentials = true;
+                    } else if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
+                        request.headers['Origin'] = 'https://heis5tv.netlify.app';
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
+                        request.allowCrossSiteCredentials = true;
                     }
                 });
                 const _stripCprot = hasCdntoken && !hasClearKeys && url.includes('azamtvltd.co.tz');
@@ -3197,7 +3204,7 @@
                     liveMaxLatencyDurationCount: 10,
                     xhrSetup: function(xhr, url) {
                         if (url.includes('workers.dev') || url.includes('workers.dev')) return;
-                        if (url.includes('shahid.net') || url.includes('akamaized.net') || url.includes('edgenextcdn.net') || url.includes('fastly.net')) {
+                        if (url.includes('shahid.net') || url.includes('akamaized.net') || url.includes('akamaihd.net') || url.includes('edgenextcdn.net') || url.includes('fastly.net')) {
                             try { xhr.setRequestHeader('Origin', 'https://shahid.net'); } catch(e) {}
                             try { xhr.setRequestHeader('Referer', 'https://shahid.net/'); } catch(e) {}
                         }
