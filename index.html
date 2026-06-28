@@ -668,6 +668,15 @@
         }
         .auth-form input:focus { border-color: var(--accent); }
         .auth-form .field { margin-bottom: 14px; }
+        .pw-wrap { position: relative; display: flex; align-items: center; }
+        .pw-wrap input { flex: 1; padding-right: 36px !important; }
+        .pw-toggle {
+            position: absolute; right: 10px; cursor: pointer;
+            color: var(--muted); font-size: 0.85rem;
+            transition: color 0.2s; user-select: none;
+            line-height: 1;
+        }
+        .pw-toggle:hover { color: var(--accent); }
         .auth-form .auth-submit {
             width: 100%; padding: 11px;
             border: none; border-radius: 8px;
@@ -1070,7 +1079,10 @@
                 </div>
                 <div class="field">
                     <label>Password</label>
-                    <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+                    <div class="pw-wrap">
+                        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+                        <span class="pw-toggle" onclick="togglePw('login-pass', this)"><i class="fa-regular fa-eye"></i></span>
+                    </div>
                 </div>
                 <button class="auth-submit" onclick="handleLogin()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</button>
                 <div id="login-msg" class="auth-msg"></div>
@@ -1092,7 +1104,10 @@
                 </div>
                 <div class="field">
                     <label>Password</label>
-                    <input type="password" id="signup-pass" placeholder="Min 6 characters" autocomplete="new-password">
+                    <div class="pw-wrap">
+                        <input type="password" id="signup-pass" placeholder="Min 6 characters" autocomplete="new-password">
+                        <span class="pw-toggle" onclick="togglePw('signup-pass', this)"><i class="fa-regular fa-eye"></i></span>
+                    </div>
                 </div>
                 <button class="auth-submit" onclick="handleSignup()"><i class="fa-solid fa-user-plus"></i> Create Account</button>
                 <div id="signup-msg" class="auth-msg"></div>
@@ -1307,8 +1322,8 @@
             <main style="flex:1;">
                 <div id="hero-container"></div>
                 <div id="admin-back-bar" class="admin-back-bar" style="display:none;">
-                    <span><i class="fa-solid fa-shield"></i> ADMIN VIEW</span>
-                    <button class="admin-glow-btn admin-glow-btn-sm" onclick="adminBackToPanel()" style="font-size:0.5rem;"><i class="fa-solid fa-arrow-left"></i> Back to Admin</button>
+                    <span><i class="fa-solid fa-shield"></i> ADMIN PANEL</span>
+                    <button class="admin-glow-btn admin-glow-btn-sm" onclick="adminBackToPanel()" style="font-size:0.5rem;"><i class="fa-solid fa-sliders"></i> Admin Panel</button>
                 </div>
                 <div id="category-filter"></div>
                 <div id="channels-container"></div>
@@ -1510,6 +1525,14 @@
         let proactiveRefreshTimer = null;
 
         // ═══ AUTH ═══
+        function togglePw(id, el) {
+            const inp = document.getElementById(id);
+            if (!inp) return;
+            const isPw = inp.type === 'password';
+            inp.type = isPw ? 'text' : 'password';
+            el.innerHTML = isPw ? '<i class="fa-regular fa-eye-slash"></i>' : '<i class="fa-regular fa-eye"></i>';
+        }
+
         function switchAuthTab(tab) {
             document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
@@ -1625,8 +1648,8 @@
                 const hasXpl = !!getXplJwt();
                 adminSection = `
                     <div class="admin-watch-btn" onclick="adminWatchLive()">
-                        <i class="fa-solid fa-play"></i> Watch Live TV
-                        <span>${channels.length} channels available</span>
+                        <i class="fa-solid fa-tv"></i> Open Dashboard
+                        <span>Browse all ${channels.length} channels</span>
                     </div>
                     <div class="admin-dash-section">
                         <h3><i class="fa-solid fa-users"></i> User Management</h3>
@@ -2204,6 +2227,8 @@
                 renderCategoryFilter();
                 const countEl = document.getElementById('channel-count');
                 if (countEl) countEl.textContent = channels.length + ' Channels Live';
+                const watchBtnSpan = document.querySelector('.admin-watch-btn span');
+                if (watchBtnSpan) watchBtnSpan.textContent = 'Browse all ' + channels.length + ' channels';
                 return;
             }
             document.getElementById('channels-container').innerHTML =
