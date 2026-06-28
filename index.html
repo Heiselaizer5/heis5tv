@@ -1136,6 +1136,28 @@
             </header>
 
             <style>
+                .hero-welcome {
+                    text-align: center;
+                    margin-bottom: 14px;
+                    position: relative;
+                }
+                .hero-welcome h2 {
+                    font-family: 'Orbitron', sans-serif;
+                    font-size: 1.6rem;
+                    font-weight: 900;
+                    letter-spacing: 0.06em;
+                    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    filter: drop-shadow(0 0 25px rgba(255,215,0,0.15));
+                }
+                .hero-welcome .welcome-line {
+                    width: 60px; height: 2px;
+                    background: linear-gradient(to right, var(--accent), var(--accent2));
+                    border-radius: 2px;
+                    margin: 8px auto 0;
+                }
                 .hero-banner {
                     position: relative;
                     border-radius: 16px;
@@ -1157,31 +1179,6 @@
                 }
                 .hero-banner .hero-content {
                     position: relative; z-index: 1;
-                }
-                .hero-banner .hero-welcome {
-                    font-family: 'Orbitron', sans-serif;
-                    font-size: 0.5rem;
-                    font-weight: 700;
-                    letter-spacing: 0.25em;
-                    text-transform: uppercase;
-                    color: rgba(255,215,0,0.5);
-                    margin-bottom: 8px;
-                    position: relative;
-                    display: inline-block;
-                }
-                .hero-banner .hero-welcome::before,
-                .hero-banner .hero-welcome::after {
-                    content: '';
-                    display: inline-block;
-                    width: 20px; height: 1px;
-                    background: linear-gradient(to right, transparent, rgba(255,215,0,0.3));
-                    vertical-align: middle;
-                    margin-right: 8px;
-                }
-                .hero-banner .hero-welcome::after {
-                    background: linear-gradient(to left, transparent, rgba(255,215,0,0.3));
-                    margin-right: 0;
-                    margin-left: 8px;
                 }
                 .hero-banner .hero-badge {
                     display: inline-flex; align-items: center; gap: 5px;
@@ -1663,14 +1660,17 @@
             }
             container.innerHTML = `
                 <div id="hero-content">
+                    <div class="hero-welcome">
+                        <h2>Welcome to HEIS5 TV</h2>
+                        <div class="welcome-line"></div>
+                    </div>
                     <div class="hero-banner">
                         <div class="hero-content">
-                            <div class="hero-welcome">Welcome to HEIS5 TV</div>
                             <div class="hero-badge"><i class="fa-solid fa-bolt"></i> Now Available</div>
                             <h1>Unlimited Entertainment</h1>
                             <div class="hero-sub">Stream premium live TV — from thrilling sports and breaking news to blockbuster movies, documentaries, and local channels. Crystal-clear quality, zero interruptions.</div>
                             <div class="hero-stats">
-                                <div class="hero-stat"><span class="stat-dot red"></span><span style="color:var(--accent2);">${channels.length} Channels Live</span></div>
+                                <div class="hero-stat"><span class="stat-dot red"></span><span style="color:var(--accent2);" id="channel-count">${channels.length} Channels Live</span></div>
                                 <div class="hero-stat"><span class="stat-dot gold"></span><span style="color:var(--accent);">Ad-Free</span></div>
                                 <div class="hero-stat"><span class="stat-dot cyan"></span><span style="color:var(--accent3);">HD Quality</span></div>
                             </div>
@@ -2202,6 +2202,8 @@
                 console.log('[CHANNELS] Loaded', channels.length, 'total channels (Revontechtv + Xploitechs)');
                 renderChannels();
                 renderCategoryFilter();
+                const countEl = document.getElementById('channel-count');
+                if (countEl) countEl.textContent = channels.length + ' Channels Live';
                 return;
             }
             document.getElementById('channels-container').innerHTML =
