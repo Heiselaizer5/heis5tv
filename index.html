@@ -3263,6 +3263,7 @@
 
             if (isDash) {
                 currentEngine = 'shaka';
+                let _azamRetried = false;
                 shakaPlayer = new shaka.Player(videoEl);
                 const hasCdntoken = url.includes('cdntoken=');
                 const hasClearKeys = drm && drm.clearKeys;
@@ -3293,6 +3294,9 @@
                     } else if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
                         request.headers['Origin'] = 'https://heis5tv.netlify.app';
                         request.headers['Referer'] = 'https://heis5tv.netlify.app/';
+                    } else if (uri.includes('amazon.fastly-edge.com')) {
+                        request.headers['Origin'] = 'https://xploitechstv.netlify.app';
+                        request.headers['Referer'] = 'https://xploitechstv.netlify.app/';
                     }
                 });
                 const _stripCprot = hasCdntoken && !hasClearKeys && url.includes('azamtvltd.co.tz');
@@ -3348,6 +3352,31 @@
                     if (typeof e === 'object' && e !== null) {
                         console.error('[SHAKA] code:', e.code, 'message:', e.message, 'data:', e.data);
                     }
+                    if (url.includes('azamtvltd.co.tz') && hasClearKeys && !_azamRetried) {
+                        _azamRetried = true;
+                        console.log('[AZAM] Retrying without DRM...');
+                        if (netEng) {
+                            const origFilter = netEng.registerResponseFilter;
+                            netEng.registerResponseFilter(async (type, response) => {
+                                if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST) {
+                                    const text = new TextDecoder().decode(new Uint8Array(response.data));
+                                    const stripped = text.replace(/<ContentProtection[\s\S]*?<\/ContentProtection>/g, '').replace(/<ContentProtection[^>]*\/>/g, '');
+                                    if (stripped !== text) { response.data = new TextEncoder().encode(stripped).buffer; }
+                                }
+                            });
+                        }
+                        shakaPlayer.configure({ manifest: { dash: { ignoreMinBufferTime: true, ignoreDrmInfo: true } }, drm: {} });
+                        shakaPlayer.load(url).then(() => {
+                            clearTimeout(bufferingTimer);
+                            document.getElementById('buffering-spinner').style.display = 'none';
+                            console.timeLog('[TIMER] openVideoPlayer-' + name, 'shaka.load resolved (no DRM retry)');
+                            videoEl.play().catch(() => { videoEl.muted = true; videoEl.play().catch(() => {}); });
+                            document.title = '▶ ' + name;
+                        }).catch((e2) => {
+                            showPlayerError('shaka-error: ' + (e2?.message || ''));
+                        });
+                        return;
+                    }
                     showPlayerError('shaka-error: ' + (e?.message || ''));
                 });
                 shakaPlayer.addEventListener('error', async (e) => {
@@ -3355,8 +3384,56 @@
                     const detail = e?.detail;
                     console.error('[SHAKA] Player error event:', detail);
                     const code = detail?.code || 0;
-                    // [REVONTECH] Azam retry disabled
-                    // azamRetryCount = 0;
+                    if (url.includes('azamtvltd.co.tz') && hasClearKeys && !_azamRetried) {
+                        _azamRetried = true;
+                        console.log('[AZAM] Retrying without DRM...');
+                        shakaPlayer.destroy();
+                        shakaPlayer = new shaka.Player(videoEl);
+                        shakaPlayer.configure({
+                            streaming: { rebufferingGoal: 5, bufferingGoal: 12, startAtSegmentBoundary: false },
+                            manifest: { dash: { ignoreMinBufferTime: true, ignoreDrmInfo: true } },
+                            abr: { enabled: true, defaultBandwidthEstimate: 800000 },
+                        });
+                        const netEng2 = shakaPlayer.getNetworkingEngine();
+                        if (netEng2) {
+                            netEng2.registerRequestFilter(async (type, request) => {
+                                const uri = request.uris[0];
+                                if (uri.includes('azamtvltd.co.tz') || uri.includes('102.208.244.')) {
+                                    if (revontechtvCdntoken && !uri.includes('cdntoken=') && !uri.includes('/tok_')) {
+                                        request.uris[0] = uri + (uri.includes('?') ? '&' : '?') + 'cdntoken=' + encodeURIComponent(revontechtvCdntoken);
+                                    }
+                                    return;
+                                }
+                                if (uri.includes('akamaihd.net')) {
+                                    request.headers['Origin'] = 'https://xploitechstv.netlify.app';
+                                    request.headers['Referer'] = 'https://xploitechstv.netlify.app/';
+                                } else if (uri.includes('akamaized.net') || uri.includes('3bbtv.com')) {
+                                    request.headers['Origin'] = 'https://heis5tv.netlify.app';
+                                    request.headers['Referer'] = 'https://heis5tv.netlify.app/';
+                                } else if (uri.includes('amazon.fastly-edge.com')) {
+                                    request.headers['Origin'] = 'https://xploitechstv.netlify.app';
+                                    request.headers['Referer'] = 'https://xploitechstv.netlify.app/';
+                                }
+                            });
+                            netEng2.registerResponseFilter(async (type, response) => {
+                                if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST) {
+                                    const text = new TextDecoder().decode(new Uint8Array(response.data));
+                                    const stripped = text.replace(/<ContentProtection[\s\S]*?<\/ContentProtection>/g, '').replace(/<ContentProtection[^>]*\/>/g, '');
+                                    if (stripped !== text) { response.data = new TextEncoder().encode(stripped).buffer; }
+                                }
+                            });
+                        }
+                        shakaPlayer.load(url).then(() => {
+                            clearTimeout(bufferingTimer);
+                            document.getElementById('buffering-spinner').style.display = 'none';
+                            console.timeLog('[TIMER] openVideoPlayer-' + name, 'shaka.load resolved (no DRM retry)');
+                            videoEl.play().catch(() => { videoEl.muted = true; videoEl.play().catch(() => {}); });
+                            document.title = '▶ ' + name;
+                        }).catch((e2) => {
+                            showPlayerError('shaka-error: ' + (e2?.message || ''));
+                        });
+                        return;
+                    }
                     showPlayerError('shaka-error: ' + (detail?.message || ''));
                 });
                 let _hasStarted = false;
