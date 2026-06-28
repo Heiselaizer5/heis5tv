@@ -154,25 +154,33 @@
             cursor: pointer;
             opacity: 0;
             transform: translateY(12px);
-            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+            transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
             width: 100%;
             min-width: 0;
             display: flex;
             flex-direction: column;
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 6px;
+            border: 1px solid transparent;
         }
         .channel-card.visible {
             opacity: 1;
             transform: translateY(0);
+        }
+        .channel-card:hover {
+            background: rgba(255,215,0,0.04);
+            border-color: rgba(255,215,0,0.12);
         }
         .channel-card:active {
             transform: scale(0.95);
         }
         .channel-card:hover .channel-poster {
             border-color: var(--accent);
-            box-shadow: 0 0 20px rgba(255,215,0,0.12), 0 0 40px rgba(255,45,149,0.05);
+            box-shadow: 0 0 25px rgba(255,215,0,0.15), 0 0 50px rgba(255,45,149,0.06), 0 0 80px rgba(0,229,255,0.04);
         }
         .channel-card:hover .channel-poster img {
-            transform: scale(1.05);
+            transform: scale(1.08);
         }
         .channel-poster {
             position: relative;
@@ -1033,7 +1041,7 @@
             </div>
         </div>
         <h1 class="splash-title">HEIS5 TV</h1>
-        <p class="splash-sub" style="margin-bottom:32px;">Live Streaming</p>
+        <p class="splash-sub" style="margin-bottom:32px;">Premium Live TV · Zero Buffering</p>
         <div style="display:flex;align-items:flex-end;justify-content:center;gap:4px;height:44px;position:relative;z-index:1;">
             <span class="eq-bar eq-1"></span>
             <span class="eq-bar eq-2"></span>
@@ -1130,48 +1138,79 @@
             <style>
                 .hero-banner {
                     position: relative;
-                    border-radius: 14px;
-                    padding: 28px 24px;
+                    border-radius: 16px;
+                    padding: 40px 32px;
                     margin-bottom: 18px;
                     overflow: hidden;
-                    background: linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(255,45,149,0.04) 100%);
-                    border: 1px solid rgba(255,215,0,0.08);
+                    background: linear-gradient(135deg, rgba(255,215,0,0.06) 0%, rgba(255,45,149,0.03) 50%, rgba(0,229,255,0.02) 100%);
+                    border: 1px solid rgba(255,215,0,0.06);
+                    box-shadow: 0 0 40px rgba(255,215,0,0.03), inset 0 1px 0 rgba(255,215,0,0.06);
                 }
                 .hero-banner::before {
                     content: '';
                     position: absolute; inset: 0;
                     background:
-                        radial-gradient(ellipse at 20% 50%, rgba(255,215,0,0.06) 0%, transparent 60%),
-                        radial-gradient(ellipse at 80% 50%, rgba(255,45,149,0.05) 0%, transparent 60%);
+                        radial-gradient(ellipse at 15% 40%, rgba(255,215,0,0.08) 0%, transparent 60%),
+                        radial-gradient(ellipse at 85% 60%, rgba(255,45,149,0.06) 0%, transparent 60%),
+                        radial-gradient(ellipse at 50% 0%, rgba(0,229,255,0.04) 0%, transparent 50%);
                     pointer-events: none;
                 }
                 .hero-banner .hero-content {
                     position: relative; z-index: 1;
                 }
+                .hero-banner .hero-badge {
+                    display: inline-flex; align-items: center; gap: 5px;
+                    padding: 3px 10px;
+                    border-radius: 20px;
+                    background: rgba(255,45,149,0.1);
+                    border: 1px solid rgba(255,45,149,0.15);
+                    font-size: 0.5rem;
+                    font-weight: 600;
+                    color: var(--accent2);
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
+                    font-family: 'Orbitron', sans-serif;
+                    margin-bottom: 10px;
+                }
                 .hero-banner h1 {
                     font-family: 'Orbitron', sans-serif;
-                    font-size: 1.15rem; font-weight: 800;
-                    letter-spacing: 0.03em;
-                    background: linear-gradient(135deg, var(--accent), var(--accent2));
+                    font-size: 1.4rem; font-weight: 900;
+                    letter-spacing: 0.04em;
+                    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                     background-clip: text;
+                    filter: drop-shadow(0 0 20px rgba(255,215,0,0.15));
                 }
-                .hero-banner p {
-                    font-size: 0.7rem; color: var(--text-dim); margin-top: 6px;
-                    max-width: 480px; line-height: 1.5;
+                .hero-banner .hero-sub {
+                    font-size: 0.75rem; color: var(--text-dim);
+                    margin-top: 8px; max-width: 520px; line-height: 1.6;
+                    font-weight: 400;
                 }
-                .hero-banner .hero-live {
+                .hero-banner .hero-stats {
+                    display: flex; align-items: center; gap: 16px;
+                    margin-top: 14px;
+                    flex-wrap: wrap;
+                }
+                .hero-banner .hero-stat {
                     display: inline-flex; align-items: center; gap: 6px;
-                    margin-top: 12px;
-                    font-size: 0.55rem; font-weight: 600; color: var(--accent2);
-                    text-transform: uppercase; letter-spacing: 0.12em;
+                    font-size: 0.55rem; font-weight: 600;
                     font-family: 'Orbitron', sans-serif;
                 }
-                .hero-banner .hero-live .live-dot {
-                    width: 4px; height: 4px; border-radius: 50%;
+                .hero-banner .hero-stat .stat-dot {
+                    width: 5px; height: 5px; border-radius: 50%;
+                }
+                .hero-banner .hero-stat .stat-dot.red {
                     background: var(--accent2);
                     animation: livePulse 1.5s ease-in-out infinite;
+                }
+                .hero-banner .hero-stat .stat-dot.gold {
+                    background: var(--accent);
+                    animation: livePulse 2s ease-in-out infinite 0.3s;
+                }
+                .hero-banner .hero-stat .stat-dot.cyan {
+                    background: var(--accent3);
+                    animation: livePulse 1.8s ease-in-out infinite 0.6s;
                 }
                 @keyframes livePulse {
                     0%, 100% { opacity: 1; transform: scale(1); }
@@ -1601,11 +1640,13 @@
                 <div id="hero-content">
                     <div class="hero-banner">
                         <div class="hero-content">
+                            <div class="hero-badge"><i class="fa-solid fa-bolt"></i> Now Available</div>
                             <h1>Unlimited Entertainment</h1>
-                            <p>Watch premium live TV channels — sports, news, movies & more.</p>
-                            <div class="hero-live">
-                                <span class="live-dot"></span>
-                                <span>${channels.length} Live Channels</span>
+                            <div class="hero-sub">Stream premium live TV — from thrilling sports and breaking news to blockbuster movies, documentaries, and local channels. Crystal-clear quality, zero interruptions.</div>
+                            <div class="hero-stats">
+                                <div class="hero-stat"><span class="stat-dot red"></span><span style="color:var(--accent2);">${channels.length} Live</span></div>
+                                <div class="hero-stat"><span class="stat-dot gold"></span><span style="color:var(--accent);">Ad-Free</span></div>
+                                <div class="hero-stat"><span class="stat-dot cyan"></span><span style="color:var(--accent3);">HD Quality</span></div>
                             </div>
                         </div>
                     </div>
@@ -1803,6 +1844,8 @@
             }
         }
 
+        const NAME_CATEGORY = { 'tbc 1': 'General', 'tbc 2': 'General', 'bbc news': 'News', 'fifa+': 'Sports', 'travelxp': 'Documentary', 'kungfu+': 'Entertainment', 'animax': 'Movies', 'serie max': 'Movies', 'mbn 1': 'Movies', 'persian cinemax': 'Movies', 'food network': 'Documentary', 'national geographic wild': 'Documentary', 'national geographic': 'Documentary', 'tvn': 'Documentary', 'cheka plus': 'Entertainment', 'chamuka tv': 'Entertainment', 'zbc': 'Entertainment' };
+
         function mapRevontechtvCategory(cat) {
             const t = (cat || '').trim();
             const map = { 'Sport': 'Sports', 'Habari': 'News', 'Movie': 'Movies', 'Cartoon': 'Kids', 'Music': 'Music', 'Wild': 'Entertainment', 'Religion': 'Religion', 'Local': 'Local' };
@@ -1838,7 +1881,8 @@
                     let url = (d.url || d.stream_url || '').trim();
                     if (!name || !url) return null;
                     const type = (d.type || d.linkType || '').toLowerCase();
-                    const cat = mapRevontechtvCategory(d.category);
+                    let cat = mapRevontechtvCategory(d.category);
+                    cat = NAME_CATEGORY[name.toLowerCase()] || cat;
                     const isAzamCdn = url.includes('azamtvltd.co.tz');
                     const key = d.key || d.defaultKeyId || '';
                     const kid = d.kid || d.keyId || '';
@@ -2123,6 +2167,7 @@
                 const urlKey = (c.stream_url || '').trim();
                 if (!existingNames.has(key) && urlKey) {
                     if (!c.logo) c.logo = LOGO_OVERRIDES[key] || logoMap[key] || getFallbackLogo(c.name);
+                    c.category = NAME_CATEGORY[key] || c.category || 'General';
                     existingNames.add(key);
                     channels.push(c);
                 }
@@ -2216,7 +2261,7 @@
         function renderCategoryFilter() {
             const cats = {};
             channels.forEach(c => { const cat = c.category || 'General'; cats[cat] = (cats[cat] || 0) + 1; });
-            const order = ['Azam', 'Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'FREE CHANNELS', 'Wild'];
+            const order = ['Azam', 'Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'Wild'];
             const sorted = ['All', ...order.filter(c => cats[c]), ...Object.keys(cats).filter(c => !order.includes(c))];
             const el = document.getElementById('category-filter');
             el.innerHTML = sorted.map(c => `<button class="cat-filter-btn${c === activeCategory ? ' active' : ''}" data-cat="${c.replace(/"/g,'&quot;')}">${c}${c !== 'All' ? ` <span class="cat-count">${cats[c]||0}</span>` : ''}</button>`).join('');
@@ -2245,7 +2290,7 @@
                 if (!groups[cat]) groups[cat] = [];
                 groups[cat].push(c);
             });
-            const categoryOrder = ['Azam', 'Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'FREE CHANNELS', 'Wild'];
+            const categoryOrder = ['Azam', 'Sports', 'News', 'Kids', 'Local', 'Entertainment', 'Documentary', 'Movies', 'Music', 'Religion', 'General', 'Wild'];
             let html = '';
             let cardIndex = 0;
             if (activeCategory !== 'All') {
